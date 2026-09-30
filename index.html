@@ -58,6 +58,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .wrap { max-width: 1480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 h1, h2, h3 { font-family: var(--display); letter-spacing: .01em; text-wrap: balance; margin: 0; }
 button, select, input { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -201,6 +202,33 @@ tr.hasnote td { border-bottom: 0; }
 .plan .span { grid-column: 1 / -1; }
 .tgtline { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
 .small { font-size: 12.5px; color: var(--muted); }
+/* teams */
+.teamsview { display: flex; flex-direction: column; gap: 16px; }
+.tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.tcard.me { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.tcard.clock { border-color: var(--clock); box-shadow: 0 0 0 2px var(--clock) inset; }
+.thead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tname { font-family: var(--display); font-size: 19px; text-transform: uppercase; line-height: 1.1; overflow-wrap: anywhere; }
+.tslot { font-family: var(--mono); font-size: 12px; color: var(--muted); flex: none; }
+.tlist { list-style: none; margin: 0; padding: 0; font-size: 13px; display: flex; flex-direction: column; gap: 2px; }
+.tlist li { display: flex; justify-content: space-between; gap: 8px; }
+.tlist li span:first-child { font-family: var(--mono); font-size: 11px; color: var(--muted); width: 30px; flex: none; }
+.tlist li span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tlist li span:last-child { color: var(--muted); font-size: 11.5px; font-family: var(--mono); }
+.tcats { display: flex; flex-wrap: wrap; gap: 4px; }
+.tcats .chip { font-size: 10.5px; padding: 1px 6px; }
+.bt { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.bt li { display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 2px 8px; border-bottom: 1px solid var(--line); padding-bottom: 5px; }
+.bt li:last-child { border-bottom: 0; }
+.bt .pn { font-family: var(--mono); font-size: 12px; color: var(--muted); grid-row: span 2; padding-top: 1px; }
+.bt .tn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt .nd { color: var(--muted); font-size: 12px; }
+.ybox { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.ydot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.ydot.ok { background: var(--good); }
+.ydot.warn { background: var(--clock); }
+.ydot.bad { background: var(--bad); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -228,7 +256,9 @@ tr.hasnote td { border-bottom: 0; }
       </div>
       <input id="qsearch" type="search" placeholder="Type a name, press Enter" autocomplete="off" aria-label="Quick find a player">
       <button class="btn" id="qundo" type="button">Undo</button>
+      <button class="btn" id="ybtn" type="button" hidden>Connect Yahoo</button>
     </div>
+    <div class="ybox" id="ybox" hidden><span class="ydot" id="ydot"></span><span id="ytext"></span></div>
     <div class="qhint" id="qhint"></div>
     <div class="chips" id="qresults"></div>
     <div class="chips" id="qnext"></div>
@@ -251,6 +281,7 @@ tr.hasnote td { border-bottom: 0; }
     <button class="btn danger" id="reset" type="button">Reset draft</button>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tabBoard" aria-selected="true" type="button">Draft board</button>
+      <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
       <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
     </div>
   </div>
@@ -264,6 +295,10 @@ tr.hasnote td { border-bottom: 0; }
       <div class="panel">
         <h2>Pick now <span id="recFor">for your turn</span></h2>
         <div class="recs" id="recs"></div>
+      </div>
+      <div class="panel">
+        <h2>Before your turn <span id="btNote"></span></h2>
+        <ul class="bt" id="beforeTurn"></ul>
       </div>
       <div class="panel">
         <h2>Your 9 cats now <span>vs an average team</span></h2>
@@ -292,6 +327,14 @@ tr.hasnote td { border-bottom: 0; }
         <span>Survive is the chance he is still there at your following pick, based on ADP. DTD means day to day. Injury status from the CBS Sports injury report and team news on Sept 29.</span>
       </div>
     </div>
+  </section>
+
+  <section id="viewTeams" class="teamsview" hidden>
+    <div class="panel">
+      <h2>Every team <span id="teamsNote">built from the picks as they happen</span></h2>
+      <p class="small">Each pick goes to the team whose turn it was in the snake order, so you never have to say who took whom. With Yahoo connected the real team names show up too. Open slots are the Yahoo starting spots a team still has to fill, and the cat chips show where each roster is strong or weak against an average team.</p>
+    </div>
+    <div class="tgrid" id="tgrid"></div>
   </section>
 
   <section id="viewPlan" class="plan" hidden>
@@ -446,7 +489,9 @@ tr.hasnote td { border-bottom: 0; }
       <h3>How to run the mock, then the real draft</h3>
       <ul>
         <li>Set your draft slot and a starting plan. Balanced is fine for the first two picks.</li>
-        <li>Every pick anyone makes, tap Taken on that player. When you pick, tap Mine. The clock and your next picks update themselves.</li>
+        <li>On the Vercel site, tap Connect Yahoo once and sign in. After that every pick in the Yahoo draft room is marked here within a few seconds and goes to the right team. Nothing to tap.</li>
+        <li>Without Yahoo, type the name of each pick in the quick bar and press Enter. The board already knows whose turn it was, so every team's roster builds itself.</li>
+        <li>The Before your turn panel shows every team picking ahead of you, what they still need, and who they will probably take. The Teams tab shows all 10 rosters.</li>
         <li>On your turn read the three cards on the left and the one line call under them.</li>
         <li>After the mock, tap Reset draft and it is clean for the real one. Your picks save in this browser, so a refresh keeps them.</li>
         <li>Stuck on a pick, paste the board situation to me in chat and I will make the call.</li>
@@ -726,10 +771,23 @@ const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ')
 const POOL = PLAYERS.filter(p=>p.rank<=140);
 const AVG = CATS.map((_,c)=>POOL.reduce((s,p)=>s+p.ez[c],0)/POOL.length);
 
-const KEY = 'ninecat_war_room_v6';
-let S = { slot: 5, build: 'auto', autoPlan: null, log: [], notes: '0', qover: null, qlast: null, mine: [], taken: [], order: [], search: '', pos: 'All', hide: '1', tab: 'board' };
+const KEY = 'ninecat_war_room_v7';
+let S = { slot: 5, build: 'auto', autoPlan: null, log: [], notes: '0', qover: null, qlast: null, mine: [], taken: [], order: [], oslot: [], teamNames: {}, stubs: [], ykeys: {}, ysync: false, search: '', pos: 'All', hide: '1', tab: 'board' };
 try { const saved = JSON.parse(localStorage.getItem(KEY)||'null'); if (saved) S = Object.assign(S, saved, {search:''}); } catch(e) {}
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+['oslot','stubs'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; }); ['teamNames','ykeys'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
+
+// names from Yahoo are matched to the board by a loose key, accents, dots, dashes and Jr or III removed
+const nkey = str => String(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/-/g,' ').replace(/\b(jr|sr|ii|iii|iv)\b/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+const ALIAS = {'nicolas claxton':'nic claxton','alexandre sarr':'alex sarr','carlton carrington':'bub carrington','herbert jones':'herb jones','cameron johnson':'cam johnson','nahshon hyland':'bones hyland','moritz wagner':'moe wagner','kenyon martin':'kj martin','gui santos':'guilherme santos'};
+const NAMEIDX = {}, INITIDX = {};
+PLAYERS.forEach(p=>{ const k=nkey(p.name); NAMEIDX[k]=p.id; const w=k.split(' '); const ik=w[0][0]+' '+w.slice(1).join(' '); INITIDX[ik]=(ik in INITIDX)?-1:p.id; });
+function matchName(name){ let k=nkey(name); if(ALIAS[k]) k=ALIAS[k]; if(k in NAMEIDX) return NAMEIDX[k]; const w=k.split(' '); const ik=w[0]?w[0][0]+' '+w.slice(1).join(' '):''; if(INITIDX[ik]>=0) return INITIDX[ik]; return null; }
+function fixPos(pos){ const out=new Set(); String(pos||'').split(',').forEach(x=>{ x=x.trim().toUpperCase(); if(x==='G'){out.add('PG');out.add('SG');} else if(x==='F'){out.add('SF');out.add('PF');} else if(['PG','SG','SF','PF','C'].includes(x)) out.add(x); }); return [...out].join(','); }
+// a drafted player who is not on this board still counts, as a plain placeholder
+function addStub(st){ const id=PLAYERS.length; const z=new Array(9).fill(0); PLAYERS.push({id, name:st.name, team:st.team||'', pos:fixPos(st.pos), rank:250, adp:null, g:z.slice(), z:z.slice(), ez:z.slice(), av:0.85, eg:70, risk:0, note:'Not on this board', gem:false, po:0, pot:'', pon:'', floor:0, upside:false, stub:true}); st.id=id; return id; }
+S.stubs.forEach(addStub);
+function ensureStub(info){ const k=nkey(info.name); const f=S.stubs.find(st=>nkey(st.name)===k); if(f) return f.id; const st={name:info.name, team:info.team, pos:info.pos}; S.stubs.push(st); return addStub(st); }
 
 const $ = id => document.getElementById(id);
 
@@ -742,7 +800,10 @@ function survive(p, atPick, nowPick){
   const adp = p.adp!=null ? p.adp : p.rank*1.08+6;
   const gap = atPick - nowPick; if (gap<=0) return 1;
   const x = (adp - atPick)/(3+0.12*adp);
-  return 1/(1+Math.exp(-1.6*x));
+  let sv = 1/(1+Math.exp(-1.6*x));
+  // teams picking before you that still need his position make him less likely to last
+  if (WIN && WIN.to===atPick){ let d=0; WIN.rows.forEach(r=>{ if(r.open && r.open.some(sl=>fits(p.pos,sl))) d++; }); sv*=Math.pow(0.88,d); }
+  return sv;
 }
 function profile(){
   const n=S.mine.length;
@@ -774,6 +835,22 @@ function posEffectFor(p, ids, ctx){
   else if (ctx.n>=6 && ctx.base<SLOTS.length) bonus-=0.3+1.0*(ctx.n/ROUNDS);
   return {bonus, fills};
 }
+function slotOfPick(n){ const r=Math.ceil(n/TEAMS), i=n-(r-1)*TEAMS; return r%2===1 ? i : TEAMS+1-i; }
+function ownerSlot(i){ return (S.oslot && S.oslot[i]) || slotOfPick(i+1); }
+function rosters(){ const R={}; for(let t=1;t<=TEAMS;t++) R[t]=[]; S.order.forEach((id,i)=>{ const sl=ownerSlot(i); (R[sl]||(R[sl]=[])).push(id); }); return R; }
+function teamName(sl){ return (S.teamNames && S.teamNames[sl]) ? S.teamNames[sl] : (sl===S.slot ? 'You' : 'Team '+sl); }
+function openSlots(ids){ const m=matchSlots(ids); return SLOTS.filter((sl,i)=>m[i]===-1); }
+function openText(open){ const c={}; open.forEach(x=>c[x]=(c[x]||0)+1); return Object.entries(c).map(([k,v])=>v>1?k+' x'+v:k).join(', '); }
+// how another team picks. Early on the best ADP left. From their 6th player on, the best of the next 5 by ADP who fills an open starting spot.
+function chooseFor(ros, gone){
+  const deep = ros.length>=5; const cand=[];
+  for(const id of ADP_ORDER){ if(gone.has(id)) continue; cand.push(id); if(cand.length>=(deep?5:1)) break; }
+  if(!cand.length) return null;
+  if (deep){ const base=filled(matchSlots(ros)); if(base<SLOTS.length){ const f=cand.find(id=>filled(matchSlots(ros.concat([id])))>base); if(f!=null) return f; } }
+  return cand[0];
+}
+function needWindow(from, to){ const R=rosters(); const out=[]; for(let n=from;n<to;n++){ const sl=slotOfPick(n); if(sl===S.slot) continue; const ros=R[sl]||[]; out.push({n, sl, ros, open: ros.length>=5 ? openSlots(ros) : null}); } return out; }
+let WIN=null;
 function profileOf(ids){ const n=ids.length; return CATS.map((_,c)=>{ const tot=ids.reduce((s,id)=>s+byId(id).ez[c],0); const d=n?(tot-AVG[c]*n)/n:0; let st='none'; if(n) st=d>=0.11?'win':d<=-0.11?'lose':'toss'; return {c,tot,d,st}; }); }
 function lean(prof, key){ const t=BUILDS[key].t; return t.reduce((s,c)=>s+prof[c].d,0)/t.length; }
 function bestLean(prof, exclude){
@@ -834,15 +911,16 @@ function calibrate(){
 }
 // look ahead engine. Other teams pick by ADP, you pick the best fit for a plan, then each of the 9 cats gets a win chance vs an average team.
 const adpEff = p => p.adp!=null ? p.adp : p.rank*1.08+6;
-const ADP_ORDER = PLAYERS.slice().sort((a,b)=>adpEff(a)-adpEff(b)).map(p=>p.id);
+const ADP_ORDER = PLAYERS.filter(p=>!p.stub).sort((a,b)=>adpEff(a)-adpEff(b)).map(p=>p.id);
 const winP = d => 1/(1+Math.exp(-d/0.28));
 function simulate(key, extraId){
   const ids=S.mine.slice(); const gone=new Set(S.mine.concat(S.taken));
   let cur=S.order.length+1; const picks=myPickNumbers().filter(n=>n>=cur); let pi=0;
-  const othersTake=k=>{ for(const id of ADP_ORDER){ if(k<=0) break; if(gone.has(id)) continue; gone.add(id); k--; } };
-  if (extraId!=null){ if(!picks.length) return null; gone.add(extraId); othersTake(picks[0]-cur); ids.push(extraId); cur=picks[0]+1; pi=1; }
+  const R=rosters();
+  const othersTake=(start,k)=>{ for(let j=0;j<k;j++){ const sl=slotOfPick(start+j); const ros=R[sl]||(R[sl]=[]); const id=chooseFor(ros,gone); if(id==null) return; gone.add(id); ros.push(id); } };
+  if (extraId!=null){ if(!picks.length) return null; gone.add(extraId); othersTake(cur, picks[0]-cur); ids.push(extraId); cur=picks[0]+1; pi=1; }
   for(; pi<picks.length; pi++){
-    const P=picks[pi]; othersTake(P-cur);
+    const P=picks[pi]; othersTake(cur, P-cur);
     const prof=profileOf(ids), ctx=posContextOf(ids);
     let best=null, bv=-1e9, cnt=0;
     for(const id of ADP_ORDER){ if(gone.has(id)) continue; if(cnt++>=30) break; const v=fitFor(byId(id),key,ids,prof,ctx); if(v>bv){bv=v;best=id;} }
@@ -895,7 +973,7 @@ function scored(key, prof){
   const ctx=posContext();
   // before you commit, rank each player by his value in the plan that suits him best
   const early = S.build==='auto' && S.mine.length<2;
-  const all = PLAYERS.map(p=>({p, raw: early ? Math.max(...PLAN_KEYS.map(k=>rawFit(p,k,prof,ctx))) : rawFit(p,key,prof,ctx)}));
+  const all = PLAYERS.filter(p=>!p.stub || isGone(p.id)).map(p=>({p, raw: early ? Math.max(...PLAN_KEYS.map(k=>rawFit(p,k,prof,ctx))) : rawFit(p,key,prof,ctx)}));
   const mx=Math.max(...all.map(x=>x.raw)), mn=Math.min(...all.map(x=>x.raw));
   all.forEach(x=>x.fit=Math.round(100*(x.raw-mn)/(mx-mn||1)));
   return all;
@@ -976,9 +1054,12 @@ function render(){
   const da=$('doAuto'); if(da) da.onclick=()=>{ S.build='auto'; $('build').value='auto'; save(); render(); };
 
   // scoring
+  const survAt = onClock ? after : next;
+  WIN = survAt ? {to:survAt, rows:needWindow(onClock?now+1:now, survAt)} : null;
   const sc = scored(eff, prof);
   const avail = sc.filter(x=>!isGone(x.p.id)).sort((a,b)=>b.raw-a.raw);
-  const survAt = onClock ? after : next;
+  renderBefore(now, survAt, onClock);
+  if (S.tab==='teams') renderTeams(now);
   $('recFor').textContent = onClock ? 'you are on the clock' : (next? 'for pick '+next : 'draft finished');
 
   // recs, each candidate is scored by how many cats you project to win if you take him
@@ -1069,13 +1150,128 @@ function render(){
   $('tbody').innerHTML = html || '<tr><td colspan="19" class="empty">No players match. Clear the search or position filter.</td></tr>';
 }
 
-function draft(id, mine){ if(isGone(id)) return; (mine?S.mine:S.taken).push(id); S.order.push(id); S.qover=null; S.qlast={id, mine}; save(); render(); }
+function renderBefore(now, to, onClock){
+  const el=$('beforeTurn'); if(!el) return;
+  if (!to){ el.innerHTML='<li class="empty">No more picks for you.</li>'; $('btNote').textContent=''; return; }
+  const from = onClock ? now+1 : now;
+  const R=rosters(); const gone=new Set(S.mine.concat(S.taken));
+  const rows=[];
+  for(let n=from;n<to;n++){
+    const sl=slotOfPick(n); if(sl===S.slot) continue;
+    const ros=R[sl]||(R[sl]=[]); const open=ros.length>=5?openSlots(ros):null;
+    const guess=chooseFor(ros,gone); if(guess!=null){ gone.add(guess); ros.push(guess); }
+    rows.push('<li><span class="pn">'+n+'</span><span class="tn">'+esc(teamName(sl))+'</span><span class="nd">'+(open? (open.length?'Needs '+openText(open):'Starting spots full') : (R[sl].length-1)+' players so far')+(guess!=null?'. Likely '+esc(byId(guess).name):'')+'</span></li>');
+  }
+  $('btNote').textContent = rows.length ? rows.length+' picks '+(onClock?'after this one':'until yours') : '';
+  el.innerHTML = rows.join('') || '<li class="empty">'+(onClock?'You pick again right after this.':'You are up next.')+'</li>';
+}
+function renderTeams(now){
+  const R=rosters(); const clockSlot = now<=TEAMS*ROUNDS ? slotOfPick(now) : null;
+  const picksOf = sl=>{ const out=[]; for(let r=1;r<=ROUNDS;r++){ out.push((r-1)*TEAMS + (r%2===1 ? sl : TEAMS+1-sl)); } return out; };
+  let h='';
+  for(let sl=1;sl<=TEAMS;sl++){
+    const ids=R[sl]||[]; const open=openSlots(ids); const prof=profileOf(ids);
+    const nextP=picksOf(sl).find(n=>n>=now);
+    const lst=ids.map((id,k)=>'<li><span>R'+(k+1)+'</span><span>'+esc(byId(id).name)+'</span><span>'+esc(byId(id).pos.replaceAll(',',' '))+'</span></li>').join('');
+    const cats = ids.length>=3 ? '<div class="tcats">'+prof.map(x=>'<span class="chip '+(x.st==='win'?'good':x.st==='lose'?'bad':'warn')+'">'+CATS[x.c]+'</span>').join('')+'</div>' : '';
+    h+='<div class="tcard'+(sl===S.slot?' me':'')+(sl===clockSlot?' clock':'')+'"><div class="thead"><span class="tname">'+esc(teamName(sl))+'</span><span class="tslot">Slot '+sl+(nextP?', next '+nextP:'')+'</span></div>'+
+       (ids.length?'<ul class="tlist">'+lst+'</ul>':'<p class="small">No picks yet.</p>')+
+       '<div class="small">'+(open.length?'Open spots '+openText(open):'Starting spots full')+'</div>'+cats+'</div>';
+  }
+  $('tgrid').innerHTML=h;
+  const named=Object.keys(S.teamNames||{}).length;
+  $('teamsNote').textContent = named ? 'names from Yahoo' : 'built from the picks as they happen';
+}
+
+// Yahoo sync. Works on the Vercel site, where the /api helpers live.
+const Y={avail:false, configured:false, connected:false, busy:false, timer:null, teams:null, teamsAt:0, league:null, last:0, err:'', sig:null, count:0};
+async function yFetch(path){ const r=await fetch(path,{credentials:'same-origin',cache:'no-store'}); const j=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(j.error||('http '+r.status)); e.status=r.status; e.detail=j.detail; throw e; } return j; }
+function yRender(){
+  const btn=$('ybtn'), box=$('ybox'); if(!btn) return;
+  btn.hidden=!Y.avail; box.hidden=!Y.avail && !Y.err;
+  if(!Y.avail) return;
+  btn.textContent = !Y.connected ? 'Connect Yahoo' : (S.ysync ? 'Yahoo sync on' : 'Yahoo sync off');
+  btn.className = 'btn'+(Y.connected && S.ysync ? ' primary' : '');
+  let dot='', txt='';
+  if (!Y.configured){ dot='bad'; txt='Yahoo is not set up yet. Mark picks by hand, every pick still goes to the right team.'; }
+  else if (!Y.connected){ dot='bad'; txt=Y.err||'Not connected to Yahoo. Mark picks by hand, or tap Connect Yahoo.'; }
+  else if (!S.ysync){ dot=''; txt='Connected to Yahoo, sync is off. Picks are marked by hand.'; }
+  else if (Y.err){ dot='bad'; txt=Y.err; }
+  else if (!Y.last){ dot='warn'; txt='Checking Yahoo.'; }
+  else { const age=Math.round((Date.now()-Y.last)/1000); dot = age>20?'warn':'ok'; txt=(Y.league&&Y.league.name?Y.league.name+'. ':'')+(Y.count?Y.count+' picks in from Yahoo':'Yahoo draft has not started')+(age>20?', last answer '+age+' sec ago':', live')+'.'; }
+  $('ydot').className='ydot'+(dot?' '+dot:''); $('ytext').textContent=txt;
+}
+function yStart(){ clearInterval(Y.timer); yPoll(true); Y.timer=setInterval(()=>{ if(document.visibilityState!=='hidden') yPoll(false); else yRender(); },5000); }
+function yStop(){ clearInterval(Y.timer); Y.timer=null; }
+async function yPoll(withTeams){
+  if (Y.busy) return; Y.busy=true;
+  try {
+    const needTeams = withTeams || !Y.teams || Date.now()-Y.teamsAt>120000;
+    const d=await yFetch('/api/draft'+(needTeams?'?teams=1':''));
+    if (d.teams){ Y.teams=d.teams; Y.teamsAt=Date.now(); }
+    Y.league=d.league||Y.league;
+    const unknown=[...new Set((d.picks||[]).filter(x=>x.player_key && !S.ykeys[x.player_key]).map(x=>x.player_key))];
+    for(let i=0;i<unknown.length;i+=50){ const pj=await yFetch('/api/players?keys='+unknown.slice(i,i+50).join(',')); (pj.players||[]).forEach(pl=>{ S.ykeys[pl.key]={name:pl.name, team:pl.team, pos:pl.pos}; }); }
+    yApply(d.picks||[]);
+    Y.last=Date.now(); Y.err=''; Y.connected=true;
+  } catch(e){
+    if (e.status===401){ Y.connected=false; Y.err='Yahoo sign in expired. Tap Connect Yahoo. Until then mark picks by hand.'; yStop(); }
+    else Y.err=(e.detail||'Yahoo is not answering right now')+'. Keep marking picks by hand, sync picks up again on its own.';
+  }
+  Y.busy=false; yRender();
+}
+function yApply(picks){
+  const teams=Y.teams||[];
+  const slotOfTeam={};
+  teams.forEach(t=>{ if(t.slot) slotOfTeam[t.key]=t.slot; });
+  picks.forEach(x=>{ if(x.team_key && !slotOfTeam[x.team_key]) slotOfTeam[x.team_key]=slotOfPick(x.pick); });
+  const me=teams.find(t=>t.mine);
+  let changed=false;
+  if (me && slotOfTeam[me.key] && S.slot!==slotOfTeam[me.key]){ S.slot=slotOfTeam[me.key]; $('slot').value=S.slot; changed=true; }
+  teams.forEach(t=>{ const sl=slotOfTeam[t.key]; if(sl && S.teamNames[sl]!==t.name){ S.teamNames[sl]=t.name; changed=true; } });
+  const made=picks.filter(x=>x.player_key).sort((a,b)=>a.pick-b.pick);
+  const order=[], oslot=[], mine=[], taken=[];
+  for (const x of made){
+    const info=S.ykeys[x.player_key]; if(!info) break;
+    let id=matchName(info.name); if(id==null) id=ensureStub(info);
+    if (order.includes(id)) continue;
+    const sl=slotOfTeam[x.team_key]||slotOfPick(x.pick);
+    order.push(id); oslot.push(sl);
+    ((me ? x.team_key===me.key : sl===S.slot) ? mine : taken).push(id);
+  }
+  Y.count=order.length;
+  // before the real draft starts Yahoo has no picks, so a mock you marked by hand stays put
+  if (!order.length && S.order.length){ if(changed){ save(); render(); } return; }
+  const sig=order.join(',')+'|'+oslot.join(',')+'|'+S.slot;
+  if (sig===Y.sig && sig===S.order.join(',')+'|'+S.oslot.join(',')+'|'+S.slot){ if(changed){ save(); render(); } return; }
+  Y.sig=sig;
+  S.order=order; S.oslot=oslot; S.mine=mine; S.taken=taken; S.qover=null;
+  if (order.length) S.qlast={id:order[order.length-1], mine:mine.includes(order[order.length-1])};
+  save(); render();
+}
+async function yInit(){
+  let qp=null; try { qp=new URLSearchParams(location.search).get('yahoo'); } catch(e){}
+  if (qp){ try { history.replaceState(null,'',location.pathname+location.hash); } catch(e){} }
+  try { const st=await yFetch('/api/status'); if(!st || !('configured' in st)) throw new Error('none'); Y.avail=true; Y.configured=!!st.configured; Y.connected=!!st.connected; } catch(e){ Y.avail=false; }
+  if (qp==='connected'){ S.ysync=true; save(); }
+  else if (qp==='failed') Y.err='Yahoo sign in did not finish. Tap Connect Yahoo to try again.';
+  yRender();
+  if (Y.connected && S.ysync) yStart();
+}
+$('ybtn') && ($('ybtn').onclick=()=>{
+  if (!Y.connected){ location.href='/api/login'; return; }
+  S.ysync=!S.ysync; save(); if(S.ysync){ Y.sig=null; yStart(); } else { yStop(); } yRender();
+});
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && Y.connected && S.ysync) yPoll(false); });
+
+function draft(id, mine){ if(isGone(id)) return; (mine?S.mine:S.taken).push(id); S.oslot.length=S.order.length; S.oslot.push(null); S.order.push(id); S.qover=null; S.qlast={id, mine}; save(); render(); }
 function qMode(){ if (S.qover) return S.qover; const picks=myPickNumbers(); return picks.includes(S.order.length+1) ? 'mine' : 'taken'; }
 function qMatches(){ const q=norm(($('qsearch').value||'').trim()); if(!q) return []; const out=[]; for(const id of ADP_ORDER){ if(isGone(id)) continue; const n=norm(byId(id).name); if(n.includes(q) || n.split(' ').some(w=>w.startsWith(q))) out.push(id); if(out.length>=6) break; } return out; }
 function renderQuick(){
   const m=qMode(); const onClock=myPickNumbers().includes(S.order.length+1);
   $('modeTaken').className='segb'+(m==='taken'?' on-taken':''); $('modeMine').className='segb'+(m==='mine'?' on-mine':'');
-  let hint = onClock ? '<b>Your turn.</b> Taps mark <b>Mine</b>.' : 'Pick '+(S.order.length+1)+'. Taps mark <b>'+(m==='mine'?'Mine':'Taken')+'</b>.';
+  const cur=S.order.length+1;
+  let hint = cur>TEAMS*ROUNDS ? 'Draft complete.' : onClock ? '<b>Your turn.</b> Taps mark <b>Mine</b>.' : 'Pick '+cur+', '+esc(teamName(slotOfPick(cur)))+' is on the clock. Taps mark <b>'+(m==='mine'?'Mine':'Taken')+'</b>.';
   if (S.qover) hint += ' You switched this by hand for one pick.';
   if (S.qlast && byId(S.qlast.id) && isGone(S.qlast.id)) hint += ' Last marked '+esc(byId(S.qlast.id).name)+' as '+(S.qlast.mine?'Mine':'Taken')+'.';
   $('qhint').innerHTML=hint;
@@ -1085,7 +1281,7 @@ function renderQuick(){
   $('qnext').innerHTML = hits.length ? '' : nxt.map(id=>'<button type="button" class="pk" data-q="'+id+'">'+esc(byId(id).name)+'<small>'+byId(id).team+'</small></button>').join('');
 }
 function qMark(id){ draft(id, qMode()==='mine'); $('qsearch').value=''; renderQuick(); try{ $('qsearch').focus({preventScroll:true}); }catch(e){} }
-function undoId(id){ S.mine=S.mine.filter(x=>x!==id); S.taken=S.taken.filter(x=>x!==id); S.order=S.order.filter(x=>x!==id); save(); render(); }
+function undoId(id){ const i=S.order.indexOf(id); if(i>=0 && S.oslot.length>i) S.oslot.splice(i,1); S.mine=S.mine.filter(x=>x!==id); S.taken=S.taken.filter(x=>x!==id); S.order=S.order.filter(x=>x!==id); save(); render(); }
 
 document.addEventListener('click', e=>{
   const t=e.target.closest('button'); if(!t) return;
@@ -1116,7 +1312,7 @@ $('reset').onclick=()=>{
   const r=$('reset');
   if(!armed){ armed=true; r.classList.add('armed'); r.textContent='Tap again to reset'; armT=setTimeout(()=>{armed=false; r.classList.remove('armed'); r.textContent='Reset draft';},4000); return; }
   clearTimeout(armT); armed=false; r.classList.remove('armed'); r.textContent='Reset draft';
-  S.mine=[]; S.taken=[]; S.order=[]; S.log=[]; S.autoPlan=null; save(); render();
+  S.mine=[]; S.taken=[]; S.order=[]; S.oslot=[]; S.log=[]; S.autoPlan=null; Y.sig=null; save(); render();
 };
 $('copy').onclick=()=>{
   const txt = S.mine.map((id,i)=>{const p=byId(id); return (i+1)+'. '+p.name+' '+p.team+' '+p.pos.replaceAll(',',' ');}).join('\n') || 'No picks yet';
@@ -1124,11 +1320,12 @@ $('copy').onclick=()=>{
   const done=()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy list',1500); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>{ btn.textContent='Copy blocked'; setTimeout(()=>btn.textContent='Copy list',1500); });
 };
-function setTab(t){ S.tab=t; $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('viewBoard').hidden=t!=='board'; $('viewPlan').hidden=t!=='plan'; save(); }
-$('tabBoard').onclick=()=>setTab('board'); $('tabPlan').onclick=()=>setTab('plan');
-if (location.hash==='#plan') S.tab='plan';
+function setTab(t){ S.tab=t; $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; if(t==='teams') renderTeams(S.order.length+1); save(); }
+$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan');
+if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams';
 setTab(S.tab||'board');
 render();
+yInit();
 })();
 </script>
 
