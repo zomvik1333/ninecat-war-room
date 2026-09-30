@@ -9,7 +9,7 @@ Live site at https://ninecatwarroom.vercel.app
 * index.html is the full website that runs on Vercel. It also works if you just open it in a browser.
 * draft-room.html is the same board in the format used for the Claude artifact.
 
-## Version 1 (tag v1.0)
+## Version 1 (branch v1)
 
 * Stats from the 2025 26 season, injury news as of Sept 29, 2026
 * Rankings leaned toward Josh Lloyd's 9 cat top 25 and round by round comments
@@ -18,6 +18,6 @@ Live site at https://ninecatwarroom.vercel.app
 
 ## How to fall back to version 1
 
-1. On GitHub, open the v1.0 tag and download index.html.
+1. On GitHub, switch to the v1 branch and download index.html. The v1 branch is never changed, so it always holds this version.
 2. Put it in the Vercel project folder and run `vercel deploy --prod`.
 3. Or, in the Vercel dashboard, open Deployments, find the deployment from Sept 29, 2026 and use Instant Rollback.
