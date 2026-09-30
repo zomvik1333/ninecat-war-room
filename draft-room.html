@@ -1,0 +1,1118 @@
+<title>Nine Cat War Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout concept: an arena scoreboard strip on top, a narrow coaching rail on the left (what to pick, which 5 cats you are winning), the full draft board on the right. */
+:root {
+  --bg: #eaeef2;
+  --panel: #ffffff;
+  --panel-2: #f4f6f9;
+  --ink: #111a24;
+  --muted: #5b6879;
+  --line: #d3dae3;
+  --accent: #1d56c9;
+  --accent-ink: #ffffff;
+  --accent-soft: #dde7fb;
+  --board: #121a23;
+  --board-ink: #f2f5f8;
+  --clock: #ffb020;
+  --good: #1d7f47;
+  --good-bg: #dcf1e4;
+  --warn: #9a6512;
+  --warn-bg: #f8ecd4;
+  --bad: #b3362a;
+  --bad-bg: #f8dfdb;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "Barlow", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1117; --panel: #141c25; --panel-2: #1a2430; --ink: #e5ecf4; --muted: #95a4b6; --line: #273342;
+    --accent: #6c9cff; --accent-ink: #0c1117; --accent-soft: #1d2d4d; --board: #070b10; --board-ink: #f2f5f8; --clock: #ffbd45;
+    --good: #52c683; --good-bg: #13311f; --warn: #e5ad4a; --warn-bg: #362810; --bad: #f07a6a; --bad-bg: #3a1a16;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1117; --panel: #141c25; --panel-2: #1a2430; --ink: #e5ecf4; --muted: #95a4b6; --line: #273342;
+  --accent: #6c9cff; --accent-ink: #0c1117; --accent-soft: #1d2d4d; --board: #070b10; --board-ink: #f2f5f8; --clock: #ffbd45;
+  --good: #52c683; --good-bg: #13311f; --warn: #e5ad4a; --warn-bg: #362810; --bad: #f07a6a; --bad-bg: #3a1a16;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; padding: 16px 16px 40px; }
+.wrap { max-width: 1480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: .01em; text-wrap: balance; margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* scoreboard */
+.score { background: var(--board); color: var(--board-ink); border-radius: 10px; padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; justify-content: space-between; }
+.score h1 { font-size: 30px; line-height: 1; text-transform: uppercase; }
+.score h1 small { display: block; font-family: var(--body); font-size: 13px; text-transform: none; color: #9fb0c3; font-weight: 500; margin-top: 4px; letter-spacing: 0; }
+.cells { display: flex; flex-wrap: wrap; gap: 10px; }
+.cell { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 6px 12px; min-width: 104px; }
+.cell .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9fb0c3; }
+.cell .v { font-family: var(--mono); font-size: 20px; color: var(--clock); font-variant-numeric: tabular-nums; }
+.cell .v.plain { color: var(--board-ink); }
+.cell.live { border-color: var(--clock); box-shadow: 0 0 0 1px var(--clock) inset; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+select, input[type="search"] { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; min-height: 40px; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 8px 14px; min-height: 40px; font-weight: 600; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--bad); }
+.btn.armed { background: var(--bad); color: #fff; border-color: var(--bad); }
+.tabs { display: flex; gap: 6px; margin-left: auto; }
+.tab { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 16px; font-weight: 600; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* layout */
+.grid { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } .tabs { margin-left: 0; } }
+.rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.panel h2 { font-size: 20px; text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.panel h2 span { font-family: var(--body); font-size: 12px; text-transform: none; color: var(--muted); font-weight: 500; }
+
+/* recs */
+.recs { display: flex; flex-direction: column; gap: 10px; }
+.rec { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; background: var(--panel-2); }
+.rec .lab { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.rec .nm { font-weight: 600; font-size: 16px; }
+.rec .fit { font-family: var(--mono); font-size: 18px; color: var(--accent); text-align: right; }
+.rec .why { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+.rec .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.rec .act { grid-column: 1 / -1; display: flex; gap: 6px; }
+.final { border-left: 4px solid var(--clock); background: var(--panel-2); padding: 10px 12px; border-radius: 0 8px 8px 0; font-weight: 500; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.quick { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.qrow { display: flex; gap: 8px; align-items: center; }
+.qrow input { flex: 1; min-width: 0; font-size: 16px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
+.segb { border: 0; background: var(--panel); padding: 8px 14px; min-height: 40px; font-weight: 700; }
+.segb.on-taken { background: var(--ink); color: var(--bg); }
+.segb.on-mine { background: var(--accent); color: var(--accent-ink); }
+.qhint { font-size: 12.5px; color: var(--muted); }
+.qhint b { color: var(--accent); }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.chips:empty { display: none; }
+.pk { flex: none; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 12px; font-size: 13.5px; font-weight: 600; white-space: nowrap; min-height: 36px; }
+.pk small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.pk:hover { border-color: var(--accent); }
+.pk.hit { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.chip.gem { background: var(--clock); color: #1a1204; }
+.chip.muted { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+
+/* cat tracker */
+.wins { font-family: var(--display); font-size: 40px; line-height: 1; }
+.wins small { font-family: var(--body); font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 6px; }
+.cats { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 10px; }
+.catrow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 84px; align-items: center; gap: 8px; font-size: 13px; }
+.catrow .cn { font-family: var(--mono); font-size: 12px; }
+.catrow .cn.tgt { color: var(--accent); font-weight: 700; }
+.bar { position: relative; height: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.bar .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--muted); opacity: .5; }
+.bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.plan-now { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.pn-name { font-family: var(--display); font-size: 24px; line-height: 1.1; }
+.pn-mode { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.pn-proj { margin: 8px 0; font-size: 14px; }
+.pn-cats { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.plog { margin: 8px 0 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+.rec .fit small { font-family: var(--body); font-size: 11px; color: var(--muted); }
+.lean { margin-top: 12px; font-size: 13px; color: var(--muted); }
+.switch { margin-top: 10px; border: 1px solid var(--warn); background: var(--warn-bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; display: flex; flex-direction: column; gap: 8px; }
+
+/* my roster */
+.roster { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.roster li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding: 3px 0; }
+.roster li span:last-child { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.slots { display: grid; grid-template-columns: 52px minmax(0,1fr); gap: 4px 10px; font-size: 13.5px; align-items: center; }
+.slots .sl { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.slots .open { color: var(--warn); font-weight: 600; }
+.empty { color: var(--muted); font-size: 13.5px; }
+
+/* board */
+.boardwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: var(--panel-2); }
+th.tgt { color: var(--accent); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 11.5px; }
+th.num { text-align: right; }
+td.g { text-align: center; font-size: 9.5px; letter-spacing: -2px; width: 28px; padding: 5px 2px; }
+td.g.p3 { background: color-mix(in srgb, var(--good) 34%, transparent); color: var(--good); }
+td.g.p2 { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good); }
+td.g.p1 { background: color-mix(in srgb, var(--good) 10%, transparent); color: var(--good); }
+td.g.z { color: var(--muted); }
+td.g.n1 { background: color-mix(in srgb, var(--bad) 10%, transparent); color: var(--bad); }
+td.g.n2 { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); }
+td.g.n3 { background: color-mix(in srgb, var(--bad) 34%, transparent); color: var(--bad); }
+td.g.off { opacity: .35; }
+tr.tier td { background: var(--board); color: var(--board-ink); font-family: var(--display); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 10px; }
+tr.gone td { opacity: .45; }
+tr.mine td { background: var(--accent-soft); }
+.pname { font-weight: 600; }
+.psub { color: var(--muted); font-size: 12px; margin-left: 6px; }
+td.pcell { white-space: normal; min-width: 140px; max-width: 190px; line-height: 1.3; }
+td.pcell .psub { display: block; margin-left: 0; font-size: 11px; }
+#tbody .chip { font-size: 10px; padding: 1px 5px; }
+tr.noterow td { white-space: normal; color: var(--muted); font-size: 12px; padding-top: 0; }
+tr.noterow td b { color: var(--warn); font-weight: 600; }
+tr.hasnote td { border-bottom: 0; }
+.note { color: var(--muted); font-size: 12px; white-space: normal; min-width: 220px; max-width: 320px; }
+.note b { color: var(--warn); font-weight: 600; }
+.acts { display: flex; gap: 3px; }
+.mini { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 3px 6px; font-size: 11px; font-weight: 600; min-height: 28px; }
+.mini.mine { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.mini:hover { border-color: var(--accent); }
+.fitbar { display: inline-block; width: 42px; height: 6px; background: var(--panel-2); border-radius: 3px; vertical-align: middle; margin-right: 6px; overflow: hidden; border: 1px solid var(--line); }
+.fitbar i { display: block; height: 100%; background: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+
+/* plan */
+.plan { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.plan .panel h3 { font-size: 19px; text-transform: uppercase; margin-bottom: 6px; }
+.plan ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.plan p { margin: 6px 0; max-width: 65ch; }
+.plan .span { grid-column: 1 / -1; }
+.tgtline { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.small { font-size: 12.5px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="score" aria-label="Draft status">
+    <h1>Nine Cat War Room<small>Ball Lovers, 10 team head to head categories, 14 rounds, snake</small></h1>
+    <div class="cells">
+      <div class="cell" id="cellClock"><div class="k">On the clock</div><div class="v" id="vClock">1</div></div>
+      <div class="cell"><div class="k">Your next pick</div><div class="v plain" id="vNext">5</div></div>
+      <div class="cell"><div class="k">Pick after that</div><div class="v plain" id="vAfter">16</div></div>
+      <div class="cell"><div class="k">Your roster</div><div class="v plain" id="vRoster">0 of 14</div></div>
+      <div class="cell"><div class="k">Cats you win now</div><div class="v" id="vWins">0</div></div>
+      <div class="cell"><div class="k">Projected cats</div><div class="v" id="vProj">0</div></div>
+    </div>
+  </header>
+
+  <div class="quick" id="quick">
+    <div class="qrow">
+      <div class="seg" role="group" aria-label="What a tap marks">
+        <button type="button" id="modeTaken" class="segb">Taken</button>
+        <button type="button" id="modeMine" class="segb">Mine</button>
+      </div>
+      <input id="qsearch" type="search" placeholder="Type a name, press Enter" autocomplete="off" aria-label="Quick find a player">
+      <button class="btn" id="qundo" type="button">Undo</button>
+    </div>
+    <div class="qhint" id="qhint"></div>
+    <div class="chips" id="qresults"></div>
+    <div class="chips" id="qnext"></div>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label for="slot">Your draft slot</label>
+      <select id="slot"></select></div>
+    <div class="field"><label for="build">Game plan</label>
+      <select id="build"></select></div>
+    <div class="field"><label for="search">Find player</label>
+      <input id="search" type="search" placeholder="Type a name" autocomplete="off"></div>
+    <div class="field"><label for="pos">Position</label>
+      <select id="pos"><option>All</option><option>PG</option><option>SG</option><option value="G">G (PG or SG)</option><option>SF</option><option>PF</option><option value="F">F (SF or PF)</option><option>C</option></select></div>
+    <div class="field"><label for="hide">Board view</label>
+      <select id="hide"><option value="1">Hide drafted</option><option value="0">Show everyone</option><option value="gems">Sleepers only</option></select></div>
+    <div class="field"><label for="notes">Notes</label>
+      <select id="notes"><option value="0">Hide notes</option><option value="1">Show notes</option></select></div>
+    <button class="btn" id="undo" type="button">Undo last pick</button>
+    <button class="btn danger" id="reset" type="button">Reset draft</button>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabBoard" aria-selected="true" type="button">Draft board</button>
+      <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
+    </div>
+  </div>
+
+  <section id="viewBoard" class="grid">
+    <aside class="rail">
+      <div class="panel">
+        <h2>Strategy now <span>updates after every pick</span></h2>
+        <div id="strategy"></div>
+      </div>
+      <div class="panel">
+        <h2>Pick now <span id="recFor">for your turn</span></h2>
+        <div class="recs" id="recs"></div>
+      </div>
+      <div class="panel">
+        <h2>Your 9 cats now <span>vs an average team</span></h2>
+        <div class="wins" id="winsBig">0<small>of 9 winning, need 5</small></div>
+        <div class="cats" id="cats"></div>
+      </div>
+      <div class="panel">
+        <h2>Starting slots <span id="slotNote">Yahoo lineup</span></h2>
+        <div class="slots" id="slots"></div>
+      </div>
+      <div class="panel">
+        <h2>My team <span><button class="mini" id="copy" type="button">Copy list</button></span></h2>
+        <ul class="roster" id="roster"></ul>
+      </div>
+    </aside>
+    <div style="min-width:0">
+      <div class="boardwrap">
+        <table>
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <span>Grades come from real per game stats last season, compared against the top 140 players. ▲▲▲ elite, ▲ helps, · neutral, ▼ hurts, ▼▼▼ big drag. Percent cats account for shot volume. TO ▲ means few turnovers. Rookies are projections.</span>
+          <span>Blue column headers are the cats your plan is trying to win.</span>
+        <span>Survive is the chance he is still there at your following pick, based on ADP. DTD means day to day. Injury status from the CBS Sports injury report and team news on Sept 29.</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="viewPlan" class="plan" hidden>
+    <div class="panel span">
+      <h3>The goal</h3>
+      <p>Head to head categories is won one week at a time. Win 5 of the 9 cats and you win the week. So you do not need to be good at everything. You need to be clearly better than an average team in 5 or 6 cats and you can let 2 or 3 go on purpose. That is what a punt is. The board scores every player for the plan you pick and the left rail shows which cats you are winning after each pick.</p>
+      <p>Ball Lovers settings, read from Yahoo on Sept 29. 10 teams this season (Yahoo still shows 12 until the commissioner changes it), offline draft, roster of PG, SG, G, SF, PF, F, C, C, 2 Util plus 4 bench and 4 IL, so 14 picks. Max 4 adds a week, playoffs are 8 teams in weeks 19 to 21, trade deadline March 4.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Plan A, Punt FT% bigs</h3>
+      <div class="tgtline"><span class="chip good">Win FG%</span><span class="chip good">Win REB</span><span class="chip good">Win BLK</span><span class="chip good">Win STL</span><span class="chip good">Win PTS</span><span class="chip warn">Swing AST</span><span class="chip bad">Give up FT%</span><span class="chip muted">Ignore TO</span></div>
+      <p>My default for a 10 team league. The strongest cheap pool is bigs who shoot badly at the line, and nobody else in your room wants them.</p>
+      <ul>
+        <li>Anchors Giannis, Amen Thompson, Sengun, Jalen Johnson, Scottie Barnes</li>
+        <li>Middle rounds Mobley, Duren, Kessler, Dyson Daniels, Clingan, Gobert, Zion</li>
+        <li>Late Ausar Thompson, Claxton, Jarrett Allen, Queta, Day'Ron Sharpe, Gafford, Maluach</li>
+        <li>Grab one real assist guard by round 6 so AST stays a swing cat</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Plan B, Punt FG% and TO guards</h3>
+      <div class="tgtline"><span class="chip good">Win 3PM</span><span class="chip good">Win FT%</span><span class="chip good">Win AST</span><span class="chip good">Win STL</span><span class="chip good">Win PTS</span><span class="chip warn">Swing REB</span><span class="chip bad">Give up FG%</span><span class="chip bad">Give up TO</span></div>
+      <p>Best if you open with Luka, Maxey, Edwards, Curry or Trae. High usage guards bring bad FG% and turnovers together, so you drop both.</p>
+      <ul>
+        <li>Anchors Luka, Maxey, Edwards, Trae Young, LaMelo, Harden, Jamal Murray</li>
+        <li>Middle rounds Derrick White, Keyonte George, Nickeil Alexander Walker, Knueppel, Garland, Herro</li>
+        <li>Late Pritchard, Quickley, Ryan Rollins, Reed Sheppard, Grayson Allen, Cason Wallace</li>
+        <li>Take one stretch big like Myles Turner or Jaren Jackson Jr. so BLK does not go to zero</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Plan C, Punt AST</h3>
+      <div class="tgtline"><span class="chip good">Win 3PM</span><span class="chip good">Win REB</span><span class="chip good">Win BLK</span><span class="chip good">Win FT%</span><span class="chip good">Win TO</span><span class="chip warn">Swing FG% and PTS</span><span class="chip bad">Give up AST</span></div>
+      <p>The backup plan when the room takes guards early. Stretch bigs and 3 and D wings keep turnovers low for free.</p>
+      <ul>
+        <li>Anchors Wembanyama, Karl Anthony Towns, Durant, Chet Holmgren, Markkanen</li>
+        <li>Middle rounds Jaren Jackson Jr., Trey Murphy, Knueppel, Michael Porter Jr., Anunoby, Buzelis</li>
+        <li>Late Myles Turner, Jabari Smith Jr., Jay Huff, Mikal Bridges, Julian Champagnie</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Balanced</h3>
+      <p>Use this for your first two picks, or all draft long if the board keeps falling your way. Aim for 6 winning cats. Turnovers count a bit less and points, rebounds and assists a bit more, because those three hold steady week to week while steals, blocks and the percentages swing.</p>
+    </div>
+
+    <div class="panel span">
+      <h3>What changed after Josh Lloyd's research</h3>
+      <ul>
+        <li>The board now follows Josh's 9 cat top 25. Each player he ranked sits most of the way from our stats spot to his. The Josh column shows his rank. A ≈ sign means it comes from his round by round comments.</li>
+        <li>Up the board. Giannis, Tatum, Durant, Flagg, Reaves, Amen, Jalen Williams, Dejounte Murray, Paul George, Buzelis, Markkanen, Sabonis, Hartenstein.</li>
+        <li>Down the board. Maxey, Harden, Mitchell, Jaylen Brown, Booker, Chet, Mobley, Brunson, Kessler, Knueppel, Castle, Gobert, Sarr, Dybantsa.</li>
+        <li>Role changes are built into the stats. More usage for Coby White, Kuminga, Buzelis, Murray Boyles, Ingram, Randle, Maluach and Jalen Green. Less for Maxey, Jaylen Brown, Vucevic, Mathurin, Aldama, MPJ, Jrue, Morant and Sarr.</li>
+        <li>Your playoffs, weeks 19 to 21. Minnesota plays only 2 games the week of Mar 15 and Cleveland only 2 the week of Mar 22, your finals. Boston, Portland, Toronto, Golden State and Philly have 3 back to backs. Miami has none. The Playoffs column shows it, and it only moves early round picks.</li>
+        <li>Punting means ignoring a cat, not chasing bad players in it. Assists and turnovers move together, and blocks, rebounds and FG% move together.</li>
+      </ul>
+    </div>
+
+    <div class="panel span">
+      <h3>Opening by draft slot</h3>
+      <ul>
+        <li>Slots 1 to 3. Take Jokic first. Wembanyama and SGA are nearly tied, last season Wemby edged ahead in 9 cat because of 3.1 blocks a game. They fit any plan. Stay balanced through round 2, then commit.</li>
+        <li>Slots 4 to 7. Josh would take Tatum or Giannis here, then Cade, Edwards or Durant. Skip Maxey, Mitchell and Harden in round 1. Your first two picks do not need to fit together, value wins.</li>
+        <li>Slots 8 to 10. You get two picks close together. Durant, Flagg, Reaves, Amen and Jamal Murray are the turn targets. Jalen Johnson and Mitchell are not first rounders to Josh.</li>
+        <li>Rounds 4 to 8 are where the plan is won. Fit beats ADP here. Make sure you have real sources of STL, BLK and AST by round 8.</li>
+        <li>Rounds 11 to 14. Swing on upside, the board adds an upside bonus here. In a 10 team league the waiver wire is deep, so streaming beats holding a safe 130th player.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>When someone takes your guy</h3>
+      <ul>
+        <li>First look for a same tier player with the same cats. The board groups tiers for you.</li>
+        <li>If that tier is empty, drop a tier but stay in your plan.</li>
+        <li>Only switch plans when the room has changed the market, for example 4 bigs gone in a row. The rail will show a switch banner when your roster leans toward another plan.</li>
+        <li>Never switch because of one missed pick. Switching costs picks you already made.</li>
+        <li>If the top pick has a high Survive number, take the one that will not come back first.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Injury watch, as of Sept 29</h3>
+      <ul>
+        <li>Out long. Donte DiVincenzo until at least April, Shaedon Sharpe until at least March, Mark Williams until at least February. Do not draft.</li>
+        <li>Jimmy Butler out until at least December 1. Brandon Ingram out until at least November 1 after surgery.</li>
+        <li>Day to day with camp knocks. Jaren Jackson Jr. (knee), Herro (foot), Knueppel (hamstring), Sarr (foot), Anthony Davis (finger), Trae Young (quad), Edey (ankle), Hartenstein (ankle), Kevin Porter Jr. (knee).</li>
+        <li>Returning from long injuries with no restrictions in camp. Haliburton, Tatum, Kyrie, Lillard and VanVleet. Their grades use their last healthy season.</li>
+        <li>Brandon Miller had shoulder surgery in May. The Hornets GM said on Sept 28 he is ready for opening night, so he is cleared but carries some risk.</li>
+        <li>On Yahoo only players tagged OUT can go on IL. GTD, questionable and doubtful players cannot.</li>
+        <li>Recheck news the morning of the draft. Ask me and I will update it.</li>
+      </ul>
+    </div>
+
+    <div class="panel span">
+      <h3>How Auto keeps the strategy live</h3>
+      <ul>
+        <li>After every pick you mark, the board replays the rest of the draft 8 ways, once for each plan. Other teams are assumed to take the best player left by ADP, and you take the best fit for that plan.</li>
+        <li>Each replay gives your finished team a win chance in all 9 cats against an average team. The plan with the most expected cat wins is the one you follow.</li>
+        <li>Picks 1 and 2 are pure value. After pick 2 it commits to a plan.</li>
+        <li>It only switches when another plan beats the current one by 0.3 cats, or 0.4 after your 6th pick, so one missed player never flips your whole draft.</li>
+        <li>Every switch is written in the Strategy panel with what it gains and gives up.</li>
+        <li>The Best pick card is the player who gives you the highest projected cat count, not just the highest ranked name.</li>
+        <li>If you lock a plan yourself, it still tells you when another plan would win more cats.</li>
+        <li>Punt guard. A plan that leaves 4 or more cats as give ups is marked down, so Auto never drifts into a 4 cat punt.</li>
+        <li>Kawhi and Kyrie are never recommended before pick 40, Embiid never before pick 50.</li>
+        <li>From round 11 on, upside players get a bonus and injury risk counts half as much.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Positions</h3>
+      <ul>
+        <li>Yahoo starts PG, SG, G, SF, PF, F, C, C and 2 Util. The two C slots are the hardest to fill, so have 2 real centers by round 7.</li>
+        <li>Plan A fills C for free. Plan B has to grab 2 centers on purpose, Myles Turner, Jaren Jackson Jr., Okongwu, Naz Reid and Kel'el Ware fit best.</li>
+        <li>Players with 2 or 3 positions get a small bonus on the board because they make weekly lineups easier.</li>
+        <li>After pick 6 the board pushes players who fill an open slot and cools players who would only sit on your bench.</li>
+        <li>Yahoo can change eligibility. Glance at the position shown in the Yahoo draft room before you click.</li>
+        <li>Do not trust Yahoo's own draft room ranks. They mix points league logic into cats.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Offseason moves that matter</h3>
+      <ul>
+        <li>Giannis to Miami. Herro, Ware and Jaquez to Milwaukee, where Ryan Rollins and Ware get big roles.</li>
+        <li>LaMelo to Minnesota. Coby White now runs Charlotte, and Naz Reid and Grayson Allen joined him.</li>
+        <li>LeBron and Jaylen Brown to Philadelphia with Maxey and Embiid, so everyone's shots shrink.</li>
+        <li>Kawhi to Toronto. Ingram to the Clippers. Paul George and Mitchell Robinson to Boston.</li>
+        <li>Walker Kessler to the Lakers next to Luka. Ja Morant to Portland. Miles Bridges to Phoenix.</li>
+        <li>Claxton to Chicago, which opens the Brooklyn center job for Day'Ron Sharpe.</li>
+        <li>Rookies with real roles. Dybantsa in Washington, Boozer in Memphis, Caleb Wilson in Chicago, Acuff in Sacramento, Lendeborg in Golden State.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Sleepers for rounds 10 to 14</h3>
+      <ul>
+        <li>Day'Ron Sharpe and Khaman Maluach. Starting center jobs nobody is drafting.</li>
+        <li>Keon Ellis. Elite steals per minute, now with real minutes in Brooklyn.</li>
+        <li>Collin Murray Boyles. Minutes and usage going up in Toronto, one of Josh's late targets.</li>
+        <li>Yaxel Lendeborg. Summer League MVP, minutes open with Butler and Moody out. Josh likes pairing him with Gui Santos off waivers, one of them wins the job.</li>
+        <li>Cedric Coward and Ryan Rollins. Big usage on rebuilding teams.</li>
+        <li>Cason Wallace and Reed Sheppard. Cheap steals for Plan B. Sheppard has a wide range with VanVleet back.</li>
+        <li>Pick Sleepers only in the Board view menu to see them all.</li>
+      </ul>
+    </div>
+
+    <div class="panel span">
+      <h3>How to run the mock, then the real draft</h3>
+      <ul>
+        <li>Set your draft slot and a starting plan. Balanced is fine for the first two picks.</li>
+        <li>Every pick anyone makes, tap Taken on that player. When you pick, tap Mine. The clock and your next picks update themselves.</li>
+        <li>On your turn read the three cards on the left and the one line call under them.</li>
+        <li>After the mock, tap Reset draft and it is clean for the real one. Your picks save in this browser, so a refresh keeps them.</li>
+        <li>Stuck on a pick, paste the board situation to me in chat and I will make the call.</li>
+      </ul>
+      <p class="small">Category grades are my estimates built from last season's per game numbers, current rankings from RotoWire and FantasyGoats, Yahoo and ESPN ADP, and Josh Lloyd's Locked On Fantasy Basketball rankings from September. Treat them as a guide, not gospel.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+const CATS = ['FG%','FT%','3PM','PTS','REB','AST','STL','BLK','TO'];
+const TEAMS = 10, ROUNDS = 14;
+const BUILDS = {
+  balanced: { name: 'Balanced, aim for 6', w: [0.95,0.95,1,1.1,1.1,1.1,0.95,0.95,0.6] },
+  puntft:   { name: 'Plan A, Punt FT% bigs', w: [1.3,0,0.7,1,1.3,0.8,1.1,1.3,0.4] },
+  guards:   { name: 'Plan B, Punt FG% and TO guards', w: [0,1.3,1.3,1.1,0.6,1.3,1.2,0.5,0] },
+  puntast:  { name: 'Plan C, Punt AST', w: [1,1,1.2,1,1.2,0,1,1.2,1] },
+  puntpts:  { name: 'Punt PTS, stocks and percentages', w: [1.2,1.1,0.8,0,1.1,1.1,1.2,1.2,0.8] },
+  puntto:   { name: 'Punt TO', w: [1,1,1,1.1,1,1.2,1,1,0] },
+  puntftto: { name: 'Punt FT% and TO', w: [1.3,0,0.8,1.2,1.3,1,1,1.3,0] },
+  puntfg:   { name: 'Punt FG%', w: [0,1.2,1.2,1.1,0.8,1.1,1.1,0.8,0.8] }
+};
+Object.values(BUILDS).forEach(b=>{ b.t=b.w.map((w,c)=>w>=1?c:-1).filter(c=>c>=0); b.wsum=b.w.reduce((a,x)=>a+x,0); });
+BUILDS.balanced.t=[0,1,2,3,4,5,6,7,8];
+const PLAN_KEYS = Object.keys(BUILDS);
+// grades order FG FT 3PM PTS REB AST STL BLK TO (TO positive means few turnovers). risk 0 low 1 medium 2 high
+const RAW = [
+["Nikola Jokic","DEN","C",1,1.5,[3,1,1,3,3,3,2,0,-2],0,"Best player in 9 cat, elite FG% on huge volume"],
+["Victor Wembanyama","SAS","PF,C",2,2.0,[1,1,1,2,3,0,1,3,-1],1,"Blocks and threes from one slot, games are the only question"],
+["Shai Gilgeous Alexander","OKC","PG,SG",3,3.0,[2,3,1,3,0,2,2,1,0],0,"Elite percentages for a guard"],
+["Luka Doncic","LAL","PG,SG",4,3.5,[0,1,3,3,2,3,2,0,-3],1,"Plan B dream anchor, heavy turnovers"],
+["Cade Cunningham","DET","PG",5,6.0,[0,1,1,2,1,3,1,0,-3],0,"Assist engine, turnovers high"],
+["Jayson Tatum","BOS","SF,PF",6,8.0,[-1,1,2,2,2,1,1,0,-1],1,"Back from Achilles, small sample last spring"],
+["Anthony Edwards","MIN","SG,SF",7,9.5,[0,0,3,3,1,1,1,0,-1],0,"Threes and points, very durable"],
+["Giannis Antetokounmpo","MIA","PF,C",8,7.0,[3,-3,-1,3,3,2,0,1,-2],2,"Perfect Plan A anchor, only 36 games last year"],
+["Jalen Johnson","ATL","SF,PF",9,23.0,[1,0,0,2,3,2,1,0,-2],0,"Stat stuffer, often lasts past his rank"],
+["Tyrese Maxey","PHI","PG,SG",10,10.0,[-1,2,2,3,-1,1,2,0,0],0,"Plan B anchor, steals and threes"],
+["Cooper Flagg","DAL","SF,PF",11,14.5,[0,0,0,2,1,1,1,1,-1],0,"Well rounded second year jump candidate"],
+["Tyrese Haliburton","IND","PG",12,44.5,[0,1,2,1,-1,3,1,0,1],1,"Cleared for camp, ADP far below his value"],
+["Scottie Barnes","TOR","SF,PF",13,17.5,[1,0,-1,1,2,2,2,2,-1],0,"Rare guard stats plus blocks, great Plan A fit"],
+["Donovan Mitchell","CLE","SG",14,20.0,[0,2,2,3,-1,1,1,-1,0],0,"Points, threes, FT%"],
+["Karl Anthony Towns","NYK","C",15,11.0,[1,2,1,2,3,0,0,-1,-1],0,"Big who helps FT% and 3PM, Plan C anchor"],
+["Kevin Durant","HOU","SF,PF",16,18.0,[2,2,1,2,0,0,-1,0,-1],1,"Elite percentages, age risk"],
+["Stephen Curry","GSW","PG",17,20.5,[0,3,3,2,-1,0,0,-1,0],2,"Threes and FT%, rest days likely"],
+["Jamal Murray","DEN","PG",18,24.5,[0,2,2,2,-1,2,0,-1,0],1,"Plan B guard with good FT%"],
+["Alperen Sengun","HOU","C",19,22.5,[1,-2,-1,2,2,2,1,1,-2],0,"Plan A anchor, center who passes"],
+["Amen Thompson","HOU","SG,SF",20,21.5,[2,-1,-2,1,2,1,2,1,-1],0,"FG%, steals, boards from a guard slot"],
+["Trae Young","WAS","PG",21,23.0,[-2,2,2,2,-2,3,0,-2,-3],2,"Pure Plan B, quad knock in camp"],
+["Austin Reaves","LAL","SG",22,33.0,[1,2,1,2,-1,1,0,-1,-1],1,"Efficient scorer next to Luka"],
+["LaMelo Ball","MIN","PG",23,25.5,[-2,1,3,1,0,2,1,-1,-2],2,"Plan B threes and assists, ankles"],
+["Chet Holmgren","OKC","PF,C",24,28.0,[2,1,0,0,2,-1,0,3,0],1,"Blocks with good percentages"],
+["Josh Giddey","CHI","PG,SG",25,28.0,[0,0,0,0,2,3,0,-1,-2],0,"Triple double threat, weak defense cats"],
+["James Harden","CLE","PG",26,26.0,[-1,2,2,1,0,2,1,-1,-2],1,"Plan B assists and FT%"],
+["Devin Booker","PHX","SG",27,24.0,[0,2,0,2,-1,1,-1,-1,-1],0,"Scorer with FT%"],
+["Anthony Davis","WAS","PF,C",28,17.0,[1,0,-1,2,3,0,0,2,-1],2,"Huge per game, rarely healthy"],
+["Kawhi Leonard","TOR","SF",29,29.5,[1,2,1,2,0,0,2,0,0],2,"Great per game, load managed"],
+["Trey Murphy III","NOP","SF,PF",30,49.0,[0,1,2,1,0,0,1,-1,0],0,"Riser, threes and steals, ADP value"],
+["Evan Mobley","CLE","PF,C",31,31.5,[2,-1,-1,0,2,0,0,2,0],0,"Plan A big, FG% and blocks"],
+["Jalen Brunson","NYK","PG",32,20.0,[0,2,1,3,-2,1,-1,-2,0],0,"Points and FT%, thin elsewhere"],
+["Domantas Sabonis","SAC","C",33,25.5,[2,0,-1,1,3,2,0,-2,-2],2,"Boards and assists, health"],
+["Derrick White","BOS","PG,SG",34,47.0,[-1,1,2,1,0,1,1,2,1],0,"Guard who blocks shots, low turnovers"],
+["Lauri Markkanen","UTA","PF",35,57.5,[0,2,2,2,1,-1,-1,-1,0],2,"Plan C scorer, games risk"],
+["Bam Adebayo","MIA","C",36,30.0,[-1,0,0,1,2,1,1,0,0],0,"Boards, FG% dipped with his new jumper"],
+["Jalen Williams","OKC","SF",37,36.5,[1,0,-1,1,0,1,1,0,-1],1,"Solid everywhere, only 33 games last year"],
+["Walker Kessler","LAL","C",38,45.5,[2,-1,-2,-1,2,-1,-1,3,1],1,"Elite blocks, Plan A target"],
+["Deni Avdija","POR","SF,PF",39,43.5,[0,0,1,2,1,2,0,0,-2],0,"Big usage, turnovers"],
+["Kyrie Irving","DAL","PG",40,65.5,[0,3,2,1,-1,1,0,-1,0],2,"Knee still day to day, FT% king"],
+["Jaren Jackson Jr.","UTA","PF,C",41,56.0,[0,1,1,1,0,-1,1,3,0],1,"Blocks plus threes, knee knock in camp"],
+["Jalen Duren","DET","C",42,42.0,[3,-1,-2,1,3,-1,0,1,-1],0,"Plan A, 65 percent FG and boards"],
+["Brandon Miller","CHA","SF",43,72.0,[-1,0,2,1,0,0,0,0,-1],1,"Threes, inefficient"],
+["Jaylen Brown","PHI","SG,SF",44,23.5,[0,0,0,3,1,1,0,-1,-3],0,"Points, turnover heavy, ADP too high"],
+["Kon Knueppel","CHA","SG,SF",45,56.5,[0,2,3,1,0,-1,-1,-1,0],0,"Threes and FT%, hamstring day to day"],
+["Onyeka Okongwu","ATL","C",46,67.5,[0,0,1,0,1,0,1,1,0],0,"Big who hits threes, safe"],
+["Desmond Bane","ORL","SG",47,48.0,[1,2,1,1,0,0,0,-1,0],0,"Efficient wing, 90 percent FT"],
+["Paolo Banchero","ORL","PF",48,36.0,[-1,-1,0,2,2,1,0,0,-2],0,"Volume without efficiency"],
+["Donovan Clingan","POR","C",49,69.0,[0,-1,0,-1,3,-1,0,2,1],0,"Boards and blocks, Plan A"],
+["Nickeil Alexander Walker","ATL","SG,SF",50,81.0,[0,2,2,2,-1,0,1,0,0],0,"Big ADP value, 90 percent FT"],
+["Darius Garland","LAC","PG",51,65.5,[0,1,1,1,-2,1,0,-2,-1],1,"Plan B filler"],
+["Dejounte Murray","NOP","PG",52,97.5,[-1,0,1,1,1,2,2,-1,-1],2,"Achilles comeback, steals and assists"],
+["LeBron James","PHI","SF,PF",53,26.5,[1,-1,1,2,1,2,0,0,-2],2,"Age 41, drafted far too early"],
+["Pascal Siakam","IND","PF",54,35.0,[1,-1,0,2,1,0,1,0,0],0,"Steady, weak FT%"],
+["Keyonte George","UTA","PG",55,76.0,[-1,2,2,2,0,1,0,-1,-2],0,"Plan B value, 89 percent FT"],
+["Dyson Daniels","ATL","SG,SF",56,56.5,[1,-2,-2,0,1,1,3,0,-1],0,"Best steals source in the game, Plan A"],
+["OG Anunoby","NYK","SF,PF",57,59.5,[0,0,1,0,0,-1,2,0,1],1,"Steals and threes, low turnovers"],
+["Cameron Boozer","MEM","PF",58,89.5,[1,0,0,1,2,0,0,0,-1],1,"Rookie big, ready now"],
+["Kel'el Ware","MIL","C",59,101.0,[1,-1,0,0,2,-2,0,1,1],1,"Boards and blocks, late value"],
+["Matas Buzelis","CHI","SF,PF",60,87.0,[0,0,1,0,0,-1,0,2,0],1,"Blocks from a wing"],
+["Joel Embiid","PHI","C",61,47.0,[1,2,0,3,2,1,0,1,-2],2,"Elite when he plays, 33 games last year"],
+["Franz Wagner","ORL","SF,PF",62,48.0,[0,0,0,2,0,1,0,-1,-1],1,"Only 34 games last year"],
+["Stephon Castle","SAS","PG,SG",63,59.0,[-1,-1,-1,1,1,2,1,0,-2],0,"Assists, weak shooting"],
+["Tyler Herro","MIL","SG",64,63.5,[0,3,2,2,0,0,-1,-2,0],2,"Foot knock in camp, elite FT%"],
+["Michael Porter Jr.","BKN","SF,PF",65,61.0,[0,1,2,2,1,0,0,-1,0],1,"Threes and boards"],
+["Ivica Zubac","IND","C",66,52.5,[2,-1,-2,0,2,-1,-1,0,1],1,"FG% and boards"],
+["Julius Randle","BKN","PF",67,67.0,[-1,0,0,1,1,1,0,-1,-2],0,"Fade, empty volume"],
+["Ryan Rollins","MIL","PG",68,95.5,[0,0,1,1,0,1,2,0,0],1,"Steals and assists, ADP value"],
+["Zach Edey","MEM","C",69,97.0,[2,-1,-2,0,3,-2,-1,2,0],2,"Boards and blocks, ankle"],
+["De'Aaron Fox","SAS","PG",70,64.5,[0,-1,0,1,-1,1,1,-1,-1],1,"Role shrank in San Antonio"],
+["Damian Lillard","POR","PG",71,70.0,[-1,3,2,2,-1,2,0,-2,-1],2,"Back from Achilles, big FT%"],
+["Rudy Gobert","MIN","C",72,75.0,[3,-2,-2,-1,3,-1,0,2,1],0,"Plan A gold, 68 percent FG"],
+["Alex Sarr","WAS","C",73,70.5,[-1,-1,0,0,1,0,0,3,0],1,"Two blocks a game, foot knock"],
+["Naz Reid","CHA","PF,C",74,76.5,[-1,-1,1,0,1,0,0,1,0],0,"Big with threes"],
+["Mikal Bridges","NYK","SF",75,69.5,[1,0,1,0,-1,0,0,0,1],0,"Never misses games, low turnovers"],
+["Paul George","BOS","SF",76,86.5,[-1,1,1,0,0,0,2,0,0],2,"Steals and threes, health"],
+["Brandon Ingram","LAC","SF",77,72.5,[0,1,0,1,0,0,-1,0,-1],2,"Out until at least Nov 1 after surgery"],
+["Jaden McDaniels","MIN","SF,PF",78,83.0,[1,0,0,-1,0,-1,1,1,0],0,"Stocks and FG%"],
+["Payton Pritchard","BOS","PG",79,85.0,[0,1,2,0,-1,1,0,-1,1],0,"Threes with few turnovers"],
+["Ausar Thompson","DET","SF",80,99.0,[1,-2,-2,-1,1,0,3,1,0],0,"Two steals a game, Plan A late target"],
+["Ja Morant","POR","PG",81,69.0,[-1,0,-1,1,-1,2,0,-1,-2],2,"Only 20 games last year"],
+["Immanuel Quickley","TOR","PG",82,114.0,[-1,1,1,0,-1,1,0,-1,1],1,"Cheap Plan B guard"],
+["Jarrett Allen","CLE","C",83,69.0,[3,-1,-2,0,2,-1,0,1,1],1,"Plan A, 64 percent FG"],
+["Zion Williamson","NOP","PF",84,55.0,[3,-1,-2,2,1,1,1,0,-2],2,"Big FG%, rarely a full season"],
+["VJ Edgecombe","PHI","SG",85,83.5,[-1,0,1,0,1,1,1,0,-1],0,"Steals and boards from a guard"],
+["Coby White","CHA","PG,SG",86,73.5,[-1,1,1,1,-1,0,-1,-2,0],1,"Points and threes only"],
+["Myles Turner","MIL","C",87,85.0,[-1,1,1,0,-1,-1,0,2,1],0,"Blocks and threes, Plan B or C big"],
+["Dylan Harper","SAS","PG,SG",88,89.0,[0,0,0,0,0,1,0,-1,-1],1,"Second year guard, role growing"],
+["Ty Jerome","MEM","PG,SG",89,120.0,[0,1,1,0,-1,1,1,-1,0],2,"Only 15 games last year"],
+["Jalen Suggs","ORL","PG,SG",90,133.0,[-1,0,1,0,0,1,2,1,-1],2,"Stocks from a guard, late value"],
+["Derik Queen","NOP","C",91,115.5,[0,-1,-2,0,1,1,0,0,-1],1,"Passing big"],
+["Norman Powell","CHI","SG,SF",92,98.5,[1,1,1,1,-1,-1,0,-1,0],1,"Efficient scorer"],
+["Caleb Wilson","CHI","PF",93,105.5,[1,-1,-1,0,1,0,1,1,0],1,"Rookie, defense cats"],
+["Josh Hart","NYK","SG,SF",94,81.0,[1,0,0,-1,2,1,1,-1,0],0,"Boards from a guard slot"],
+["Isaiah Hartenstein","OKC","C",95,116.0,[2,-1,-2,-1,2,1,0,0,0],2,"Ankle knock in camp"],
+["Nic Claxton","CHI","C",96,107.5,[1,-2,-2,-1,1,0,0,1,1],0,"Plan A late big"],
+["Jabari Smith Jr.","HOU","PF",97,122.0,[-1,1,1,0,1,-2,-1,1,1],0,"Plan C late stretch big"],
+["AJ Dybantsa","WAS","SF",98,88.0,[0,0,0,1,0,0,0,0,-1],1,"Top rookie, fantasy value unproven"],
+["Day'Ron Sharpe","BKN","C",99,null,[2,-1,-2,-1,1,0,1,1,0],1,"Deep sleeper for Plan A"],
+["Miles Bridges","PHX","SF,PF",100,87.5,[-1,0,1,1,0,0,-1,0,-1],0,"Fade, scoring only"],
+["Ayo Dosunmu","MIN","SG",101,null,[1,2,0,0,-1,0,0,-1,0],0,"Efficient, low ceiling"],
+["Andrew Wiggins","MIA","SF",102,106.5,[0,0,1,0,0,-1,0,1,0],0,"Quiet threes and blocks"],
+["Collin Murray Boyles","TOR","PF",103,null,[1,-1,-2,-1,1,0,1,1,0],1,"Stocks sleeper"],
+["Fred VanVleet","HOU","PG",104,null,[-2,1,1,0,-1,1,1,0,1],1,"Plan B late guard"],
+["Keegan Murray","SAC","PF",105,null,[-1,0,1,0,1,-1,0,1,1],1,"Only 23 games last year"],
+["Cedric Coward","MEM","SG,SF",106,null,[0,1,0,0,1,0,0,0,0],1,"Role could grow"],
+["Kristaps Porzingis","GSW","C",107,108.0,[0,1,1,1,0,-1,-1,1,0],2,"Blocks and threes, rarely healthy"],
+["John Collins","DET","PF",108,null,[2,0,0,0,0,-1,0,0,1],0,"FG% helper"],
+["Neemias Queta","BOS","C",109,null,[3,-1,-2,-1,1,-1,0,1,1],0,"Plan A last round big"],
+["Kevin Porter Jr.","MIL","PG",110,120.0,[0,0,0,1,0,2,2,0,-2],2,"Steals and assists, knee"],
+["Khaman Maluach","PHX","C",111,null,[1,-1,-2,-1,1,-2,-1,2,1],1,"Starts while Mark Williams is out"],
+["Toumani Camara","POR","SF,PF",112,null,[-1,-1,1,-1,0,0,1,0,1],0,"Riser, threes and defense"],
+["Darryn Peterson","UTA","SG",113,113.0,[0,0,1,1,0,0,0,-1,-1],1,"Rookie scorer"],
+["Ajay Mitchell","OKC","PG",114,null,[0,2,0,0,-1,0,1,-1,0],1,"Calf knock"],
+["Cason Wallace","OKC","PG",115,null,[0,0,0,-2,-1,0,3,0,0],0,"Two steals a game, Plan B late"],
+["Zach LaVine","SAC","SG",116,123.5,[0,2,1,1,-1,-1,-1,-2,0],2,"Missed 108 games in 3 years"],
+["Peyton Watson","CLE","SF",117,null,[1,0,0,0,0,-1,1,1,1],1,"Stocks wing, hamstring"],
+["CJ McCollum","ATL","SG",118,112.0,[-1,1,1,1,-1,0,0,-1,0],1,"Bench scorer"],
+["Brandin Podziemski","GSW","SG",119,null,[0,0,0,-1,1,0,1,-1,0],0,"Plays every game"],
+["Jalen Green","PHX","SG",120,93.5,[-2,0,1,1,-1,-1,0,-1,-1],1,"Faller, inefficient"],
+["Nikola Vucevic","ORL","C",121,90.5,[1,1,1,0,2,0,-1,0,1],0,"Plan C big, FT% and threes"],
+["Draymond Green","GSW","PF,C",122,125.5,[-1,-1,0,-2,1,2,2,1,-1],0,"Late stat stuffer, no scoring"],
+["Jakob Poeltl","TOR","C",123,126.5,[2,-2,-2,-1,2,0,0,1,1],1,"Plan A late big"],
+["Reed Sheppard","HOU","PG",124,125.5,[0,0,2,0,-1,0,2,1,1],1,"Threes and steals, low turnovers"],
+["Daniel Gafford","DAL","C",125,119.5,[3,-1,-2,-1,1,-2,-1,2,1],1,"Starts while Lively is hurt"],
+["Andrew Nembhard","IND","PG",126,null,[0,1,0,-1,-1,2,0,-1,-1],1,"Assists"],
+["Davion Mitchell","MIA","PG",127,null,[1,-2,0,-1,-1,2,1,-1,1],0,"Assists with low turnovers"],
+["Grayson Allen","CHA","SG",128,null,[-1,1,2,0,-1,0,1,-1,1],1,"Threes and steals"],
+["Jay Huff","IND","C",129,null,[1,0,1,-1,0,-2,0,2,1],0,"Blocks and threes, plays every game"],
+["T.J. McConnell","IND","PG",130,100.5,[2,0,-2,-1,-1,2,2,-1,0],1,"Steals and assists"],
+["P.J. Washington","DAL","PF",131,null,[-1,-1,1,0,1,-1,1,1,0],0,"Defense cats, weak FT%"],
+["Julian Champagnie","SAS","SF",132,null,[-1,0,1,-1,1,-1,0,0,1],0,"Plan C late wing"],
+["Tre Jones","CHI","PG",133,null,[1,1,-1,-1,-1,1,1,-1,1],0,"Safe low turnover guard"],
+["Kyshawn George","WAS","SF",134,null,[-1,0,1,-1,0,1,1,0,-1],1,"Balanced young wing"],
+["Anthony Black","ORL","PG,SG",135,null,[0,-1,0,0,0,0,1,0,0],1,"Steals"],
+["Bilal Coulibaly","WAS","SF",136,null,[-1,0,0,-1,0,0,1,1,0],1,"Stocks wing"],
+["Bennedict Mathurin","NOP","SG",137,null,[0,2,0,1,0,-1,-1,-1,-1],1,"Scorer with FT%"],
+["Jaime Jaquez Jr.","MIL","SF",138,null,[1,0,-1,0,0,1,0,-1,0],1,"Efficient role player"],
+["DeMar DeRozan","DEN","SF",139,103.0,[0,2,-2,1,-1,0,0,-2,1],0,"FT% and low turnovers"],
+["Aaron Gordon","DEN","PF",140,125.5,[1,0,0,0,0,0,0,-1,1],2,"Only 36 games last year"],
+["Saddiq Bey","NOP","SF",141,null,[-1,1,1,1,0,-1,0,-1,-1],1,"Scorer"],
+["Jerami Grant","MEM","PF",142,null,[-1,1,1,1,-1,-1,0,0,0],1,"Scorer"],
+["RJ Barrett","TOR","SF",143,112.0,[1,-1,0,1,0,-1,-1,-2,-1],1,"Fade"],
+["Jimmy Butler III","GSW","SF",144,121.5,[2,2,-1,0,0,0,1,-1,0],2,"Out until at least Dec 1"],
+["Christian Braun","DEN","SG,SF",145,126.0,[1,0,0,0,0,0,0,-1,0],1,"Efficient role player"],
+["Jusuf Nurkic","UTA","C",146,null,[1,-3,-1,-1,2,1,0,0,-1],2,"Plan A only, FT% disaster"],
+["Devin Vassell","SAS","SG",147,null,[0,0,1,0,-1,-1,0,-1,1],1,"Threes, low turnovers"],
+["Jrue Holiday","POR","PG",148,null,[0,1,1,-1,0,1,1,0,0],1,"Crowded backcourt"],
+["Tari Eason","HOU","PF",149,null,[-1,-1,0,-1,0,-1,1,1,0],1,"Stocks off the bench"],
+["Kelly Oubre Jr.","IND","SF",150,null,[0,-1,0,0,0,-1,1,0,0],1,"Steals and boards"],
+// late round sleepers and new arrivals
+["Keon Ellis","BKN","SG",151,null,[1,1,1,-1,-1,-1,3,1,1],1,"Signed with Brooklyn, elite steals per minute, now gets real minutes"],
+["Yaxel Lendeborg","GSW","SF,PF",152,116.1,[0,0,1,0,1,0,1,1,0],1,"Rookie, Summer League MVP, minutes open with Butler and Moody out"],
+["Darius Acuff Jr.","SAC","PG",153,110.1,[-1,1,1,1,-1,1,0,-2,-1],1,"Rookie, likely starting PG after Westbrook retired"],
+["Santi Aldama","DAL","PF,C",154,null,[0,0,1,0,1,1,1,1,1],1,"Traded to Dallas, starts while Lively is hurt, fills every cat a little"],
+["Isaiah Stewart","MEM","PF,C",155,null,[0,0,0,-1,1,-1,0,2,1],0,"Traded to Memphis, cheap blocks"],
+["Mitchell Robinson","BOS","C",156,null,[3,-2,-2,-2,2,-2,1,1,1],2,"Signed with Boston, 73 percent FG, Plan A last pick"],
+["Deandre Ayton","WAS","C",157,null,[2,-1,-2,0,2,-1,-1,1,0],1,"Traded to Washington, boards and FG%"],
+["Jonathan Kuminga","MIN","SF,PF",158,null,[0,-1,0,1,1,0,0,0,-1],1,"Signed with Minnesota after Randle left"],
+["Luguentz Dort","ATL","SG,SF",159,null,[-1,0,1,-1,0,-1,1,0,1],0,"Traded to Atlanta, threes and steals"],
+["Egor Demin","BKN","PG,SG",160,null,[-1,0,1,0,0,2,0,0,-1],1,"Second year guard, runs the Brooklyn offense"],
+["Yves Missi","NOP","C",161,null,[1,-2,-2,-1,2,-1,0,2,1],1,"Boards and blocks if he wins the center job"],
+["Hannes Steinbach","CHA","C",162,null,[1,0,-1,0,2,-1,0,0,0],1,"Rookie big, could pass Diabate for minutes"],
+["Kasparas Jakucionis","MIL","PG",163,null,[-1,1,1,0,0,1,0,-1,-1],1,"Traded to rebuilding Milwaukee, room to play"],
+["Bobby Portis","MIA","PF,C",164,null,[0,1,1,0,1,-1,0,-1,1],0,"Traded to Miami, bench scoring and boards"],
+["Anfernee Simons","PHI","PG,SG",165,120.5,[-1,1,2,1,-1,1,0,-2,-1],1,"Signed with Philly, bench scoring"],
+["Klay Thompson","MIA","SG,SF",166,128.5,[-1,1,2,0,-1,-1,0,-1,1],1,"Signed with Miami, threes only"],
+["Jared McCain","OKC","PG,SG",167,129.0,[0,1,1,0,-1,0,0,-1,0],1,"Shooter off the Thunder bench"],
+["Alex Caruso","OKC","SG",168,133.0,[0,0,0,-2,-1,0,2,1,1],1,"Steals and blocks, low minutes"],
+["Dereck Lively II","DAL","C",169,null,[2,-1,-2,-1,2,0,0,2,1],2,"Foot, stash if he slides"],
+["Bradley Beal","LAC","SG",170,null,[0,1,1,1,-1,0,0,-1,0],2,"Knee day to day"],
+["Rui Hachimura","LAC","SF,PF",171,null,[1,0,0,0,0,-2,-1,-1,1],1,"Signed with the Clippers, starts while Ingram is out"],
+["Max Strus","LAC","SF,PF",172,null,[-1,0,1,-1,0,0,0,-1,1],1,"Traded to the Clippers"],
+["Tobias Harris","SAS","PF",173,null,[0,1,0,0,0,-1,0,0,1],1,"Signed with San Antonio"],
+["Mike Conley","BOS","PG",174,null,[-1,1,1,-2,-2,0,0,-1,1],1,"Signed with Boston, low turnovers"],
+["Marcus Smart","HOU","PG,SG",175,null,[-1,0,0,-1,-1,0,1,0,0],2,"Signed with Houston"],
+["Cameron Johnson","DEN","SF,PF",176,null,[0,1,1,0,-1,-1,0,-1,1],1,"Efficient shooter"],
+["Scoot Henderson","POR","PG",177,null,[-1,0,0,0,-1,1,0,-1,-2],1,"Crowded Portland backcourt"],
+["Dillon Brooks","PHX","SF",178,null,[-1,0,1,0,-1,-1,0,-1,0],1,"Threes, little else"],
+["Keldon Johnson","SAS","SF,PF",179,null,[0,0,0,0,0,-1,0,-1,1],0,"Bench scorer"],
+["Moussa Diabate","CHA","C",180,null,[1,-2,-2,-2,1,-1,0,1,1],1,"Plan A deep center"],
+["Jonathan Isaac","ORL","PF",181,null,[0,0,0,-2,0,-1,1,2,1],2,"Stocks when healthy"],
+["Goga Bitadze","ORL","C",182,null,[1,-1,-2,-2,1,0,0,2,1],1,"Blocks per minute"],
+["Aaron Nesmith","IND","SF",183,null,[0,1,1,0,-1,-1,0,0,1],1,"3 and D wing"],
+["Jalen Smith","CHI","PF,C",184,null,[1,-1,0,-1,1,-1,0,1,1],1,"Backup big"],
+["Gradey Dick","LAC","SG,SF",185,null,[-1,0,1,0,-1,-1,0,-2,1],1,"Traded to the Clippers"]
+];
+// Yahoo style eligibility (Yahoo can change these, check in the draft room)
+const POSFIX = {"Cooper Flagg":"SG,SF,PF","Cade Cunningham":"PG,SG","Tyrese Haliburton":"PG,SG","Donovan Mitchell":"PG,SG","Karl Anthony Towns":"PF,C","Stephen Curry":"PG,SG","Jamal Murray":"PG,SG","Amen Thompson":"PG,SG,SF","Austin Reaves":"PG,SG","LaMelo Ball":"PG,SG","Devin Booker":"PG,SG","Kawhi Leonard":"SF,PF","Jalen Brunson":"PG,SG","Domantas Sabonis":"PF,C","Lauri Markkanen":"SF,PF","Bam Adebayo":"PF,C","Jalen Williams":"SG,SF","Kyrie Irving":"PG,SG","Brandon Miller":"SF,PF","Onyeka Okongwu":"PF,C","Desmond Bane":"SG,SF","Dejounte Murray":"PG,SG","Keyonte George":"PG,SG","Dyson Daniels":"PG,SG,SF","Kel'el Ware":"PF,C","Julius Randle":"PF,C","Ryan Rollins":"PG,SG","Alex Sarr":"PF,C","Mikal Bridges":"SF,PF","Paul George":"SF,PF","Brandon Ingram":"SF,PF","Payton Pritchard":"PG,SG","Ausar Thompson":"SG,SF","Immanuel Quickley":"PG,SG","Myles Turner":"C","Derik Queen":"PF,C","Josh Hart":"SG,SF,PF","AJ Dybantsa":"SF,PF","Ayo Dosunmu":"PG,SG","Keegan Murray":"SF,PF","John Collins":"PF,C","Kevin Porter Jr.":"PG,SG","Darryn Peterson":"PG,SG","Ajay Mitchell":"PG,SG","Cason Wallace":"PG,SG","Zach LaVine":"SG,SF","Peyton Watson":"SF,PF","CJ McCollum":"PG,SG","Brandin Podziemski":"SG,SF","Reed Sheppard":"PG,SG","Andrew Nembhard":"PG,SG","Davion Mitchell":"PG,SG","Grayson Allen":"SG,SF","Julian Champagnie":"SF,PF","Kyshawn George":"SG,SF","Bilal Coulibaly":"SG,SF","Bennedict Mathurin":"SG,SF","Jaime Jaquez Jr.":"SF,PF","DeMar DeRozan":"SF,PF","Saddiq Bey":"SF,PF","Jimmy Butler III":"SF,PF","Devin Vassell":"SG,SF","Jrue Holiday":"PG,SG"};
+// stat and ADP updates from late September reporting
+const FIX = {
+  "Shai Gilgeous Alexander":{rank:2}, "Victor Wembanyama":{rank:3},
+  "AJ Dybantsa":{adp:77.9,g:[0,0,-1,1,1,0,1,1,-1],note:"Top rookie, focal point in Washington, weak jumper in Summer League"},
+  "Cameron Boozer":{adp:57.8,g:[1,0,1,1,2,1,1,-1,-1],note:"Rookie, high usage on a rebuilding team, few blocks"},
+  "Caleb Wilson":{adp:79.6,g:[1,-2,0,0,1,0,1,1,0],note:"Rookie starter next to Claxton, stocks and boards, shaky FT%"},
+  "Darryn Peterson":{adp:99.3,note:"Rookie in a crowded Utah backcourt, may start slow"},
+  "Coby White":{g:[-1,1,1,1,-1,1,-1,-2,0],note:"Runs Charlotte after LaMelo and Bridges left"},
+  "Cedric Coward":{g:[0,1,0,1,1,1,0,0,0],note:"All Rookie team, big usage now in Memphis"},
+  "Anthony Black":{g:[0,-1,1,1,0,0,1,0,0],note:"Breakout pick, 17.6 points a game from Nov to Feb last year"},
+  "Kel'el Ware":{note:"Traded to Milwaukee, should finally get starter minutes"},
+  "Day'Ron Sharpe":{g:[2,-1,-2,-1,2,1,1,1,0],note:"Takes over at center after Claxton was traded"},
+  "Nic Claxton":{note:"Traded to Chicago, starts next to Giddey"},
+  "Walker Kessler":{note:"Traded to the Lakers, easy looks next to Luka and Reaves"}
+};
+// Josh Lloyd, Locked On Fantasy Basketball, Sept 2026. Exact spots come from his 9 cat top 25, est spots from his round by round comments.
+const JOSH = {"Nikola Jokic": [1, "Number 1 in his 9 cat top 25"], "Victor Wembanyama": [2, "Number 2 in his 9 cat top 25"], "Luka Doncic": [3, "Number 3 in his 9 cat top 25"], "Shai Gilgeous Alexander": [4, "Number 4 in his 9 cat top 25"], "Giannis Antetokounmpo": [5, "Top 5 in cats, and Miami has the fewest back to backs with none in your playoffs"], "Jayson Tatum": [6, "Top 6 in cats, expects him to play back to backs"], "Anthony Edwards": [7, "Top 7 in cats"], "Cade Cunningham": [8, "Top 8 in cats"], "Kevin Durant": [9, "Top 9 in cats, should go at the first round turn"], "Cooper Flagg": [10, "Top 10 in cats, expects a real second year jump even with Kyrie back"], "Tyrese Maxey": [11, "Only 11th, usage drops with Embiid, LeBron and Brown around him. Not at pick 6"], "Austin Reaves": [12, "12th, has top 12 upside next to Luka"], "Amen Thompson": [13, "13th, a top 20 cats player"], "Jamal Murray": [14, "14th in cats"], "Donovan Mitchell": [15, "15th, not a first rounder. Assists dropped once Harden arrived"], "Jalen Johnson": [16, "16th, not a first rounder. Defensive stats and efficiency slipped"], "Scottie Barnes": [17, "17th, skeptical he climbs higher with Kawhi gone and a full roster"], "LaMelo Ball": [18, "18th, Minnesota has a 2 game week in the middle of your playoffs"], "Karl Anthony Towns": [19, "19th, may take a small step back"], "Tyrese Haliburton": [20, "20th, expect a slow start and minutes care early"], "Stephen Curry": [21, "21st, knee concerns cost him 6 to 10 spots"], "Josh Giddey": [22, "22nd, a value at his ADP"], "Alperen Sengun": [23, "23rd in cats"], "Anthony Davis": [24, "24th, lower body injuries cost him spots"], "Lauri Markkanen": [25, "25th, tank fears are overblown, top 20 last season"], "Trey Murphy III": [24, "Likes him, but too high as a first round pick", 1], "Trae Young": [28, "Not worried about injuries, but would not take him in round 2", 1], "James Harden": [28, "Rank 25 is a bit high and ADP 19 is way too high. Showed his age", 1], "Jaylen Brown": [32, "ADP 20 is insane to him, shots shrink in Philadelphia", 1], "Chet Holmgren": [35, "Going around 25 is too high, a wasted pick there", 1], "Evan Mobley": [38, "More down on him than he expected, around pick 30 is too early", 1], "Jalen Brunson": [40, "Better pushed to around 40 in cats", 1], "Devin Booker": [40, "Projects him around round 4, Jalen Green and Bridges take touches", 1], "Kawhi Leonard": [42, "Never inside the top 40 in head to head, he will miss time", 1], "Kyrie Irving": [45, "Would not draft him inside the top 40, off an ACL and may sit back to backs", 1], "Joel Embiid": [55, "Not inside the top 50, Philadelphia has 3 playoff back to backs", 1], "Paolo Banchero": [45, "Fine in the 40s or 50s, ADP 38 is a bit high", 1], "Domantas Sabonis": [30, "Bounce back pick, rounds 3 to 4 in cats", 1], "Jalen Williams": [30, "Does not get why people faded him, rounds 3 to 4", 1], "Dejounte Murray": [38, "Undervalued everywhere, round 4 value", 1], "Dyson Daniels": [42, "Round 4 to 5, steals and threes should bounce back", 1], "Paul George": [40, "Top 40 per game, a value in round 6 or 7", 1], "Matas Buzelis": [45, "Top 50 guy, usage and minutes going up", 1], "Cameron Boozer": [50, "Rookie he likes around the top 50", 1], "Coby White": [60, "Starter now with more minutes", 1], "Brandon Ingram": [60, "Usage goes up with the Clippers", 1], "Isaiah Hartenstein": [70, "Drafted too late, best case top 40", 1], "Kel'el Ware": [65, "Finally a starter in Milwaukee", 1], "Jaden McDaniels": [74, "He took him at 74 in a mock", 1], "Caleb Wilson": [75, "Rookie with a starting job in Chicago", 1], "Cedric Coward": [85, "Breakout candidate in Memphis", 1], "Collin Murray Boyles": [100, "Minutes and usage up in Toronto, a late target", 1], "Walker Kessler": [60, "Fade. His threes and steals came from a short sample", 1], "Donovan Clingan": [60, "Fade at his price", 1], "Kon Knueppel": [62, "Fade at ADP 37, he sees him closer to 60 or 70", 1], "Stephon Castle": [70, "Fade, more like 70", 1], "Rudy Gobert": [70, "Fade, more like 70", 1], "AJ Dybantsa": [80, "Fade at 76, rookie with a weak jumper", 1], "Nic Claxton": [85, "Fade around 80", 1], "Alex Sarr": [85, "Fade, Davis, Trae and Dybantsa take his touches", 1], "Darryn Peterson": [110, "Fade inside 100, crowded Utah backcourt", 1], "Payton Pritchard": [110, "Fade, Tatum and Paul George take the minutes Brown left", 1], "Myles Turner": [105, "Fade, may be washed", 1], "Miles Bridges": [115, "Fade, only useful when he was Charlotte's main option", 1], "Keyonte George": [55, "Thinks he falls back this year", 1]};
+// role and usage changes he flagged, +1 means clearly more usage
+const USAGE = {"Coby White": [1, "Usage and minutes up as Charlotte's starter"], "Jalen Green": [0.5, "Healthy again with a bigger role in Phoenix"], "Khaman Maluach": [1, "Minutes jump at center in Phoenix"], "Jonathan Kuminga": [1, "Starts in Minnesota"], "Brandon Ingram": [0.5, "Usage up with the Clippers"], "Collin Murray Boyles": [1, "Minutes and usage up in Toronto"], "Kon Knueppel": [0.5, "More usage in Charlotte"], "Julius Randle": [0.5, "Top option in Brooklyn"], "Matas Buzelis": [1, "Usage and minutes going up in Chicago"], "Kel'el Ware": [0.5, "Starter minutes in Milwaukee"], "Nikola Vucevic": [-1, "Moves to the bench in Orlando"], "Bennedict Mathurin": [-1, "Bench role in New Orleans"], "Kevin Porter Jr.": [-0.5, "Fewer touches in Milwaukee"], "Santi Aldama": [-1, "Role shrinks in Dallas"], "Michael Porter Jr.": [-0.5, "Usage loser in Brooklyn"], "Jaylen Brown": [-0.5, "Usage loser next to Maxey, Embiid and LeBron"], "Alex Sarr": [-0.5, "Usage loser behind Davis, Trae and Dybantsa"], "Jrue Holiday": [-0.5, "Usage loser in Portland"], "Ja Morant": [-0.5, "Usage loser in Portland"], "Tyrese Maxey": [-1, "Usage drops from 30 with Embiid, LeBron and Brown"], "Ayo Dosunmu": [-0.5, "Kuminga starting cuts his minutes"], "Jaden McDaniels": [-0.3, "Kuminga starting takes some shots"]};
+// never recommend before this overall pick
+const FLOOR = {"Kawhi Leonard": 40, "Kyrie Irving": 40, "Joel Embiid": 50};
+// your playoffs are weeks 19 to 21, Mar 8 to Mar 28
+const PLAYOFF = {MIN:['2 game wk','Only 2 games in the week of Mar 15, the middle of your playoffs'],CLE:['2 game wk','Only 2 games in the week of Mar 22, your finals week'],BOS:['3 B2B','3 back to backs during your playoffs'],POR:['3 B2B','3 back to backs during your playoffs'],TOR:['3 B2B','3 back to backs during your playoffs'],GSW:['3 B2B','3 back to backs during your playoffs'],PHI:['3 B2B','3 back to backs during your playoffs'],MIA:['No B2B','No back to backs during your playoffs']};
+const REST = new Set(["Joel Embiid","Kristaps Porzingis","Kawhi Leonard","Damian Lillard","Al Horford","Jimmy Butler"]);
+const UPSIDE = new Set(["Day'Ron Sharpe", "Reed Sheppard", "Yaxel Lendeborg", "Khaman Maluach", "Cedric Coward", "Collin Murray Boyles", "Caleb Wilson", "Jonathan Kuminga", "Keon Ellis", "Ryan Rollins", "Cason Wallace", "Anthony Black"]);
+function applyUsage(p, m){
+  const big = p.pos.includes('C');
+  const add=[0,0,0.3,0.35,big?0.3:0.12,big?0.1:0.3,0.08,big?0.2:0,-0.2];
+  p.z = p.z.map((v,c)=> c<2 ? v*(1+0.15*m) : v + m*add[c]);
+}
+const GEMS = new Set(["Keon Ellis","Yaxel Lendeborg","Darius Acuff Jr.","Isaiah Stewart","Mitchell Robinson","Luguentz Dort","Egor Demin","Yves Missi","Hannes Steinbach","Kasparas Jakucionis","Day'Ron Sharpe","Khaman Maluach","Cedric Coward","Ryan Rollins","Collin Murray Boyles","Caleb Wilson","Reed Sheppard","Cason Wallace","Daniel Gafford","Kel'el Ware","Anthony Black","Toumani Camara","Jay Huff","Queta","Neemias Queta","Coby White","Dylan Harper","Peyton Watson","Keyonte George","Nickeil Alexander Walker","Trey Murphy III","Tyrese Haliburton"]);
+// Real per game stats from Basketball Reference, 2025 26 (2024 25 for players who missed last season, blended when last season was under 30 games). Grades are volume weighted z scores against the top 140 players.
+const STATS = {"Nikola Jokic":{"g":[3,1,0,3,3,3,2,0,-3],"G":65,"src":"2025 26","line":"2025 26, 65 games, 34.8 min. 27.7 pts, 12.9 reb, 10.7 ast, 1.4 stl, 0.8 blk, 1.7 3PM, 56.9 FG%, 82.4 FT%, 3.7 TO","risk":0,"inj":"","z":[2.22,0.56,0.02,1.83,3.06,3.43,0.95,0.21,-2.31],"av":0.87,"eg":71,"trk":1,"g3":[65,70,79]},"Victor Wembanyama":{"g":[1,1,0,2,3,-1,0,3,-1],"G":64,"src":"2025 26","line":"2025 26, 64 games, 29.2 min. 25 pts, 11.5 reb, 3.1 ast, 1 stl, 3.1 blk, 1.9 3PM, 50.9 FG%, 82.9 FT%, 2.4 TO","risk":0,"inj":"","z":[0.56,0.62,0.22,1.37,2.44,-0.34,-0.18,4.95,-0.65],"av":0.75,"eg":62,"trk":3,"g3":[64,46,71]},"Shai Gilgeous Alexander":{"g":[3,3,0,3,-1,2,2,0,-1],"G":68,"src":"2025 26","line":"2025 26, 68 games, 33.2 min. 31.1 pts, 4.3 reb, 6.6 ast, 1.4 stl, 0.8 blk, 1.7 3PM, 55.7 FG%, 87.8 FT%, 2.2 TO","risk":0,"inj":"","z":[2.1,2.12,0.02,2.4,-0.73,1.4,0.95,0.21,-0.4],"av":0.9,"eg":74,"trk":2,"g3":[68,76,75]},"Luka Doncic":{"g":[-1,-1,3,3,2,3,3,-1,-3],"G":64,"src":"2025 26","line":"2025 26, 64 games, 35.8 min. 33.5 pts, 7.7 reb, 8.3 ast, 1.6 stl, 0.5 blk, 4 3PM, 47.4 FG%, 78.2 FT%, 4 TO","risk":0,"inj":"","z":[-0.5,-0.52,2.32,2.81,0.77,2.24,1.51,-0.41,-2.69],"av":0.76,"eg":63,"trk":9,"g3":[64,50,70]},"Cade Cunningham":{"g":[-1,0,1,2,0,3,2,0,-3],"G":64,"src":"2025 26","line":"2025 26, 64 games, 33.9 min. 23.9 pts, 5.5 reb, 9.9 ast, 1.4 stl, 0.8 blk, 2 3PM, 46.2 FG%, 80 FT%, 3.7 TO","risk":0,"inj":"","z":[-0.74,0.01,0.32,1.19,-0.2,3.03,0.95,0.21,-2.31],"av":0.82,"eg":67,"trk":22,"g3":[64,70,62]},"Jayson Tatum":{"g":[-2,1,3,3,2,2,1,-1,-2],"G":16,"src":"blend","line":"2025 26 only 16 games, so blended with 2024 25 (72 games). 25.9 pts, 8.9 reb, 5.9 ast, 1.2 stl, 0.4 blk, 3.4 3PM, 44.7 FG%, 82.2 FT%, 2.8 TO","risk":2,"inj":"Clean bill of health for camp","z":[-1.28,0.41,1.71,1.52,1.31,1.04,0.25,-0.53,-1.17],"av":0.82,"eg":67,"trk":327,"g3":[16,72,74]},"Anthony Edwards":{"g":[0,0,3,3,-1,0,2,0,-2],"G":61,"src":"2025 26","line":"2025 26, 61 games, 35 min. 28.8 pts, 5 reb, 3.7 ast, 1.4 stl, 0.8 blk, 3.4 3PM, 49 FG%, 79.2 FT%, 2.9 TO","risk":0,"inj":"","z":[0.08,-0.17,1.72,2.01,-0.42,-0.04,0.95,0.21,-1.29],"av":0.88,"eg":72,"trk":28,"g3":[61,79,79]},"Giannis Antetokounmpo":{"g":[3,-3,-2,3,3,2,-1,0,-3],"G":36,"src":"2025 26","line":"2025 26, 36 games, 28.9 min. 27.6 pts, 9.8 reb, 5.4 ast, 0.9 stl, 0.7 blk, 0.4 3PM, 62.7 FG%, 64.6 FT%, 3.2 TO","risk":2,"inj":"","z":[3.62,-4.55,-1.29,1.81,1.69,0.8,-0.46,0.0,-1.67],"av":0.69,"eg":57,"trk":226,"g3":[36,67,73],"news":"Full go at Heat camp"},"Jalen Johnson":{"g":[0,0,0,2,3,3,1,-1,-3],"G":72,"src":"2025 26","line":"2025 26, 72 games, 35.2 min. 22.5 pts, 10.3 reb, 7.9 ast, 1.2 stl, 0.4 blk, 1.7 3PM, 48.5 FG%, 79.2 FT%, 3.4 TO","risk":0,"inj":"","z":[-0.06,-0.11,0.02,0.95,1.91,2.04,0.38,-0.62,-1.93],"av":0.72,"eg":59,"trk":14,"g3":[72,36,56]},"Tyrese Maxey":{"g":[-2,3,2,3,-2,2,3,0,-1],"G":70,"src":"2025 26","line":"2025 26, 70 games, 38 min. 28.3 pts, 4.1 reb, 6.6 ast, 1.9 stl, 0.8 blk, 3.1 3PM, 46.3 FG%, 88.3 FT%, 2.4 TO","risk":0,"inj":"","z":[-0.84,1.52,1.42,1.93,-0.82,1.4,2.36,0.21,-0.65],"av":0.81,"eg":66,"trk":4,"g3":[70,52,70]},"Cooper Flagg":{"g":[-1,1,-1,1,1,1,1,1,-1],"G":70,"src":"2025 26","line":"2025 26, 70 games, 33.5 min. 21 pts, 6.7 reb, 4.5 ast, 1.2 stl, 0.9 blk, 1 3PM, 46.8 FG%, 81.6 FT%, 2.3 TO","risk":0,"inj":"","z":[-0.53,0.25,-0.69,0.7,0.33,0.36,0.38,0.41,-0.52],"av":0.88,"eg":72,"trk":32,"g3":[70,null,null]},"Tyrese Haliburton":{"g":[-1,1,2,1,-2,3,2,0,1],"G":73,"src":"2024 25 only","line":"2024 25, 73 games, 33.6 min. 18.6 pts, 3.5 reb, 9.2 ast, 1.4 stl, 0.7 blk, 3 3PM, 47.1 FG%, 86.7 FT%, 1.6 TO","risk":1,"inj":"Cleared for camp after missing last season","z":[-0.36,0.61,1.32,0.29,-1.08,2.68,0.95,0.0,0.37],"av":0.8,"eg":66,"trk":null,"g3":[0,73,69]},"Scottie Barnes":{"g":[1,0,-2,0,1,2,2,3,-2],"G":80,"src":"2025 26","line":"2025 26, 80 games, 33.5 min. 18.1 pts, 7.5 reb, 5.9 ast, 1.4 stl, 1.5 blk, 0.9 3PM, 50.7 FG%, 81.1 FT%, 2.6 TO","risk":0,"inj":"","z":[0.43,0.13,-0.79,0.21,0.68,1.05,0.95,1.65,-0.91],"av":0.89,"eg":73,"trk":6,"g3":[80,65,60]},"Donovan Mitchell":{"g":[0,2,3,3,-1,2,2,-2,-2],"G":70,"src":"2025 26","line":"2025 26, 70 games, 33.5 min. 27.9 pts, 4.5 reb, 5.7 ast, 1.5 stl, 0.3 blk, 3.2 3PM, 48.5 FG%, 86.9 FT%, 2.8 TO","risk":0,"inj":"","z":[-0.08,1.28,1.52,1.86,-0.64,0.95,1.23,-0.83,-1.16],"av":0.84,"eg":69,"trk":10,"g3":[70,71,55]},"Karl Anthony Towns":{"g":[1,2,0,1,3,-1,-1,-1,-2],"G":75,"src":"2025 26","line":"2025 26, 75 games, 31 min. 20.1 pts, 11.9 reb, 3 ast, 0.9 stl, 0.5 blk, 1.5 3PM, 50 FG%, 87.3 FT%, 2.5 TO","risk":0,"inj":"","z":[0.27,1.21,-0.18,0.54,2.62,-0.39,-0.46,-0.41,-0.78],"av":0.89,"eg":73,"trk":11,"g3":[75,72,62]},"Kevin Durant":{"g":[2,2,1,3,0,1,-2,1,-3],"G":78,"src":"2025 26","line":"2025 26, 78 games, 36.4 min. 26 pts, 5.5 reb, 4.8 ast, 0.8 stl, 0.9 blk, 2.4 3PM, 52.3 FG%, 86.7 FT%, 3.2 TO","risk":0,"inj":"","z":[0.97,1.21,0.72,1.54,-0.2,0.51,-0.75,0.41,-1.67],"av":0.91,"eg":74,"trk":8,"g3":[78,62,75]},"Stephen Curry":{"g":[-1,3,3,3,-2,1,0,-1,-2],"G":43,"src":"2025 26","line":"2025 26, 43 games, 30.9 min. 26.6 pts, 3.6 reb, 4.7 ast, 1.1 stl, 0.4 blk, 4.4 3PM, 46.8 FG%, 92.2 FT%, 2.8 TO","risk":2,"inj":"","z":[-0.58,1.87,2.72,1.64,-1.04,0.46,0.1,-0.62,-1.16],"av":0.72,"eg":59,"trk":88,"g3":[43,70,74]},"Jamal Murray":{"g":[0,2,3,2,-1,3,-1,-1,-1],"G":75,"src":"2025 26","line":"2025 26, 75 games, 35.4 min. 25.4 pts, 4.4 reb, 7.1 ast, 0.9 stl, 0.4 blk, 3.3 3PM, 48.6 FG%, 88.5 FT%, 2.3 TO","risk":0,"inj":"","z":[-0.04,1.33,1.62,1.44,-0.68,1.64,-0.46,-0.62,-0.52],"av":0.87,"eg":71,"trk":7,"g3":[75,67,59]},"Alperen Sengun":{"g":[2,-3,-2,1,2,2,1,2,-3],"G":72,"src":"2025 26","line":"2025 26, 72 games, 33.3 min. 20.4 pts, 8.9 reb, 6.2 ast, 1.2 stl, 1.1 blk, 0.6 3PM, 51.9 FG%, 69.2 FT%, 3.2 TO","risk":0,"inj":"","z":[0.77,-1.67,-1.09,0.6,1.3,1.2,0.38,0.83,-1.67],"av":0.89,"eg":73,"trk":39,"g3":[72,76,63]},"Amen Thompson":{"g":[2,-1,-2,0,2,2,2,0,-1],"G":79,"src":"2025 26","line":"2025 26, 79 games, 37.4 min. 18.3 pts, 7.8 reb, 5.3 ast, 1.5 stl, 0.6 blk, 0.3 3PM, 53.8 FG%, 77.6 FT%, 2.4 TO","risk":0,"inj":"","z":[1.04,-0.35,-1.39,0.24,0.81,0.75,1.23,-0.21,-0.65],"av":0.91,"eg":74,"trk":15,"g3":[79,69,62]},"Trae Young":{"g":[-3,3,2,2,-2,3,0,-2,-3],"G":15,"src":"blend","line":"2025 26 only 15 games, so blended with 2024 25 (76 games). 23.2 pts, 2.9 reb, 11 ast, 1.2 stl, 0.2 blk, 2.7 3PM, 41.4 FG%, 86.9 FT%, 4.4 TO","risk":2,"inj":"Day to day, quad","z":[-1.96,1.52,1.04,1.06,-1.34,3.58,0.24,-1.07,-3.14],"av":0.5,"eg":41,"trk":380,"g3":[15,76,54],"news":"Quad, trainer says he is ready to go, expected back around Oct 1"},"Austin Reaves":{"g":[0,2,1,2,-1,2,0,-1,-2],"G":51,"src":"2025 26","line":"2025 26, 51 games, 34.5 min. 23.3 pts, 4.7 reb, 5.5 ast, 1.1 stl, 0.4 blk, 2.3 3PM, 49 FG%, 86.3 FT%, 3 TO","risk":1,"inj":"","z":[0.05,1.4,0.62,1.08,-0.55,0.85,0.1,-0.62,-1.42],"av":0.8,"eg":65,"trk":79,"g3":[51,73,82]},"LaMelo Ball":{"g":[-3,1,3,1,-1,3,1,-2,-2],"G":72,"src":"2025 26","line":"2025 26, 72 games, 28 min. 20.1 pts, 4.8 reb, 7.1 ast, 1.2 stl, 0.2 blk, 3.8 3PM, 40.5 FG%, 88 FT%, 2.8 TO","risk":0,"inj":"","z":[-2.25,0.61,2.12,0.54,-0.51,1.64,0.38,-1.03,-1.16],"av":0.68,"eg":56,"trk":34,"g3":[72,47,22]},"Chet Holmgren":{"g":[2,0,-1,0,2,-2,-2,3,1],"G":69,"src":"2025 26","line":"2025 26, 69 games, 28.9 min. 17.1 pts, 8.9 reb, 1.7 ast, 0.6 stl, 1.9 blk, 1.3 3PM, 55.8 FG%, 80.5 FT%, 1.6 TO","risk":0,"inj":"","z":[1.24,0.07,-0.38,0.04,1.3,-1.03,-1.31,2.48,0.37],"av":0.76,"eg":62,"trk":18,"g3":[69,32,82]},"Josh Giddey":{"g":[-2,-1,0,0,2,3,0,-1,-3],"G":54,"src":"2025 26","line":"2025 26, 54 games, 32.1 min. 17 pts, 8.3 reb, 9.1 ast, 1 stl, 0.5 blk, 1.9 3PM, 44.4 FG%, 76.2 FT%, 3.6 TO","risk":1,"inj":"","z":[-0.92,-0.47,0.22,0.02,1.03,2.64,-0.18,-0.41,-2.18],"av":0.8,"eg":66,"trk":105,"g3":[54,70,80]},"James Harden":{"g":[-2,3,2,2,-1,3,0,-1,-3],"G":70,"src":"2025 26","line":"2025 26, 70 games, 34.8 min. 23.6 pts, 4.8 reb, 8 ast, 1.1 stl, 0.4 blk, 3.1 3PM, 43.8 FG%, 88 FT%, 3.5 TO","risk":0,"inj":"","z":[-1.26,1.82,1.42,1.14,-0.51,2.09,0.1,-0.62,-2.05],"av":0.91,"eg":75,"trk":20,"g3":[70,79,72]},"Devin Booker":{"g":[-2,3,0,3,-2,2,-2,-2,-3],"G":64,"src":"2025 26","line":"2025 26, 64 games, 33.5 min. 26.1 pts, 3.9 reb, 6 ast, 0.8 stl, 0.3 blk, 1.9 3PM, 45.5 FG%, 87.7 FT%, 3.1 TO","risk":0,"inj":"","z":[-0.97,1.88,0.22,1.56,-0.9,1.1,-0.75,-0.83,-1.54],"av":0.85,"eg":70,"trk":66,"g3":[64,75,68]},"Anthony Davis":{"g":[1,-1,-2,2,3,0,1,3,-1],"G":20,"src":"blend","line":"2025 26 only 20 games, so blended with 2024 25 (51 games). 23.5 pts, 11.5 reb, 3.3 ast, 1.2 stl, 2.1 blk, 0.6 3PM, 51.5 FG%, 76.9 FT%, 2.2 TO","risk":2,"inj":"Day to day, finger","z":[0.74,-0.57,-1.04,1.12,2.42,-0.24,0.3,2.81,-0.36],"av":0.49,"eg":40,"trk":290,"g3":[20,51,76],"news":"Team expects a bounce back, but 20 games last season and 51 the year before"},"Kawhi Leonard":{"g":[1,3,2,3,0,0,3,-1,0],"G":65,"src":"2025 26","line":"2025 26, 65 games, 32.1 min. 27.9 pts, 6.4 reb, 3.6 ast, 1.9 stl, 0.4 blk, 2.6 3PM, 50.5 FG%, 89.1 FT%, 2 TO","risk":1,"inj":"","z":[0.53,1.76,0.92,1.86,0.2,-0.09,2.36,-0.62,-0.14],"av":0.72,"eg":59,"trk":5,"g3":[65,37,68]},"Trey Murphy III":{"g":[-1,2,3,2,0,0,2,-1,0],"G":66,"src":"2025 26","line":"2025 26, 66 games, 35.5 min. 21.5 pts, 5.7 reb, 3.8 ast, 1.5 stl, 0.4 blk, 3.2 3PM, 47.2 FG%, 89.2 FT%, 1.8 TO","risk":0,"inj":"","z":[-0.4,1.03,1.52,0.78,-0.11,0.01,1.23,-0.62,0.11],"av":0.75,"eg":62,"trk":17,"g3":[66,53,57]},"Evan Mobley":{"g":[2,-3,-1,0,2,0,-2,3,0],"G":65,"src":"2025 26","line":"2025 26, 65 games, 31.9 min. 18.2 pts, 9 reb, 3.6 ast, 0.7 stl, 1.7 blk, 1 3PM, 54.5 FG%, 60.9 FT%, 1.9 TO","risk":0,"inj":"","z":[1.2,-2.64,-0.69,0.22,1.34,-0.09,-1.03,2.06,-0.01],"av":0.8,"eg":65,"trk":58,"g3":[65,71,50]},"Jalen Brunson":{"g":[-1,1,2,3,-2,3,-2,-2,-1],"G":74,"src":"2025 26","line":"2025 26, 74 games, 35 min. 26 pts, 3.3 reb, 6.8 ast, 0.8 stl, 0.1 blk, 2.6 3PM, 46.7 FG%, 84.2 FT%, 2.4 TO","risk":0,"inj":"","z":[-0.64,0.73,0.92,1.54,-1.17,1.5,-0.75,-1.24,-0.65],"av":0.9,"eg":74,"trk":30,"g3":[74,65,77]},"Domantas Sabonis":{"g":[3,-1,-2,1,3,2,-2,-1,-2],"G":19,"src":"blend","line":"2025 26 only 19 games, so blended with 2024 25 (70 games). 18.4 pts, 13.4 reb, 5.6 ast, 0.7 stl, 0.4 blk, 0.8 3PM, 57.7 FG%, 74.6 FT%, 2.9 TO","risk":2,"inj":"","z":[1.77,-0.66,-0.91,0.26,3.26,0.9,-0.91,-0.71,-1.23],"av":0.62,"eg":50,"trk":341,"g3":[19,70,82],"news":"Reported fully healthy for camp"},"Derrick White":{"g":[-3,2,2,0,-1,2,0,2,0],"G":77,"src":"2025 26","line":"2025 26, 77 games, 34.1 min. 16.5 pts, 4.4 reb, 5.4 ast, 1.1 stl, 1.3 blk, 2.7 3PM, 39.6 FG%, 92.3 FT%, 1.7 TO","risk":0,"inj":"","z":[-2.07,0.97,1.02,-0.06,-0.68,0.8,0.1,1.24,0.24],"av":0.95,"eg":78,"trk":19,"g3":[77,76,73]},"Lauri Markkanen":{"g":[-1,3,2,3,1,-2,0,-1,1],"G":42,"src":"2025 26","line":"2025 26, 42 games, 34.4 min. 26.7 pts, 6.9 reb, 2.1 ast, 1 stl, 0.5 blk, 2.7 3PM, 47.4 FG%, 89.1 FT%, 1.5 TO","risk":2,"inj":"","z":[-0.41,1.76,1.02,1.66,0.42,-0.83,-0.18,-0.41,0.5],"av":0.58,"eg":47,"trk":90,"g3":[42,47,55]},"Bam Adebayo":{"g":[-2,-1,0,1,3,-1,1,0,1],"G":73,"src":"2025 26","line":"2025 26, 73 games, 32.4 min. 20.1 pts, 10 reb, 3.2 ast, 1.2 stl, 0.7 blk, 1.7 3PM, 43.9 FG%, 77.6 FT%, 1.6 TO","risk":0,"inj":"","z":[-1.19,-0.41,0.02,0.54,1.78,-0.29,0.38,0.0,0.37],"av":0.93,"eg":76,"trk":26,"g3":[73,78,71]},"Jalen Williams":{"g":[0,1,-2,0,-1,2,1,-2,0],"G":33,"src":"2025 26","line":"2025 26, 33 games, 28.4 min. 17.1 pts, 4.6 reb, 5.5 ast, 1.2 stl, 0.3 blk, 0.7 3PM, 48.1 FG%, 84.6 FT%, 1.9 TO","risk":2,"inj":"","z":[-0.13,0.55,-0.99,0.04,-0.6,0.85,0.38,-0.83,-0.01],"av":0.67,"eg":55,"trk":254,"g3":[33,69,71],"news":"Reported totally healthy for camp"},"Walker Kessler":{"g":[3,-3,-3,-2,3,-2,-2,3,1],"G":5,"src":"blend","line":"2025 26 only 5 games, so blended with 2024 25 (58 games). 11.4 pts, 12.1 reb, 1.8 ast, 0.7 stl, 2.4 blk, 0.2 3PM, 67 FG%, 55.7 FT%, 1.6 TO","risk":2,"inj":"","z":[2.06,-1.97,-1.5,-0.93,2.7,-0.98,-1.13,3.41,0.32],"av":0.41,"eg":34,"trk":445,"g3":[5,58,64]},"Deni Avdija":{"g":[-1,0,0,2,1,2,-2,0,-3],"G":66,"src":"2025 26","line":"2025 26, 66 games, 33.3 min. 24.2 pts, 6.9 reb, 6.7 ast, 0.8 stl, 0.6 blk, 1.9 3PM, 46.6 FG%, 80.4 FT%, 3.8 TO","risk":0,"inj":"","z":[-0.55,0.14,0.22,1.24,0.42,1.45,-0.75,-0.21,-2.44],"av":0.87,"eg":71,"trk":74,"g3":[66,72,75]},"Kyrie Irving":{"g":[-1,2,2,2,-1,1,1,-1,-1],"G":50,"src":"2024 25 only","line":"2024 25, 50 games, 36.1 min. 24.7 pts, 4.8 reb, 4.6 ast, 1.3 stl, 0.5 blk, 2.9 3PM, 47.1 FG%, 90.7 FT%, 2.2 TO","risk":1,"inj":"Listed day to day, knee, but no restrictions in camp","z":[-0.5,1.39,1.22,1.32,-0.51,0.41,0.67,-0.41,-0.4],"av":0.6,"eg":49,"trk":null,"g3":[0,50,58]},"Jaren Jackson Jr.":{"g":[-1,0,0,1,0,-2,0,2,-1],"G":48,"src":"2025 26","line":"2025 26, 48 games, 30.3 min. 19.4 pts, 5.7 reb, 2 ast, 1.1 stl, 1.4 blk, 1.8 3PM, 47.3 FG%, 81 FT%, 2.2 TO","risk":1,"inj":"Day to day, knee","z":[-0.34,0.13,0.12,0.43,-0.11,-0.88,0.1,1.44,-0.4],"av":0.72,"eg":59,"trk":122,"g3":[48,74,66]},"Jalen Duren":{"g":[3,-2,-3,1,3,-2,-2,0,0],"G":70,"src":"2025 26","line":"2025 26, 70 games, 28.2 min. 19.5 pts, 10.5 reb, 2 ast, 0.8 stl, 0.8 blk, 0 3PM, 65.2 FG%, 75.4 FT%, 1.9 TO","risk":0,"inj":"","z":[2.97,-0.83,-1.69,0.44,2.0,-0.88,-0.75,0.21,-0.01],"av":0.88,"eg":72,"trk":24,"g3":[70,78,61]},"Brandon Miller":{"g":[-2,2,2,1,-1,0,0,0,-2],"G":65,"src":"2025 26","line":"2025 26, 65 games, 30.3 min. 20.2 pts, 4.9 reb, 3.3 ast, 1 stl, 0.7 blk, 3.1 3PM, 43.5 FG%, 91.2 FT%, 2.5 TO","risk":1,"inj":"Cleared. Shoulder surgery in May, GM said Sept 28 he is ready for opening night","z":[-1.34,1.15,1.42,0.56,-0.46,-0.24,-0.18,0.0,-0.78],"av":0.69,"eg":57,"trk":61,"g3":[65,27,74]},"Jaylen Brown":{"g":[-1,0,1,3,1,1,0,-1,-3],"G":71,"src":"2025 26","line":"2025 26, 71 games, 34.4 min. 28.7 pts, 6.9 reb, 5.1 ast, 1 stl, 0.4 blk, 2 3PM, 47.9 FG%, 80 FT%, 3.6 TO","risk":0,"inj":"","z":[-0.29,0.01,0.32,2.0,0.42,0.65,-0.18,-0.62,-2.18],"av":0.86,"eg":70,"trk":49,"g3":[71,63,70]},"Kon Knueppel":{"g":[0,1,3,1,-1,0,-2,-2,0],"G":81,"src":"2025 26","line":"2025 26, 81 games, 31.5 min. 18.5 pts, 5.3 reb, 3.4 ast, 0.7 stl, 0.2 blk, 3.4 3PM, 47.8 FG%, 85.7 FT%, 2 TO","risk":1,"inj":"Day to day, hamstring","z":[-0.21,0.49,1.72,0.27,-0.29,-0.19,-1.03,-1.03,-0.14],"av":0.97,"eg":80,"trk":27,"g3":[81,null,null]},"Onyeka Okongwu":{"g":[0,0,0,-1,1,-1,0,2,0],"G":74,"src":"2025 26","line":"2025 26, 74 games, 31 min. 15.2 pts, 7.6 reb, 3.1 ast, 1.1 stl, 1.1 blk, 1.9 3PM, 48.3 FG%, 77.8 FT%, 1.7 TO","risk":0,"inj":"","z":[-0.09,-0.18,0.22,-0.28,0.72,-0.34,0.1,0.83,0.24],"av":0.88,"eg":72,"trk":25,"g3":[74,74,55]},"Desmond Bane":{"g":[0,2,1,1,-2,0,0,-1,0],"G":82,"src":"2025 26","line":"2025 26, 82 games, 33.6 min. 20.1 pts, 4.1 reb, 4.1 ast, 1 stl, 0.5 blk, 2 3PM, 48.3 FG%, 90.5 FT%, 2 TO","risk":0,"inj":"","z":[-0.11,1.33,0.32,0.54,-0.82,0.16,-0.18,-0.41,-0.14],"av":0.88,"eg":72,"trk":13,"g3":[82,69,42]},"Paolo Banchero":{"g":[-2,-2,-1,2,2,1,-2,0,-3],"G":72,"src":"2025 26","line":"2025 26, 72 games, 34.8 min. 22.2 pts, 8.4 reb, 5.2 ast, 0.7 stl, 0.6 blk, 1.2 3PM, 45.6 FG%, 76.8 FT%, 3.1 TO","risk":0,"inj":"","z":[-0.79,-0.77,-0.49,0.9,1.08,0.7,-1.03,-0.21,-1.54],"av":0.82,"eg":67,"trk":87,"g3":[72,46,80]},"Donovan Clingan":{"g":[1,-2,-1,-2,3,-2,-2,3,2],"G":77,"src":"2025 26","line":"2025 26, 77 games, 27.2 min. 12.1 pts, 11.6 reb, 2.1 ast, 0.6 stl, 1.7 blk, 1.1 3PM, 51.7 FG%, 69.2 FT%, 1.2 TO","risk":0,"inj":"","z":[0.41,-0.84,-0.59,-0.81,2.49,-0.83,-1.31,2.06,0.88],"av":0.92,"eg":75,"trk":21,"g3":[77,67,null]},"Nickeil Alexander Walker":{"g":[-1,2,3,1,-2,0,1,-1,-1],"G":78,"src":"2025 26","line":"2025 26, 78 games, 33.4 min. 20.8 pts, 3.4 reb, 3.7 ast, 1.3 stl, 0.5 blk, 3.2 3PM, 45.8 FG%, 92.3 FT%, 2.1 TO","risk":0,"inj":"","z":[-0.72,1.45,1.52,0.66,-1.12,-0.04,0.67,-0.41,-0.27],"av":0.97,"eg":80,"trk":12,"g3":[78,82,82]},"Darius Garland":{"g":[-1,1,2,1,-3,2,0,-2,-2],"G":45,"src":"2025 26","line":"2025 26, 45 games, 29.9 min. 18.8 pts, 2.4 reb, 6.7 ast, 1 stl, 0.2 blk, 2.7 3PM, 46.3 FG%, 85.2 FT%, 2.9 TO","risk":1,"inj":"","z":[-0.57,0.43,1.02,0.32,-1.56,1.45,-0.18,-1.03,-1.29],"av":0.7,"eg":58,"trk":196,"g3":[45,75,57]},"Dejounte Murray":{"g":[-3,1,0,0,0,3,3,-2,-3],"G":14,"src":"blend","line":"2025 26 only 14 games, so blended with 2024 25 (31 games). 17.3 pts, 6.2 reb, 7.1 ast, 1.9 stl, 0.3 blk, 1.6 3PM, 42 FG%, 83.8 FT%, 3.4 TO","risk":2,"inj":"","z":[-1.59,0.44,-0.08,0.06,0.09,1.64,2.29,-0.75,-1.93],"av":0.42,"eg":34,"trk":363,"g3":[14,31,78],"news":"Came back from his Achilles tear last February, healthy for camp"},"LeBron James":{"g":[1,-2,-1,1,0,3,1,0,-2],"G":60,"src":"2025 26","line":"2025 26, 60 games, 33.2 min. 20.9 pts, 6.1 reb, 7.2 ast, 1.2 stl, 0.6 blk, 1.3 3PM, 51.6 FG%, 73.6 FT%, 3 TO","risk":0,"inj":"","z":[0.69,-1.01,-0.38,0.68,0.06,1.69,0.38,-0.21,-1.42],"av":0.82,"eg":67,"trk":72,"g3":[60,70,71]},"Pascal Siakam":{"g":[0,-3,0,2,1,0,0,-1,-1],"G":62,"src":"2025 26","line":"2025 26, 62 games, 33.2 min. 24 pts, 6.6 reb, 3.8 ast, 1.1 stl, 0.4 blk, 1.7 3PM, 48.4 FG%, 68.9 FT%, 2.2 TO","risk":0,"inj":"","z":[-0.11,-2.03,0.02,1.2,0.28,0.01,0.1,-0.62,-0.4],"av":0.88,"eg":72,"trk":109,"g3":[62,78,80]},"Keyonte George":{"g":[-2,3,2,2,-2,2,0,-2,-3],"G":54,"src":"2025 26","line":"2025 26, 54 games, 33.1 min. 23.6 pts, 3.7 reb, 6.1 ast, 1.1 stl, 0.3 blk, 2.5 3PM, 45.4 FG%, 88.6 FT%, 3.1 TO","risk":1,"inj":"","z":[-0.86,1.82,0.82,1.14,-0.99,1.15,0.1,-0.83,-1.54],"av":0.78,"eg":64,"trk":82,"g3":[54,67,75]},"Dyson Daniels":{"g":[1,-2,-2,-2,1,2,3,-1,0],"G":76,"src":"2025 26","line":"2025 26, 76 games, 33.2 min. 11.9 pts, 6.8 reb, 5.9 ast, 2 stl, 0.4 blk, 0.3 3PM, 52 FG%, 62.5 FT%, 1.8 TO","risk":0,"inj":"","z":[0.51,-0.84,-1.39,-0.84,0.37,1.05,2.64,-0.62,0.11],"av":0.91,"eg":75,"trk":23,"g3":[76,76,61]},"OG Anunoby":{"g":[0,0,1,0,-1,-2,3,0,0],"G":67,"src":"2025 26","line":"2025 26, 67 games, 33.2 min. 16.7 pts, 5.2 reb, 2.2 ast, 1.6 stl, 0.7 blk, 2.3 3PM, 48.3 FG%, 81.8 FT%, 1.8 TO","risk":0,"inj":"","z":[-0.08,0.19,0.62,-0.03,-0.33,-0.78,1.51,0.0,0.11],"av":0.82,"eg":67,"trk":38,"g3":[67,74,50]},"Kel'el Ware":{"g":[1,0,-1,-2,2,-3,-2,2,2],"G":77,"src":"2025 26","line":"2025 26, 77 games, 22.1 min. 11.1 pts, 9 reb, 0.7 ast, 0.8 stl, 1.1 blk, 1.2 3PM, 53.6 FG%, 75 FT%, 0.8 TO","risk":0,"inj":"","z":[0.63,-0.18,-0.49,-0.98,1.34,-1.53,-0.75,0.83,1.39],"av":0.9,"eg":74,"trk":31,"g3":[77,64,null]},"Matas Buzelis":{"g":[-1,0,1,0,0,-2,-2,3,-1],"G":77,"src":"2025 26","line":"2025 26, 77 games, 29.2 min. 16.3 pts, 5.8 reb, 2.1 ast, 0.7 stl, 1.5 blk, 2.2 3PM, 46.4 FG%, 77.4 FT%, 2.1 TO","risk":0,"inj":"","z":[-0.46,-0.23,0.52,-0.1,-0.07,-0.83,-1.03,1.65,-0.27],"av":0.97,"eg":80,"trk":42,"g3":[77,80,null]},"Joel Embiid":{"g":[0,2,-1,3,2,0,-2,2,-2],"G":38,"src":"2025 26","line":"2025 26, 38 games, 31.6 min. 26.9 pts, 7.7 reb, 3.9 ast, 0.6 stl, 1.2 blk, 1.4 3PM, 49.2 FG%, 85.2 FT%, 2.9 TO","risk":2,"inj":"","z":[0.12,1.4,-0.28,1.69,0.77,0.06,-1.31,1.03,-1.29],"av":0.41,"eg":33,"trk":139,"g3":[38,19,39],"news":"Says he feels pretty good at media day, but 96 games over the last 3 seasons"},"Franz Wagner":{"g":[0,1,-1,1,-1,0,-1,-2,0],"G":34,"src":"2025 26","line":"2025 26, 34 games, 30 min. 20.6 pts, 5.2 reb, 3.3 ast, 0.9 stl, 0.3 blk, 1.4 3PM, 48.3 FG%, 82.8 FT%, 1.7 TO","risk":2,"inj":"","z":[-0.1,0.49,-0.28,0.63,-0.33,-0.24,-0.46,-0.83,0.24],"av":0.62,"eg":51,"trk":247,"g3":[34,60,72]},"Stephon Castle":{"g":[0,-2,-1,0,-1,3,0,-2,-3],"G":68,"src":"2025 26","line":"2025 26, 68 games, 30 min. 16.7 pts, 5.3 reb, 7.4 ast, 1.1 stl, 0.3 blk, 1.2 3PM, 47.5 FG%, 73.2 FT%, 3.2 TO","risk":0,"inj":"","z":[-0.24,-1.13,-0.49,-0.03,-0.29,1.79,0.1,-0.83,-1.67],"av":0.91,"eg":75,"trk":123,"g3":[68,81,null]},"Tyler Herro":{"g":[0,2,2,1,-1,0,-2,-1,0],"G":33,"src":"2025 26","line":"2025 26, 33 games, 31.3 min. 20.5 pts, 4.8 reb, 4.1 ast, 0.7 stl, 0.4 blk, 2.5 3PM, 48.1 FG%, 90.9 FT%, 1.9 TO","risk":2,"inj":"Day to day, foot","z":[-0.17,1.09,0.82,0.61,-0.51,0.16,-1.03,-0.62,-0.01],"av":0.58,"eg":48,"trk":230,"g3":[33,77,42]},"Michael Porter Jr.":{"g":[-1,2,3,2,1,-1,0,-2,-1],"G":52,"src":"2025 26","line":"2025 26, 52 games, 32.5 min. 24.2 pts, 7.1 reb, 3 ast, 1.1 stl, 0.3 blk, 3.4 3PM, 46.2 FG%, 86.4 FT%, 2.3 TO","risk":1,"inj":"","z":[-0.74,0.85,1.72,1.24,0.5,-0.39,0.1,-0.83,-0.52],"av":0.82,"eg":67,"trk":80,"g3":[52,77,81]},"Ivica Zubac":{"g":[3,-2,-3,-1,3,-2,-3,0,0],"G":48,"src":"2025 26","line":"2025 26, 48 games, 30.1 min. 14.1 pts, 10.6 reb, 2.2 ast, 0.4 stl, 0.8 blk, 0 3PM, 60 FG%, 70 FT%, 1.8 TO","risk":1,"inj":"","z":[1.76,-0.9,-1.69,-0.47,2.05,-0.78,-1.87,0.21,0.11],"av":0.77,"eg":63,"trk":173,"g3":[48,80,68]},"Julius Randle":{"g":[-1,0,-1,1,1,1,0,-2,-2],"G":79,"src":"2025 26","line":"2025 26, 79 games, 33 min. 21.1 pts, 6.7 reb, 5 ast, 1.1 stl, 0.2 blk, 1.4 3PM, 47.7 FG%, 79.4 FT%, 2.7 TO","risk":0,"inj":"","z":[-0.25,-0.11,-0.28,0.71,0.33,0.6,0.1,-1.03,-1.03],"av":0.87,"eg":71,"trk":40,"g3":[79,69,46]},"Ryan Rollins":{"g":[-1,0,2,0,-1,2,2,-1,-2],"G":74,"src":"2025 26","line":"2025 26, 74 games, 32.1 min. 17.3 pts, 4.6 reb, 5.6 ast, 1.5 stl, 0.4 blk, 2.5 3PM, 47.5 FG%, 81 FT%, 2.7 TO","risk":0,"inj":"","z":[-0.28,0.06,0.82,0.07,-0.6,0.9,1.23,-0.62,-1.03],"av":0.7,"eg":58,"trk":33,"g3":[74,56,13]},"Zach Edey":{"g":[2,-1,-2,-2,2,-2,-3,2,1],"G":11,"src":"blend","line":"2025 26 only 11 games, so blended with 2024 25 (66 games). 9.8 pts, 8.7 reb, 1 ast, 0.5 stl, 1.4 blk, 0.3 3PM, 58.6 FG%, 74.8 FT%, 1.5 TO","risk":2,"inj":"Day to day, ankle","z":[1.06,-0.31,-1.42,-1.19,1.21,-1.37,-1.55,1.42,0.55],"av":0.38,"eg":31,"trk":378,"g3":[11,66,null]},"De'Aaron Fox":{"g":[0,-1,0,1,-2,2,1,-2,-1],"G":72,"src":"2025 26","line":"2025 26, 72 games, 31 min. 18.6 pts, 3.8 reb, 6.2 ast, 1.2 stl, 0.3 blk, 1.8 3PM, 49 FG%, 76.5 FT%, 2.3 TO","risk":0,"inj":"","z":[0.04,-0.35,0.12,0.29,-0.95,1.2,0.38,-0.83,-0.52],"av":0.87,"eg":71,"trk":54,"g3":[72,62,74]},"Damian Lillard":{"g":[-2,3,3,2,-1,3,1,-2,-2],"G":58,"src":"2024 25 only","line":"2024 25, 58 games, 36.1 min. 24.9 pts, 4.7 reb, 7.1 ast, 1.2 stl, 0.2 blk, 3.4 3PM, 45 FG%, 91.2 FT%, 2.8 TO","risk":2,"inj":"No restrictions in camp after missing last season","z":[-1.0,2.3,1.72,1.36,-0.55,1.64,0.38,-1.03,-1.16],"av":0.72,"eg":59,"trk":null,"g3":[0,58,73]},"Rudy Gobert":{"g":[3,-3,-3,-2,3,-2,-2,3,1],"G":76,"src":"2025 26","line":"2025 26, 76 games, 31.3 min. 10.9 pts, 11.5 reb, 1.7 ast, 0.8 stl, 1.6 blk, 0 3PM, 67.7 FG%, 52.5 FT%, 1.4 TO","risk":0,"inj":"","z":[1.93,-3.3,-1.69,-1.01,2.44,-1.03,-0.75,1.86,0.62],"av":0.93,"eg":77,"trk":55,"g3":[76,72,76]},"Alex Sarr":{"g":[0,-2,-1,0,1,-1,-2,3,0],"G":48,"src":"2025 26","line":"2025 26, 48 games, 27.2 min. 16.3 pts, 7.4 reb, 2.7 ast, 0.8 stl, 2 blk, 1 3PM, 48.2 FG%, 70 FT%, 1.7 TO","risk":1,"inj":"Day to day, foot","z":[-0.13,-0.9,-0.69,-0.1,0.64,-0.53,-0.75,2.68,0.24],"av":0.67,"eg":55,"trk":129,"g3":[48,67,null]},"Naz Reid":{"g":[-1,0,1,-1,0,-2,0,1,1],"G":77,"src":"2025 26","line":"2025 26, 77 games, 26.1 min. 13.6 pts, 6.2 reb, 2.2 ast, 1 stl, 1 blk, 2.1 3PM, 46 FG%, 75 FT%, 1.6 TO","risk":0,"inj":"","z":[-0.49,-0.24,0.42,-0.55,0.11,-0.78,-0.18,0.62,0.37],"av":0.97,"eg":80,"trk":51,"g3":[77,80,81]},"Mikal Bridges":{"g":[0,0,0,-1,-2,0,1,0,2],"G":82,"src":"2025 26","line":"2025 26, 82 games, 32.8 min. 14.4 pts, 3.8 reb, 3.7 ast, 1.3 stl, 0.8 blk, 1.9 3PM, 49.6 FG%, 83.3 FT%, 1 TO","risk":0,"inj":"","z":[0.15,0.12,0.22,-0.42,-0.95,-0.04,0.67,0.21,1.13],"av":0.97,"eg":80,"trk":16,"g3":[82,82,82]},"Paul George":{"g":[-2,1,2,0,-1,0,3,-1,0],"G":37,"src":"2025 26","line":"2025 26, 37 games, 30.7 min. 17.3 pts, 5.3 reb, 3.6 ast, 1.7 stl, 0.4 blk, 2.7 3PM, 43.9 FG%, 83.3 FT%, 1.7 TO","risk":2,"inj":"","z":[-1.06,0.31,1.02,0.07,-0.29,-0.09,1.79,-0.62,0.24],"av":0.57,"eg":47,"trk":182,"g3":[37,41,74]},"Brandon Ingram":{"g":[0,1,0,2,0,0,-2,0,-1],"G":77,"src":"2025 26","line":"2025 26, 77 games, 33.8 min. 21.5 pts, 5.6 reb, 3.7 ast, 0.8 stl, 0.7 blk, 1.8 3PM, 47.9 FG%, 82.6 FT%, 2.4 TO","risk":2,"inj":"Out until at least Nov 1, Achilles","z":[-0.23,0.37,0.12,0.78,-0.16,-0.04,-0.75,0.0,-0.65],"av":0.6,"eg":49,"trk":45,"g3":[77,18,64]},"Jaden McDaniels":{"g":[1,1,-1,-1,-2,-1,0,1,0],"G":73,"src":"2025 26","line":"2025 26, 73 games, 31.7 min. 14.8 pts, 4.2 reb, 2.7 ast, 1.1 stl, 1 blk, 1.4 3PM, 51.4 FG%, 83.3 FT%, 1.8 TO","risk":0,"inj":"","z":[0.45,0.25,-0.28,-0.35,-0.77,-0.53,0.1,0.62,0.11],"av":0.94,"eg":77,"trk":44,"g3":[73,82,72]},"Payton Pritchard":{"g":[-1,1,2,0,-2,1,-2,-2,1],"G":79,"src":"2025 26","line":"2025 26, 79 games, 32.4 min. 17 pts, 3.9 reb, 5.2 ast, 0.7 stl, 0.1 blk, 2.7 3PM, 46.4 FG%, 88.2 FT%, 1.4 TO","risk":0,"inj":"","z":[-0.52,0.42,1.02,0.02,-0.9,0.7,-1.03,-1.24,0.62],"av":0.97,"eg":80,"trk":36,"g3":[79,80,82]},"Ausar Thompson":{"g":[1,-3,-3,-2,0,-1,3,1,1],"G":73,"src":"2025 26","line":"2025 26, 73 games, 26 min. 9.9 pts, 5.7 reb, 3.1 ast, 2 stl, 0.9 blk, 0.1 3PM, 53.2 FG%, 57.7 FT%, 1.5 TO","risk":0,"inj":"","z":[0.54,-1.74,-1.59,-1.18,-0.11,-0.34,2.64,0.41,0.5],"av":0.84,"eg":68,"trk":65,"g3":[73,59,63]},"Ja Morant":{"g":[-2,2,0,2,-2,3,0,-2,-3],"G":20,"src":"blend","line":"2025 26 only 20 games, so blended with 2024 25 (50 games). 22.1 pts, 3.9 reb, 7.5 ast, 1.1 stl, 0.2 blk, 1.6 3PM, 44.3 FG%, 84.7 FT%, 3.7 TO","risk":2,"inj":"","z":[-1.21,0.9,-0.11,0.89,-0.92,1.86,0.22,-0.97,-2.27],"av":0.34,"eg":27,"trk":351,"g3":[20,50,9],"news":"Rehabbed an elbow since June, but only 20 games last season"},"Immanuel Quickley":{"g":[-2,0,2,0,-2,2,1,-2,1],"G":70,"src":"2025 26","line":"2025 26, 70 games, 31.9 min. 16.4 pts, 4 reb, 5.9 ast, 1.3 stl, 0.1 blk, 2.5 3PM, 44.2 FG%, 80 FT%, 1.5 TO","risk":0,"inj":"","z":[-0.93,0.01,0.82,-0.08,-0.86,1.05,0.67,-1.24,0.5],"av":0.73,"eg":60,"trk":47,"g3":[70,33,68]},"Jarrett Allen":{"g":[3,-2,-3,-1,2,-2,0,0,2],"G":56,"src":"2025 26","line":"2025 26, 56 games, 27.1 min. 15.4 pts, 8.5 reb, 1.8 ast, 1 stl, 0.8 blk, 0 3PM, 63.8 FG%, 70.2 FT%, 1.3 TO","risk":1,"inj":"","z":[2.22,-1.37,-1.69,-0.25,1.12,-0.98,-0.18,0.21,0.75],"av":0.85,"eg":70,"trk":94,"g3":[56,82,77]},"Zion Williamson":{"g":[3,-3,-3,1,0,-1,0,-1,0],"G":62,"src":"2025 26","line":"2025 26, 62 games, 29.7 min. 21 pts, 5.7 reb, 3.2 ast, 1 stl, 0.5 blk, 0 3PM, 60 FG%, 72 FT%, 2 TO","risk":0,"inj":"","z":[2.29,-1.79,-1.69,0.7,-0.11,-0.29,-0.18,-0.41,-0.14],"av":0.68,"eg":55,"trk":110,"g3":[62,30,70]},"VJ Edgecombe":{"g":[-2,1,1,0,0,0,2,-1,0],"G":75,"src":"2025 26","line":"2025 26, 75 games, 35 min. 16 pts, 5.6 reb, 4.2 ast, 1.4 stl, 0.5 blk, 2 3PM, 43.8 FG%, 83.3 FT%, 1.8 TO","risk":0,"inj":"","z":[-1.07,0.25,0.32,-0.15,-0.16,0.21,0.95,-0.41,0.11],"av":0.94,"eg":77,"trk":37,"g3":[75,null,null]},"Coby White":{"g":[-2,0,1,0,-2,0,-3,-2,-2],"G":50,"src":"2025 26","line":"2025 26, 50 games, 25 min. 17.4 pts, 3.4 reb, 4 ast, 0.5 stl, 0.1 blk, 2.3 3PM, 44.8 FG%, 81.3 FT%, 2.6 TO","risk":1,"inj":"","z":[-0.78,0.19,0.62,0.09,-1.12,0.11,-1.59,-1.24,-0.91],"av":0.79,"eg":65,"trk":263,"g3":[50,74,79]},"Myles Turner":{"g":[-1,-1,1,-2,-1,-2,-2,3,2],"G":71,"src":"2025 26","line":"2025 26, 71 games, 26.9 min. 11.9 pts, 5.3 reb, 1.5 ast, 0.7 stl, 1.6 blk, 2.1 3PM, 44 FG%, 72 FT%, 1.2 TO","risk":0,"inj":"","z":[-0.69,-0.6,0.42,-0.84,-0.29,-1.13,-1.03,1.86,0.88],"av":0.91,"eg":74,"trk":71,"g3":[71,72,77]},"Dylan Harper":{"g":[1,0,-2,-2,-2,0,-2,-2,1],"G":69,"src":"2025 26","line":"2025 26, 69 games, 22.6 min. 11.8 pts, 3.4 reb, 3.9 ast, 0.8 stl, 0.3 blk, 0.9 3PM, 50.5 FG%, 76.5 FT%, 1.4 TO","risk":0,"inj":"","z":[0.26,-0.18,-0.79,-0.86,-1.12,0.06,-0.75,-0.83,0.62],"av":0.86,"eg":71,"trk":143,"g3":[69,null,null]},"Ty Jerome":{"g":[1,1,0,-1,-3,0,0,-2,1],"G":15,"src":"blend","line":"2025 26 only 15 games, so blended with 2024 25 (70 games). 13.8 pts, 2.6 reb, 3.8 ast, 1.1 stl, 0.1 blk, 1.8 3PM, 51.1 FG%, 86.7 FT%, 1.4 TO","risk":2,"inj":"","z":[0.35,0.48,0.13,-0.52,-1.5,0.01,0.1,-1.34,0.64],"av":0.36,"eg":30,"trk":343,"g3":[15,70,2]},"Jalen Suggs":{"g":[-2,1,1,-1,-2,2,3,0,-2],"G":57,"src":"2025 26","line":"2025 26, 57 games, 27.6 min. 13.8 pts, 3.9 reb, 5.5 ast, 1.8 stl, 0.7 blk, 2.1 3PM, 43 FG%, 85.7 FT%, 2.7 TO","risk":1,"inj":"","z":[-1.03,0.37,0.42,-0.52,-0.9,0.85,2.08,0.0,-1.03],"av":0.68,"eg":55,"trk":86,"g3":[57,35,75]},"Derik Queen":{"g":[0,0,-2,-2,1,0,0,1,-1],"G":81,"src":"2025 26","line":"2025 26, 81 games, 25 min. 11.7 pts, 7.1 reb, 3.7 ast, 1 stl, 0.9 blk, 0.3 3PM, 47.8 FG%, 79.4 FT%, 2.3 TO","risk":0,"inj":"","z":[-0.14,-0.05,-1.39,-0.87,0.5,-0.04,-0.18,0.41,-0.52],"av":0.97,"eg":80,"trk":67,"g3":[81,null,null]},"Norman Powell":{"g":[-1,1,2,2,-2,-1,0,-2,0],"G":58,"src":"2025 26","line":"2025 26, 58 games, 29.6 min. 21.7 pts, 3.5 reb, 2.5 ast, 1.1 stl, 0.2 blk, 2.7 3PM, 47.4 FG%, 81.8 FT%, 1.9 TO","risk":1,"inj":"","z":[-0.33,0.31,1.02,0.81,-1.08,-0.63,0.1,-1.03,-0.01],"av":0.78,"eg":64,"trk":96,"g3":[58,60,76]},"Josh Hart":{"g":[1,-1,0,-2,1,1,0,-2,0],"G":66,"src":"2025 26","line":"2025 26, 66 games, 30.2 min. 12 pts, 7.4 reb, 4.8 ast, 1.1 stl, 0.3 blk, 1.5 3PM, 51.1 FG%, 73.7 FT%, 1.9 TO","risk":0,"inj":"","z":[0.33,-0.36,-0.18,-0.82,0.64,0.51,0.1,-0.83,-0.01],"av":0.9,"eg":74,"trk":78,"g3":[66,77,81]},"Isaiah Hartenstein":{"g":[2,-2,-3,-2,3,0,0,0,0],"G":47,"src":"2025 26","line":"2025 26, 47 games, 24.2 min. 9.2 pts, 9.4 reb, 3.5 ast, 1 stl, 0.8 blk, 0 3PM, 61.9 FG%, 63.6 FT%, 1.7 TO","risk":1,"inj":"Day to day, ankle","z":[1.3,-1.08,-1.69,-1.3,1.52,-0.14,-0.18,0.21,0.24],"av":0.67,"eg":55,"trk":181,"g3":[47,57,75]},"Nic Claxton":{"g":[2,-3,-3,-2,1,0,-2,2,1],"G":69,"src":"2025 26","line":"2025 26, 69 games, 27.8 min. 11.7 pts, 6.9 reb, 3.7 ast, 0.7 stl, 1.1 blk, 0 3PM, 57.1 FG%, 60.6 FT%, 1.4 TO","risk":0,"inj":"","z":[1.1,-1.92,-1.69,-0.87,0.42,-0.04,-1.03,0.83,0.62],"av":0.87,"eg":71,"trk":112,"g3":[69,70,71]},"Jabari Smith Jr.":{"g":[-1,0,1,0,1,-2,-2,1,1],"G":77,"src":"2025 26","line":"2025 26, 77 games, 35.1 min. 15.8 pts, 6.9 reb, 1.9 ast, 0.7 stl, 0.9 blk, 2.3 3PM, 45.2 FG%, 77.8 FT%, 1.4 TO","risk":0,"inj":"","z":[-0.7,-0.18,0.62,-0.18,0.42,-0.93,-1.03,0.41,0.62],"av":0.89,"eg":73,"trk":50,"g3":[77,57,76]},"Day'Ron Sharpe":{"g":[2,-2,-3,-2,1,-1,0,-1,0],"G":62,"src":"2025 26","line":"2025 26, 62 games, 18.7 min. 8.7 pts, 6.7 reb, 2.3 ast, 1.1 stl, 0.4 blk, 0.1 3PM, 61.4 FG%, 68 FT%, 1.7 TO","risk":0,"inj":"","z":[1.13,-0.9,-1.59,-1.38,0.33,-0.73,0.1,-0.62,0.24],"av":0.73,"eg":60,"trk":174,"g3":[62,50,61]},"Miles Bridges":{"g":[-1,0,0,0,0,-1,-2,-1,1],"G":77,"src":"2025 26","line":"2025 26, 77 games, 31 min. 17.1 pts, 5.8 reb, 3.2 ast, 0.6 stl, 0.4 blk, 1.9 3PM, 45.9 FG%, 81.8 FT%, 1.4 TO","risk":0,"inj":"","z":[-0.6,0.19,0.22,0.04,-0.07,-0.29,-1.31,-0.62,0.62],"av":0.89,"eg":73,"trk":60,"g3":[77,64,69]},"Ayo Dosunmu":{"g":[1,1,0,-1,-2,0,-2,-2,1],"G":69,"src":"2025 26","line":"2025 26, 69 games, 27.3 min. 14.8 pts, 3.4 reb, 3.6 ast, 0.8 stl, 0.3 blk, 1.8 3PM, 51.9 FG%, 85.7 FT%, 1.4 TO","risk":0,"inj":"","z":[0.52,0.37,0.12,-0.35,-1.12,-0.09,-0.75,-0.83,0.62],"av":0.79,"eg":65,"trk":75,"g3":[69,46,76]},"Andrew Wiggins":{"g":[-1,0,1,-1,-1,-1,0,1,1],"G":68,"src":"2025 26","line":"2025 26, 68 games, 30.3 min. 15.4 pts, 4.8 reb, 2.7 ast, 1.1 stl, 1 blk, 2 3PM, 47.1 FG%, 79.2 FT%, 1.5 TO","risk":0,"inj":"","z":[-0.32,-0.06,0.32,-0.25,-0.51,-0.53,0.1,0.62,0.5],"av":0.83,"eg":68,"trk":52,"g3":[68,60,71]},"Collin Murray Boyles":{"g":[2,-2,-2,-2,-1,-2,-1,1,2],"G":57,"src":"2025 26","line":"2025 26, 57 games, 21.9 min. 8.5 pts, 5 reb, 1.9 ast, 0.9 stl, 0.9 blk, 0.3 3PM, 58.3 FG%, 63.2 FT%, 1 TO","risk":1,"inj":"","z":[0.9,-0.96,-1.39,-1.41,-0.42,-0.93,-0.46,0.41,1.13],"av":0.71,"eg":58,"trk":179,"g3":[57,null,null]},"Fred VanVleet":{"g":[-3,0,2,-1,-2,2,3,-1,1],"G":60,"src":"2024 25 only","line":"2024 25, 60 games, 35.2 min. 14.1 pts, 3.7 reb, 5.6 ast, 1.6 stl, 0.4 blk, 2.7 3PM, 37.8 FG%, 82.6 FT%, 1.5 TO","risk":1,"inj":"Back in camp after missing last season","z":[-2.19,0.18,1.02,-0.47,-0.99,0.9,1.51,-0.62,0.5],"av":0.73,"eg":60,"trk":null,"g3":[0,60,73]},"Keegan Murray":{"g":[-2,0,0,-1,0,-2,-1,2,2],"G":23,"src":"blend","line":"2025 26 only 23 games, so blended with 2024 25 (76 games). 12.8 pts, 6.5 reb, 1.5 ast, 0.8 stl, 1.1 blk, 1.8 3PM, 43.9 FG%, 85.6 FT%, 0.9 TO","risk":2,"inj":"","z":[-0.87,0.2,0.15,-0.69,0.23,-1.14,-0.61,0.75,1.27],"av":0.62,"eg":51,"trk":311,"g3":[23,76,77]},"Cedric Coward":{"g":[-1,1,0,-1,0,-1,-2,-1,0],"G":62,"src":"2025 26","line":"2025 26, 62 games, 25.8 min. 13.6 pts, 5.9 reb, 2.8 ast, 0.6 stl, 0.4 blk, 1.5 3PM, 46.7 FG%, 85.2 FT%, 1.7 TO","risk":0,"inj":"","z":[-0.35,0.43,-0.18,-0.55,-0.02,-0.48,-1.31,-0.62,0.24],"av":0.78,"eg":64,"trk":134,"g3":[62,null,null]},"Kristaps Porzingis":{"g":[-2,2,0,0,-1,-1,-2,2,2],"G":32,"src":"2025 26","line":"2025 26, 32 games, 24 min. 16.7 pts, 5.2 reb, 2.5 ast, 0.6 stl, 1.2 blk, 1.7 3PM, 44.6 FG%, 85.7 FT%, 1.3 TO","risk":2,"inj":"Day to day, undisclosed","z":[-0.79,0.85,0.02,-0.03,-0.33,-0.63,-1.31,1.03,0.75],"av":0.48,"eg":40,"trk":259,"g3":[32,42,57]},"John Collins":{"g":[2,0,-1,-1,-1,-2,-1,0,1],"G":69,"src":"2025 26","line":"2025 26, 69 games, 27.1 min. 13.6 pts, 5.3 reb, 1 ast, 0.9 stl, 0.7 blk, 1.3 3PM, 55.2 FG%, 77.3 FT%, 1.4 TO","risk":0,"inj":"","z":[0.97,-0.18,-0.38,-0.55,-0.29,-1.38,-0.46,0.0,0.62],"av":0.75,"eg":62,"trk":85,"g3":[69,40,68]},"Neemias Queta":{"g":[3,-1,-3,-2,2,-2,-2,2,2],"G":76,"src":"2025 26","line":"2025 26, 76 games, 25.3 min. 10.2 pts, 8.4 reb, 1.7 ast, 0.8 stl, 1.3 blk, 0 3PM, 65.2 FG%, 69.6 FT%, 1 TO","risk":0,"inj":"","z":[1.7,-0.72,-1.69,-1.13,1.08,-1.03,-0.75,1.24,1.13],"av":0.78,"eg":64,"trk":35,"g3":[76,62,28]},"Kevin Porter Jr.":{"g":[-1,2,-1,0,-1,3,3,-1,-2],"G":38,"src":"2025 26","line":"2025 26, 38 games, 33.2 min. 17.4 pts, 5.2 reb, 7.4 ast, 2.2 stl, 0.5 blk, 1.2 3PM, 46.7 FG%, 87.8 FT%, 2.9 TO","risk":2,"inj":"Day to day, knee","z":[-0.45,0.97,-0.49,0.09,-0.33,1.79,3.2,-0.41,-1.29],"av":0.63,"eg":52,"trk":131,"g3":[38,75,null]},"Khaman Maluach":{"g":[0,0,-3,-3,-2,-3,-3,0,3],"G":46,"src":"2025 26","line":"2025 26, 46 games, 8.9 min. 3 pts, 2.9 reb, 0.1 ast, 0.1 stl, 0.7 blk, 0.1 3PM, 52.2 FG%, 71.4 FT%, 0.5 TO","risk":1,"inj":"","z":[0.12,-0.18,-1.59,-2.34,-1.34,-1.82,-2.72,0.0,1.77],"av":0.57,"eg":47,"trk":375,"g3":[46,null,null]},"Toumani Camara":{"g":[-2,-1,2,-1,-1,-1,0,-1,0],"G":82,"src":"2025 26","line":"2025 26, 82 games, 33.3 min. 13.4 pts, 5.1 reb, 2.5 ast, 1.1 stl, 0.4 blk, 2.7 3PM, 44 FG%, 70.6 FT%, 1.8 TO","risk":0,"inj":"","z":[-0.81,-0.48,1.02,-0.59,-0.38,-0.63,0.1,-0.62,0.11],"av":0.97,"eg":80,"trk":62,"g3":[82,78,70]},"Ajay Mitchell":{"g":[0,2,-1,-1,-2,0,1,-2,1],"G":57,"src":"2025 26","line":"2025 26, 57 games, 25.8 min. 13.6 pts, 3.3 reb, 3.6 ast, 1.2 stl, 0.3 blk, 1.1 3PM, 48.1 FG%, 89.3 FT%, 1.4 TO","risk":1,"inj":"Day to day, calf","z":[-0.11,0.79,-0.59,-0.55,-1.17,-0.09,0.38,-0.83,0.62],"av":0.6,"eg":49,"trk":128,"g3":[57,36,null]},"Cason Wallace":{"g":[-1,0,-1,-2,-2,-1,3,-1,2],"G":77,"src":"2025 26","line":"2025 26, 77 games, 26.6 min. 8.6 pts, 3.1 reb, 2.6 ast, 1.9 stl, 0.4 blk, 1.3 3PM, 43.4 FG%, 77.8 FT%, 0.9 TO","risk":0,"inj":"","z":[-0.64,-0.06,-0.38,-1.4,-1.26,-0.58,2.36,-0.62,1.26],"av":0.94,"eg":77,"trk":57,"g3":[77,68,82]},"Zach LaVine":{"g":[0,2,2,1,-2,-1,-2,-2,0],"G":39,"src":"2025 26","line":"2025 26, 39 games, 31.4 min. 19.2 pts, 2.8 reb, 2.3 ast, 0.7 stl, 0.3 blk, 2.5 3PM, 47.9 FG%, 88.9 FT%, 1.9 TO","risk":2,"inj":"","z":[-0.2,0.97,0.82,0.39,-1.39,-0.73,-1.03,-0.83,-0.01],"av":0.58,"eg":48,"trk":241,"g3":[39,74,25]},"Peyton Watson":{"g":[0,-1,0,-1,-1,-2,-1,2,0],"G":54,"src":"2025 26","line":"2025 26, 54 games, 29.6 min. 14.6 pts, 4.9 reb, 2.1 ast, 0.9 stl, 1.1 blk, 1.5 3PM, 49.1 FG%, 74.3 FT%, 1.7 TO","risk":1,"inj":"Day to day, hamstring","z":[0.05,-0.59,-0.18,-0.38,-0.46,-0.83,-0.46,0.83,0.24],"av":0.77,"eg":63,"trk":151,"g3":[54,68,80]},"CJ McCollum":{"g":[-2,0,2,1,-2,0,-2,-1,0],"G":76,"src":"2025 26","line":"2025 26, 76 games, 29.8 min. 18.7 pts, 3.3 reb, 3.9 ast, 0.8 stl, 0.5 blk, 2.5 3PM, 45.4 FG%, 77.4 FT%, 1.8 TO","risk":0,"inj":"","z":[-0.8,-0.23,0.82,0.31,-1.17,0.06,-0.75,-0.41,0.11],"av":0.85,"eg":70,"trk":73,"g3":[76,56,66]},"Brandin Podziemski":{"g":[-1,0,0,-1,-1,0,0,-2,1],"G":82,"src":"2025 26","line":"2025 26, 82 games, 28.5 min. 13.8 pts, 5.1 reb, 3.7 ast, 1.1 stl, 0.2 blk, 1.9 3PM, 45.3 FG%, 79.3 FT%, 1.6 TO","risk":0,"inj":"","z":[-0.58,-0.05,0.22,-0.52,-0.38,-0.04,0.1,-1.03,0.37],"av":0.94,"eg":77,"trk":56,"g3":[82,64,74]},"Jalen Green":{"g":[-3,-1,1,0,-2,-1,0,-2,-1],"G":32,"src":"2025 26","line":"2025 26, 32 games, 25.9 min. 17.8 pts, 3.6 reb, 2.8 ast, 1.1 stl, 0.3 blk, 2.2 3PM, 42.5 FG%, 74.1 FT%, 2.3 TO","risk":2,"inj":"","z":[-1.57,-0.48,0.52,0.16,-1.04,-0.48,0.1,-0.83,-0.52],"av":0.71,"eg":58,"trk":322,"g3":[32,82,82]},"Nikola Vucevic":{"g":[0,0,0,-1,2,0,-2,0,2],"G":64,"src":"2025 26","line":"2025 26, 64 games, 28.4 min. 15.1 pts, 8.4 reb, 3.3 ast, 0.6 stl, 0.6 blk, 1.6 3PM, 49.6 FG%, 80 FT%, 1.3 TO","risk":0,"inj":"","z":[0.16,0.0,-0.08,-0.3,1.08,-0.24,-1.31,-0.21,0.75],"av":0.86,"eg":71,"trk":64,"g3":[64,73,76]},"Draymond Green":{"g":[-2,0,0,-2,0,2,-1,0,-2],"G":68,"src":"2025 26","line":"2025 26, 68 games, 27.5 min. 8.4 pts, 5.5 reb, 5.5 ast, 0.9 stl, 0.6 blk, 1.5 3PM, 41.7 FG%, 75 FT%, 2.7 TO","risk":0,"inj":"","z":[-0.8,-0.18,-0.18,-1.43,-0.2,0.85,-0.46,-0.21,-1.03],"av":0.82,"eg":67,"trk":155,"g3":[68,68,55]},"Jakob Poeltl":{"g":[3,-2,-3,-2,1,-2,-1,0,2],"G":46,"src":"2025 26","line":"2025 26, 46 games, 25 min. 10.7 pts, 7 reb, 2 ast, 0.9 stl, 0.7 blk, 0 3PM, 70.1 FG%, 61.9 FT%, 1.2 TO","risk":1,"inj":"","z":[2.25,-1.14,-1.69,-1.04,0.46,-0.88,-0.46,0.0,0.88],"av":0.63,"eg":51,"trk":203,"g3":[46,57,50]},"Reed Sheppard":{"g":[-2,0,2,-1,-2,0,2,0,1],"G":82,"src":"2025 26","line":"2025 26, 82 games, 26.2 min. 13.5 pts, 2.9 reb, 3.4 ast, 1.5 stl, 0.7 blk, 2.8 3PM, 43.5 FG%, 80 FT%, 1.5 TO","risk":0,"inj":"","z":[-0.95,0.0,1.12,-0.57,-1.34,-0.19,1.23,0.0,0.5],"av":0.88,"eg":73,"trk":29,"g3":[82,52,null]},"Daniel Gafford":{"g":[3,-2,-3,-2,1,-2,-2,2,2],"G":55,"src":"2025 26","line":"2025 26, 55 games, 21.7 min. 9.5 pts, 6.9 reb, 1.1 ast, 0.8 stl, 1.3 blk, 0 3PM, 66.7 FG%, 69 FT%, 1.1 TO","risk":1,"inj":"","z":[1.6,-0.96,-1.69,-1.25,0.42,-1.33,-0.75,1.24,1.0],"av":0.74,"eg":61,"trk":153,"g3":[55,57,74]},"Andrew Nembhard":{"g":[-2,1,0,0,-2,3,-1,-2,-1],"G":57,"src":"2025 26","line":"2025 26, 57 games, 31.3 min. 16.9 pts, 2.8 reb, 7.7 ast, 0.9 stl, 0.1 blk, 1.9 3PM, 43.9 FG%, 82.9 FT%, 2.4 TO","risk":1,"inj":"","z":[-1.0,0.37,0.22,0.0,-1.39,1.94,-0.46,-1.24,-0.65],"av":0.77,"eg":63,"trk":144,"g3":[57,65,68]},"Davion Mitchell":{"g":[0,-1,-1,-2,-2,2,0,-2,1],"G":70,"src":"2025 26","line":"2025 26, 70 games, 28.6 min. 9.3 pts, 2.7 reb, 6.5 ast, 1 stl, 0.2 blk, 1.3 3PM, 48.7 FG%, 66.7 FT%, 1.5 TO","risk":0,"inj":"","z":[-0.01,-0.36,-0.38,-1.28,-1.43,1.35,-0.18,-1.03,0.5],"av":0.9,"eg":73,"trk":126,"g3":[70,74,72]},"Grayson Allen":{"g":[-3,1,2,0,-2,0,2,-2,1],"G":51,"src":"2025 26","line":"2025 26, 51 games, 28.8 min. 16.5 pts, 3 reb, 3.8 ast, 1.4 stl, 0.3 blk, 3.1 3PM, 40.5 FG%, 84.8 FT%, 1.6 TO","risk":1,"inj":"","z":[-1.71,0.49,1.42,-0.06,-1.3,0.01,0.95,-0.83,0.37],"av":0.75,"eg":61,"trk":137,"g3":[51,64,75]},"Jay Huff":{"g":[-1,0,0,-2,-2,-2,-3,3,2],"G":82,"src":"2025 26","line":"2025 26, 82 games, 21 min. 9.5 pts, 4 reb, 1.5 ast, 0.5 stl, 1.9 blk, 1.5 3PM, 46.7 FG%, 83.3 FT%, 0.9 TO","risk":0,"inj":"","z":[-0.25,0.12,-0.18,-1.25,-0.86,-1.13,-1.59,2.48,1.26],"av":0.8,"eg":66,"trk":46,"g3":[82,64,20]},"T.J. McConnell":{"g":[1,0,-2,-2,-3,1,0,-2,2],"G":56,"src":"2025 26","line":"2025 26, 56 games, 17.2 min. 9.4 pts, 2.2 reb, 5.1 ast, 1 stl, 0.2 blk, 0.3 3PM, 53.8 FG%, 80 FT%, 1.1 TO","risk":1,"inj":"","z":[0.63,0.0,-1.39,-1.26,-1.65,0.65,-0.18,-1.03,1.0],"av":0.82,"eg":68,"trk":187,"g3":[56,79,71]},"P.J. Washington":{"g":[-1,-2,-1,-1,1,-2,0,2,0],"G":56,"src":"2025 26","line":"2025 26, 56 games, 31 min. 14.2 pts, 7 reb, 1.8 ast, 1 stl, 1.1 blk, 1.4 3PM, 44.9 FG%, 66.7 FT%, 1.7 TO","risk":1,"inj":"","z":[-0.71,-1.32,-0.28,-0.45,0.46,-0.98,-0.18,0.83,0.24],"av":0.75,"eg":61,"trk":166,"g3":[56,57,73]},"Julian Champagnie":{"g":[-1,1,1,-2,0,-2,-2,-1,2],"G":82,"src":"2025 26","line":"2025 26, 82 games, 27.6 min. 11.1 pts, 5.8 reb, 1.5 ast, 0.8 stl, 0.5 blk, 2.4 3PM, 44 FG%, 87.5 FT%, 0.8 TO","risk":0,"inj":"","z":[-0.62,0.36,0.72,-0.98,-0.07,-1.13,-0.75,-0.41,1.39],"av":0.97,"eg":80,"trk":53,"g3":[82,82,74]},"Tre Jones":{"g":[2,1,-2,-1,-2,2,1,-2,1],"G":65,"src":"2025 26","line":"2025 26, 65 games, 27 min. 14.1 pts, 3.1 reb, 5.4 ast, 1.2 stl, 0.2 blk, 0.6 3PM, 54.7 FG%, 82.9 FT%, 1.4 TO","risk":0,"inj":"","z":[0.89,0.31,-1.09,-0.47,-1.26,0.8,0.38,-1.03,0.62],"av":0.77,"eg":63,"trk":76,"g3":[65,46,77]},"Kyshawn George":{"g":[-2,0,1,-1,-1,1,0,1,-2],"G":48,"src":"2025 26","line":"2025 26, 48 games, 29 min. 14.8 pts, 5.1 reb, 4.5 ast, 1 stl, 0.9 blk, 2.1 3PM, 44.2 FG%, 81.5 FT%, 2.6 TO","risk":1,"inj":"","z":[-0.87,0.13,0.42,-0.35,-0.38,0.36,-0.18,0.41,-0.91],"av":0.69,"eg":57,"trk":180,"g3":[48,68,null]},"Anthony Black":{"g":[-2,-2,0,-1,-2,0,2,0,-1],"G":64,"src":"2025 26","line":"2025 26, 64 games, 29.8 min. 15 pts, 3.8 reb, 3.7 ast, 1.4 stl, 0.7 blk, 1.6 3PM, 44.6 FG%, 72.2 FT%, 2.1 TO","risk":0,"inj":"","z":[-0.79,-0.84,-0.08,-0.32,-0.95,-0.04,0.95,0.0,-0.27],"av":0.86,"eg":71,"trk":120,"g3":[64,78,69]},"Bilal Coulibaly":{"g":[-2,-1,-1,-2,-1,-1,1,1,1],"G":56,"src":"2025 26","line":"2025 26, 56 games, 26.2 min. 11.7 pts, 4.3 reb, 2.6 ast, 1.3 stl, 1 blk, 1.2 3PM, 42.3 FG%, 75 FT%, 1.4 TO","risk":1,"inj":"","z":[-0.99,-0.47,-0.49,-0.87,-0.73,-0.58,0.67,0.62,0.62],"av":0.73,"eg":60,"trk":161,"g3":[56,59,63]},"Bennedict Mathurin":{"g":[-2,2,-1,0,0,-1,-2,-2,-1],"G":54,"src":"2025 26","line":"2025 26, 54 games, 30 min. 17.6 pts, 5.4 reb, 2.4 ast, 0.8 stl, 0.2 blk, 1.4 3PM, 43.2 FG%, 87.1 FT%, 2.2 TO","risk":1,"inj":"","z":[-1.09,1.34,-0.28,0.12,-0.24,-0.68,-0.75,-1.03,-0.4],"av":0.75,"eg":62,"trk":190,"g3":[54,72,59]},"Jaime Jaquez Jr.":{"g":[1,-1,-2,-1,-1,1,-2,-2,0],"G":75,"src":"2025 26","line":"2025 26, 75 games, 28.3 min. 15.4 pts, 5 reb, 4.7 ast, 0.7 stl, 0.3 blk, 0.8 3PM, 50.8 FG%, 75.9 FT%, 2 TO","risk":0,"inj":"","z":[0.39,-0.36,-0.89,-0.25,-0.42,0.46,-1.03,-0.83,-0.14],"av":0.9,"eg":74,"trk":99,"g3":[75,66,75]},"DeMar DeRozan":{"g":[0,2,-2,1,-2,0,0,-2,2],"G":77,"src":"2025 26","line":"2025 26, 77 games, 31.2 min. 18.4 pts, 2.9 reb, 4.1 ast, 1 stl, 0.3 blk, 0.6 3PM, 49.6 FG%, 87.5 FT%, 1.2 TO","risk":0,"inj":"","z":[0.17,1.27,-1.09,0.26,-1.34,0.16,-0.18,-0.83,0.88],"av":0.97,"eg":79,"trk":41,"g3":[77,77,79]},"Aaron Gordon":{"g":[0,-1,0,0,0,-1,-2,-2,2],"G":36,"src":"2025 26","line":"2025 26, 36 games, 27.9 min. 16.2 pts, 5.8 reb, 2.7 ast, 0.6 stl, 0.3 blk, 1.7 3PM, 49.5 FG%, 77.8 FT%, 1.1 TO","risk":2,"inj":"","z":[0.14,-0.29,0.02,-0.11,-0.07,-0.53,-1.31,-0.83,1.0],"av":0.6,"eg":49,"trk":269,"g3":[36,51,73]},"Saddiq Bey":{"g":[-1,1,1,0,0,-1,-1,-2,2],"G":72,"src":"2025 26","line":"2025 26, 72 games, 31.2 min. 17.7 pts, 5.6 reb, 2.5 ast, 0.9 stl, 0.1 blk, 2.1 3PM, 45.5 FG%, 82.9 FT%, 0.9 TO","risk":0,"inj":"","z":[-0.68,0.37,0.42,0.14,-0.16,-0.63,-0.46,-1.24,1.26],"av":0.87,"eg":71,"trk":59,"g3":[72,null,63]},"Jerami Grant":{"g":[-1,1,1,1,-2,-2,-2,0,-1],"G":57,"src":"2025 26","line":"2025 26, 57 games, 29.7 min. 18.6 pts, 3.5 reb, 2.1 ast, 0.7 stl, 0.6 blk, 2.4 3PM, 45.3 FG%, 82.1 FT%, 2.1 TO","risk":1,"inj":"","z":[-0.69,0.37,0.72,0.29,-1.08,-0.83,-1.03,-0.21,-0.27],"av":0.67,"eg":55,"trk":160,"g3":[57,47,54]},"RJ Barrett":{"g":[0,-2,0,1,-1,0,-2,-2,0],"G":57,"src":"2025 26","line":"2025 26, 57 games, 30.3 min. 19.3 pts, 5.3 reb, 3.3 ast, 0.7 stl, 0.3 blk, 1.7 3PM, 49 FG%, 71.4 FT%, 1.7 TO","risk":1,"inj":"","z":[0.04,-1.25,0.02,0.41,-0.29,-0.24,-1.03,-0.83,0.24],"av":0.72,"eg":59,"trk":170,"g3":[57,58,58]},"Jimmy Butler III":{"g":[1,2,-2,1,0,1,2,-2,1],"G":38,"src":"2025 26","line":"2025 26, 38 games, 31.1 min. 20 pts, 5.6 reb, 4.9 ast, 1.4 stl, 0.2 blk, 0.8 3PM, 51.6 FG%, 85.5 FT%, 1.6 TO","risk":2,"inj":"Out until at least Dec 1, knee","z":[0.55,1.28,-0.89,0.53,-0.16,0.56,0.95,-1.03,0.37],"av":0.42,"eg":34,"trk":132,"g3":[38,55,60]},"Christian Braun":{"g":[1,0,-1,-2,-1,-1,-2,-2,2],"G":44,"src":"2025 26","line":"2025 26, 44 games, 31.8 min. 12 pts, 4.8 reb, 2.7 ast, 0.7 stl, 0.3 blk, 1 3PM, 52.3 FG%, 78.3 FT%, 1 TO","risk":2,"inj":"","z":[0.48,-0.12,-0.69,-0.82,-0.51,-0.53,-1.03,-0.83,1.13],"av":0.78,"eg":64,"trk":243,"g3":[44,79,82]},"Jusuf Nurkic":{"g":[1,-3,-2,-2,3,1,1,-1,-2],"G":41,"src":"2025 26","line":"2025 26, 41 games, 26.4 min. 10.9 pts, 10.4 reb, 4.8 ast, 1.3 stl, 0.5 blk, 0.6 3PM, 50.6 FG%, 53.6 FT%, 2.5 TO","risk":2,"inj":"","z":[0.25,-2.22,-1.09,-1.01,1.96,0.51,0.67,-0.41,-0.78],"av":0.64,"eg":52,"trk":245,"g3":[41,51,76]},"Devin Vassell":{"g":[-2,0,2,-1,-2,-1,-1,-1,2],"G":67,"src":"2025 26","line":"2025 26, 67 games, 30.5 min. 13.9 pts, 4 reb, 2.5 ast, 0.9 stl, 0.4 blk, 2.5 3PM, 43.4 FG%, 84.2 FT%, 0.9 TO","risk":0,"inj":"","z":[-0.96,0.24,0.82,-0.5,-0.86,-0.63,-0.46,-0.62,1.26],"av":0.83,"eg":68,"trk":97,"g3":[67,64,68]},"Jrue Holiday":{"g":[-2,1,2,0,-1,2,0,-2,-2],"G":53,"src":"2025 26","line":"2025 26, 53 games, 29.4 min. 16.3 pts, 4.6 reb, 6.1 ast, 1 stl, 0.1 blk, 2.6 3PM, 44.8 FG%, 85 FT%, 2.8 TO","risk":1,"inj":"","z":[-0.84,0.3,0.92,-0.1,-0.6,1.15,-0.18,-1.24,-1.16],"av":0.74,"eg":60,"trk":147,"g3":[53,62,69]},"Tari Eason":{"g":[-2,0,0,-2,0,-2,1,-1,1],"G":60,"src":"2025 26","line":"2025 26, 60 games, 25.8 min. 10.5 pts, 6.3 reb, 1.5 ast, 1.2 stl, 0.5 blk, 1.6 3PM, 41.2 FG%, 81.8 FT%, 1.4 TO","risk":0,"inj":"","z":[-1.15,0.06,-0.08,-1.08,0.15,-1.13,0.38,-0.41,0.62],"av":0.64,"eg":53,"trk":156,"g3":[60,57,22]},"Kelly Oubre Jr.":{"g":[-1,-1,0,-1,-1,-2,2,-1,1],"G":50,"src":"2025 26","line":"2025 26, 50 games, 31.5 min. 14.1 pts, 5 reb, 1.6 ast, 1.4 stl, 0.5 blk, 1.7 3PM, 46.8 FG%, 75.9 FT%, 1.4 TO","risk":1,"inj":"","z":[-0.34,-0.36,0.02,-0.47,-0.42,-1.08,0.95,-0.41,0.62],"av":0.71,"eg":58,"trk":169,"g3":[50,60,68]},"Keon Ellis":{"g":[-1,-1,-1,-3,-3,-2,1,0,3],"G":72,"src":"2025 26","line":"2025 26, 72 games, 20.5 min. 6.7 pts, 1.9 reb, 1 ast, 1.2 stl, 0.6 blk, 1.3 3PM, 43.4 FG%, 70 FT%, 0.6 TO","risk":0,"inj":"","z":[-0.45,-0.3,-0.38,-1.72,-1.78,-1.38,0.38,-0.21,1.64],"av":0.89,"eg":73,"trk":152,"g3":[72,80,57]},"Santi Aldama":{"g":[0,-2,0,-1,1,-1,-1,0,2],"G":43,"src":"2025 26","line":"2025 26, 43 games, 27.9 min. 14 pts, 6.7 reb, 2.9 ast, 0.9 stl, 0.7 blk, 1.6 3PM, 47.7 FG%, 66.7 FT%, 1.3 TO","risk":2,"inj":"Day to day, undisclosed","z":[-0.18,-1.08,-0.08,-0.49,0.33,-0.44,-0.46,0.0,0.75],"av":0.65,"eg":53,"trk":219,"g3":[43,65,61]},"Isaiah Stewart":{"g":[1,-1,-2,-2,-1,-2,-3,3,2],"G":58,"src":"2025 26","line":"2025 26, 58 games, 22.7 min. 10 pts, 5 reb, 1.1 ast, 0.3 stl, 1.6 blk, 0.7 3PM, 55.1 FG%, 73.9 FT%, 1.2 TO","risk":1,"inj":"","z":[0.68,-0.42,-0.99,-1.16,-0.42,-1.33,-2.16,1.86,0.88],"av":0.75,"eg":61,"trk":164,"g3":[58,72,46]},"Mitchell Robinson":{"g":[2,-3,-3,-3,2,-2,-1,2,3],"G":60,"src":"2025 26","line":"2025 26, 60 games, 19.6 min. 5.7 pts, 8.8 reb, 0.9 ast, 0.9 stl, 1.2 blk, 0 3PM, 73.5 FG%, 41.2 FT%, 0.7 TO","risk":0,"inj":"","z":[1.32,-1.98,-1.69,-1.89,1.25,-1.43,-0.46,1.03,1.51],"av":0.52,"eg":42,"trk":148,"g3":[60,17,31]},"Deandre Ayton":{"g":[3,-2,-3,-1,2,-2,-2,1,2],"G":72,"src":"2025 26","line":"2025 26, 72 games, 27.2 min. 12.5 pts, 8 reb, 0.8 ast, 0.6 stl, 1 blk, 0 3PM, 67.5 FG%, 65 FT%, 1.2 TO","risk":0,"inj":"","z":[2.44,-0.9,-1.69,-0.74,0.9,-1.48,-1.31,0.62,0.88],"av":0.74,"eg":60,"trk":68,"g3":[72,40,55]},"Jonathan Kuminga":{"g":[-1,-1,-1,-2,0,-1,-2,-2,0],"G":36,"src":"2025 26","line":"2025 26, 36 games, 23.1 min. 12.2 pts, 5.6 reb, 2.3 ast, 0.6 stl, 0.3 blk, 1 3PM, 46.8 FG%, 73.5 FT%, 1.9 TO","risk":2,"inj":"","z":[-0.29,-0.66,-0.69,-0.79,-0.16,-0.73,-1.31,-0.83,-0.01],"av":0.59,"eg":48,"trk":337,"g3":[36,47,74]},"Luguentz Dort":{"g":[-2,0,0,-2,-2,-2,-1,-1,2],"G":69,"src":"2025 26","line":"2025 26, 69 games, 26.8 min. 8.3 pts, 3.6 reb, 1.2 ast, 0.9 stl, 0.4 blk, 1.9 3PM, 38.2 FG%, 75 FT%, 0.8 TO","risk":0,"inj":"","z":[-1.27,-0.12,0.22,-1.45,-1.04,-1.28,-0.46,-0.62,1.39],"av":0.89,"eg":73,"trk":195,"g3":[69,71,79]},"Egor Demin":{"g":[-2,0,1,-2,-2,0,-2,-2,0],"G":52,"src":"2025 26","line":"2025 26, 52 games, 25.2 min. 10.3 pts, 3.2 reb, 3.3 ast, 0.8 stl, 0.3 blk, 2.4 3PM, 39.5 FG%, 76.9 FT%, 1.7 TO","risk":1,"inj":"","z":[-1.25,-0.12,0.72,-1.11,-1.21,-0.24,-0.75,-0.83,0.24],"av":0.65,"eg":53,"trk":244,"g3":[52,null,null]},"Yves Missi":{"g":[1,-2,-3,-3,0,-2,-3,3,2],"G":66,"src":"2025 26","line":"2025 26, 66 games, 19.7 min. 5.7 pts, 5.8 reb, 1.3 ast, 0.3 stl, 1.5 blk, 0 3PM, 53.3 FG%, 60 FT%, 0.8 TO","risk":0,"inj":"","z":[0.32,-0.9,-1.69,-1.89,-0.07,-1.23,-2.16,1.65,1.39],"av":0.86,"eg":70,"trk":207,"g3":[66,73,null]},"Kasparas Jakucionis":{"g":[-1,1,-1,-3,-2,-1,-2,-2,2],"G":53,"src":"2025 26","line":"2025 26, 53 games, 17.8 min. 6.2 pts, 2.6 reb, 2.6 ast, 0.6 stl, 0.1 blk, 1.2 3PM, 42.2 FG%, 91.7 FT%, 0.9 TO","risk":1,"inj":"","z":[-0.46,0.42,-0.49,-1.8,-1.48,-0.58,-1.31,-1.24,1.26],"av":0.66,"eg":54,"trk":285,"g3":[53,null,null]},"Bobby Portis":{"g":[0,-1,1,-1,0,-2,-2,-2,2],"G":67,"src":"2025 26","line":"2025 26, 67 games, 24.2 min. 13.7 pts, 6.4 reb, 1.6 ast, 0.6 stl, 0.2 blk, 2 3PM, 49.1 FG%, 70 FT%, 1 TO","risk":0,"inj":"","z":[0.06,-0.3,0.32,-0.54,0.2,-1.08,-1.31,-1.03,1.13],"av":0.81,"eg":66,"trk":116,"g3":[67,49,82]},"Anfernee Simons":{"g":[-2,1,2,-1,-3,-1,-3,-2,2],"G":55,"src":"2025 26","line":"2025 26, 55 games, 24.9 min. 14.3 pts, 2.5 reb, 2.4 ast, 0.5 stl, 0.1 blk, 2.7 3PM, 44.1 FG%, 92.9 FT%, 1.2 TO","risk":1,"inj":"","z":[-0.87,0.54,1.02,-0.44,-1.52,-0.68,-1.59,-1.24,0.88],"av":0.72,"eg":59,"trk":227,"g3":[55,70,46]},"Klay Thompson":{"g":[-3,0,2,-2,-3,-2,-3,-2,2],"G":69,"src":"2025 26","line":"2025 26, 69 games, 21.7 min. 11.7 pts, 2.1 reb, 1.4 ast, 0.5 stl, 0.3 blk, 2.9 3PM, 38.7 FG%, 71.4 FT%, 0.9 TO","risk":0,"inj":"","z":[-1.68,-0.18,1.22,-0.87,-1.7,-1.18,-1.59,-0.83,1.26],"av":0.89,"eg":73,"trk":228,"g3":[69,72,77]},"Jared McCain":{"g":[-2,0,0,-2,-3,-2,-3,-2,2],"G":67,"src":"2025 26","line":"2025 26, 67 games, 17.3 min. 8.3 pts, 2 reb, 1.3 ast, 0.5 stl, 0.1 blk, 1.5 3PM, 41.7 FG%, 88.9 FT%, 0.8 TO","risk":0,"inj":"","z":[-0.8,0.24,-0.18,-1.45,-1.74,-1.23,-1.59,-1.24,1.39],"av":0.63,"eg":52,"trk":279,"g3":[67,23,null]},"Alex Caruso":{"g":[-1,0,-2,-3,-2,-2,1,-2,2],"G":56,"src":"2025 26","line":"2025 26, 56 games, 18.2 min. 6.2 pts, 2.8 reb, 2 ast, 1.3 stl, 0.3 blk, 0.9 3PM, 42.6 FG%, 77.8 FT%, 0.9 TO","risk":1,"inj":"","z":[-0.52,-0.06,-0.79,-1.8,-1.39,-0.88,0.67,-0.83,1.26],"av":0.73,"eg":60,"trk":234,"g3":[56,54,71]},"Dereck Lively II":{"g":[3,-2,-3,-3,1,-1,-2,3,2],"G":7,"src":"blend","line":"2025 26 only 7 games, so blended with 2024 25 (36 games). 8 pts, 7.1 reb, 2.3 ast, 0.6 stl, 1.6 blk, 0 3PM, 69.1 FG%, 66.6 FT%, 1.1 TO","risk":2,"inj":"Day to day, foot","z":[1.55,-0.76,-1.69,-1.5,0.52,-0.72,-1.31,1.86,0.94],"av":0.31,"eg":25,"trk":463,"g3":[7,36,55]},"Bradley Beal":{"g":[0,0,0,0,-2,0,0,-1,0],"G":6,"src":"blend","line":"2025 26 only 6 games, so blended with 2024 25 (53 games). 16.1 pts, 3 reb, 3.5 ast, 1 stl, 0.4 blk, 1.8 3PM, 48.8 FG%, 80.6 FT%, 1.9 TO","risk":2,"inj":"Day to day, knee","z":[0.01,0.05,0.14,-0.13,-1.28,-0.14,-0.07,-0.52,0.04],"av":0.36,"eg":29,"trk":545,"g3":[6,53,53]},"Rui Hachimura":{"g":[1,-1,0,-2,-2,-2,-2,-2,3],"G":68,"src":"2025 26","line":"2025 26, 68 games, 28.3 min. 11.5 pts, 3.3 reb, 0.8 ast, 0.6 stl, 0.3 blk, 1.7 3PM, 51.1 FG%, 63.6 FT%, 0.6 TO","risk":0,"inj":"","z":[0.33,-0.54,0.02,-0.91,-1.17,-1.48,-1.31,-0.83,1.64],"av":0.82,"eg":67,"trk":162,"g3":[68,59,68]},"Max Strus":{"g":[-1,0,1,-2,-1,-1,-3,-2,2],"G":12,"src":"blend","line":"2025 26 only 12 games, so blended with 2024 25 (50 games). 9.7 pts, 4.5 reb, 3 ast, 0.5 stl, 0.2 blk, 2.4 3PM, 44.1 FG%, 83.4 FT%, 1 TO","risk":2,"inj":"","z":[-0.57,0.08,0.71,-1.2,-0.63,-0.4,-1.7,-1.11,1.08],"av":0.44,"eg":36,"trk":428,"g3":[12,50,70]},"Tobias Harris":{"g":[-1,1,-1,-1,-1,-1,-1,-1,2],"G":63,"src":"2025 26","line":"2025 26, 63 games, 27.7 min. 13.3 pts, 5.1 reb, 2.5 ast, 0.9 stl, 0.4 blk, 1.3 3PM, 46.7 FG%, 88 FT%, 1 TO","risk":0,"inj":"","z":[-0.35,0.61,-0.38,-0.6,-0.38,-0.63,-0.46,-0.62,1.13],"av":0.84,"eg":69,"trk":100,"g3":[63,73,70]},"Mike Conley":{"g":[-2,0,-1,-3,-3,-1,-2,-2,3],"G":54,"src":"2025 26","line":"2025 26, 54 games, 18.4 min. 4.5 pts, 1.7 reb, 2.9 ast, 0.6 stl, 0.3 blk, 1 3PM, 32.5 FG%, 88.9 FT%, 0.6 TO","risk":1,"inj":"","z":[-1.02,0.24,-0.69,-2.09,-1.87,-0.44,-1.31,-0.83,1.64],"av":0.79,"eg":65,"trk":297,"g3":[54,71,76]},"Marcus Smart":{"g":[-2,0,0,-2,-2,-1,2,-1,1],"G":62,"src":"2025 26","line":"2025 26, 62 games, 28.5 min. 9.3 pts, 2.8 reb, 3 ast, 1.4 stl, 0.4 blk, 1.6 3PM, 39 FG%, 81 FT%, 1.5 TO","risk":0,"inj":"","z":[-1.18,0.06,-0.08,-1.28,-1.39,-0.39,0.95,-0.62,0.5],"av":0.57,"eg":46,"trk":171,"g3":[62,34,20]},"Cameron Johnson":{"g":[0,0,1,-2,-2,-1,-2,-1,2],"G":54,"src":"2025 26","line":"2025 26, 54 games, 30.5 min. 12.2 pts, 3.8 reb, 2.4 ast, 0.7 stl, 0.4 blk, 2 3PM, 47.7 FG%, 81 FT%, 0.9 TO","risk":1,"inj":"","z":[-0.14,0.06,0.32,-0.79,-0.95,-0.68,-1.03,-0.62,1.26],"av":0.7,"eg":57,"trk":157,"g3":[54,57,58]},"Scoot Henderson":{"g":[-2,1,0,-1,-2,0,-1,-2,-1],"G":30,"src":"2025 26","line":"2025 26, 30 games, 24.9 min. 14.2 pts, 2.7 reb, 3.7 ast, 0.9 stl, 0.3 blk, 1.9 3PM, 42.1 FG%, 84.8 FT%, 2.4 TO","risk":2,"inj":"","z":[-1.19,0.49,0.22,-0.45,-1.43,-0.04,-0.46,-0.83,-0.65],"av":0.59,"eg":48,"trk":334,"g3":[30,66,62]},"Dillon Brooks":{"g":[-2,1,1,1,-2,-2,0,-2,0],"G":56,"src":"2025 26","line":"2025 26, 56 games, 30.4 min. 20.2 pts, 3.6 reb, 1.8 ast, 1 stl, 0.2 blk, 2.3 3PM, 43.3 FG%, 83.3 FT%, 1.8 TO","risk":1,"inj":"","z":[-1.47,0.37,0.62,0.56,-1.04,-0.98,-0.18,-1.03,0.11],"av":0.81,"eg":67,"trk":178,"g3":[56,75,72]},"Keldon Johnson":{"g":[1,0,-1,-1,0,-2,-2,-2,2],"G":82,"src":"2025 26","line":"2025 26, 82 games, 23.3 min. 13.2 pts, 5.4 reb, 1.4 ast, 0.6 stl, 0.1 blk, 1.2 3PM, 51.5 FG%, 79.2 FT%, 0.9 TO","risk":0,"inj":"","z":[0.42,-0.06,-0.49,-0.62,-0.24,-1.18,-1.31,-1.24,1.26],"av":0.97,"eg":80,"trk":91,"g3":[82,77,69]},"Moussa Diabate":{"g":[2,-2,-3,-3,2,-2,-2,1,2],"G":73,"src":"2025 26","line":"2025 26, 73 games, 26 min. 7.9 pts, 8.7 reb, 1.9 ast, 0.8 stl, 1 blk, 0 3PM, 62 FG%, 66.7 FT%, 1 TO","risk":0,"inj":"","z":[1.04,-0.96,-1.69,-1.52,1.21,-0.93,-0.75,0.62,1.13],"av":0.75,"eg":62,"trk":83,"g3":[73,71,11]},"Jonathan Isaac":{"g":[0,-1,-3,-3,-3,-3,-3,0,3],"G":52,"src":"2025 26","line":"2025 26, 52 games, 10 min. 2.6 pts, 2.5 reb, 0.4 ast, 0.4 stl, 0.6 blk, 0.1 3PM, 42.9 FG%, 63.6 FT%, 0.3 TO","risk":1,"inj":"Day to day, knee","z":[-0.19,-0.54,-1.59,-2.41,-1.52,-1.67,-1.87,-0.21,2.02],"av":0.71,"eg":59,"trk":374,"g3":[52,71,58]},"Goga Bitadze":{"g":[2,-1,-3,-3,-1,-2,-2,1,3],"G":64,"src":"2025 26","line":"2025 26, 64 games, 15.2 min. 5.9 pts, 5 reb, 1.3 ast, 0.6 stl, 1 blk, 0 3PM, 68.6 FG%, 73.3 FT%, 0.7 TO","risk":0,"inj":"","z":[1.09,-0.3,-1.69,-1.85,-0.42,-1.23,-1.31,0.62,1.51],"av":0.82,"eg":67,"trk":172,"g3":[64,70,62]},"Aaron Nesmith":{"g":[-2,0,1,-1,-2,-2,-2,-1,1],"G":45,"src":"2025 26","line":"2025 26, 45 games, 29.7 min. 13.8 pts, 4.2 reb, 1.9 ast, 0.6 stl, 0.5 blk, 2.3 3PM, 41.2 FG%, 80 FT%, 1.4 TO","risk":1,"inj":"","z":[-1.35,0.0,0.62,-0.52,-0.77,-0.93,-1.31,-0.41,0.62],"av":0.63,"eg":52,"trk":266,"g3":[45,45,72]},"Jalen Smith":{"g":[0,-1,0,-2,1,-2,-3,0,2],"G":53,"src":"2025 26","line":"2025 26, 53 games, 20.7 min. 10.2 pts, 6.7 reb, 1.2 ast, 0.5 stl, 0.8 blk, 1.5 3PM, 48.7 FG%, 72.2 FT%, 1 TO","risk":1,"inj":"","z":[-0.01,-0.42,-0.18,-1.13,0.33,-1.28,-1.59,0.21,1.13],"av":0.72,"eg":59,"trk":199,"g3":[53,64,61]},"Gradey Dick":{"g":[-1,0,-2,-3,-3,-3,-2,-2,3],"G":76,"src":"2025 26","line":"2025 26, 76 games, 14 min. 6 pts, 1.9 reb, 0.7 ast, 0.6 stl, 0.1 blk, 0.7 3PM, 41.2 FG%, 83.3 FT%, 0.6 TO","risk":0,"inj":"","z":[-0.61,0.12,-0.99,-1.84,-1.78,-1.53,-1.31,-1.24,1.64],"av":0.83,"eg":68,"trk":286,"g3":[76,54,60]},"Cameron Boozer":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]},"Caleb Wilson":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]},"AJ Dybantsa":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]},"Darryn Peterson":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]},"Yaxel Lendeborg":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]},"Darius Acuff Jr.":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]},"Hannes Steinbach":{"rookie":1,"line":"Rookie, no NBA stats yet. Grades are a projection.","av":0.85,"trk":null,"g3":[0,null,null]}};
+const PLAYERS = RAW.map((r,i)=>{
+  const p={id:i,name:r[0],team:r[1],pos:POSFIX[r[0]]||r[2],rank:r[3],adp:r[4],g:r[5],risk:r[6],note:r[7]};
+  if (FIX[p.name]) Object.assign(p, FIX[p.name]);
+  const st=STATS[p.name];
+  if (st){ p.line=st.line; if(!st.rookie){ p.g=st.g; p.z=st.z; p.risk=st.risk; p.inj=st.inj; } else p.rookie=true; }
+  if (!p.z) p.z=p.g.map(v=>v*0.6);
+  p.av = (st && st.av!=null) ? st.av : 0.85;
+  p.eg = Math.round(p.av*82);
+  if (st){ p.g3=st.g3; p.trk=st.trk; if(st.news) p.news=st.news; }
+  if (USAGE[p.name]){ applyUsage(p, USAGE[p.name][0]); p.role=USAGE[p.name][1]; }
+  if (JOSH[p.name]){ p.josh=JOSH[p.name][0]; p.jnote=JOSH[p.name][1]; p.jest=!!JOSH[p.name][2]; }
+  p.floor=FLOOR[p.name]||0;
+  p.upside = UPSIDE.has(p.name) || !!p.rookie || GEMS.has(p.name);
+  // expected weekly value, a missed game is filled by a waiver level player
+  p.ez = p.z.map(v=>p.av*v + (1-p.av)*(-0.25));
+  p.gem = GEMS.has(p.name);
+  const po=PLAYOFF[p.team]; p.pot=po?po[0]:''; p.pon=po?po[1]:'';
+  p.po = !po ? 0 : po[0]==='2 game wk' ? (p.rank<=40?-0.3:-0.1) : po[0]==='No B2B' ? 0.05 : (REST.has(p.name)?-0.15:0);
+  return p;
+});
+PLAYERS.sort((a,b)=>a.rank-b.rank||a.id-b.id);
+PLAYERS.forEach((p,i)=>p.id=i);
+const byId = id => PLAYERS[id];
+const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ');
+
+// pool average per category (top 130 = drafted pool)
+const POOL = PLAYERS.filter(p=>p.rank<=140);
+const AVG = CATS.map((_,c)=>POOL.reduce((s,p)=>s+p.ez[c],0)/POOL.length);
+
+const KEY = 'ninecat_war_room_v6';
+let S = { slot: 5, build: 'auto', autoPlan: null, log: [], notes: '0', qover: null, qlast: null, mine: [], taken: [], order: [], search: '', pos: 'All', hide: '1', tab: 'board' };
+try { const saved = JSON.parse(localStorage.getItem(KEY)||'null'); if (saved) S = Object.assign(S, saved, {search:''}); } catch(e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+
+const $ = id => document.getElementById(id);
+
+function myPickNumbers(){
+  const out=[]; for(let r=1;r<=ROUNDS;r++){ out.push((r-1)*TEAMS + (r%2===1 ? S.slot : TEAMS+1-S.slot)); } return out;
+}
+function pickLabel(n){ const r=Math.ceil(n/TEAMS); const inR=n-(r-1)*TEAMS; return 'Round '+r+' pick '+inR; }
+function survive(p, atPick, nowPick){
+  if (atPick==null) return null;
+  const adp = p.adp!=null ? p.adp : p.rank*1.08+6;
+  const gap = atPick - nowPick; if (gap<=0) return 1;
+  const x = (adp - atPick)/(3+0.12*adp);
+  return 1/(1+Math.exp(-1.6*x));
+}
+function profile(){
+  const n=S.mine.length;
+  return CATS.map((_,c)=>{
+    const tot=S.mine.reduce((s,id)=>s+byId(id).ez[c],0);
+    const d = n? (tot - AVG[c]*n)/n : 0;
+    let st = 'none';
+    if (n) st = d>=0.11 ? 'win' : d<=-0.11 ? 'lose' : 'toss';
+    return {c,tot,d,st};
+  });
+}
+const SLOTS=['PG','SG','G','SF','PF','F','C','C'];
+function fits(pos, slot){ const ps=pos.split(','); if(slot==='G') return ps.includes('PG')||ps.includes('SG'); if(slot==='F') return ps.includes('SF')||ps.includes('PF'); return ps.includes(slot); }
+function matchSlots(ids){
+  const m=new Array(SLOTS.length).fill(-1);
+  const tryP=(pi,seen)=>{ for(let s=0;s<SLOTS.length;s++){ if(seen[s]||!fits(byId(ids[pi]).pos,SLOTS[s])) continue; seen[s]=true; if(m[s]===-1||tryP(m[s],seen)){ m[s]=pi; return true; } } return false; };
+  ids.forEach((_,pi)=>tryP(pi,new Array(SLOTS.length).fill(false)));
+  return m;
+}
+const filled = m => m.filter(x=>x!==-1).length;
+function posContextOf(ids){ const m=matchSlots(ids); return {m, base:filled(m), n:ids.length}; }
+function posContext(){ return posContextOf(S.mine); }
+function posEffect(p, ctx){ return posEffectFor(p, S.mine, ctx); }
+function posEffectFor(p, ids, ctx){
+  let bonus=0.1*(p.pos.split(',').length-1), fills=null;
+  if (!ctx || ctx.n===0) return {bonus, fills};
+  const m2=matchSlots(ids.concat([p.id])); const gain=filled(m2)>ctx.base;
+  if (gain){ bonus+=0.5+0.9*(ctx.n/ROUNDS); const open=SLOTS.filter((sl,i)=>ctx.m[i]===-1 && fits(p.pos,sl)); fills = open[0]||'starting'; }
+  else if (ctx.n>=6 && ctx.base<SLOTS.length) bonus-=0.3+1.0*(ctx.n/ROUNDS);
+  return {bonus, fills};
+}
+function profileOf(ids){ const n=ids.length; return CATS.map((_,c)=>{ const tot=ids.reduce((s,id)=>s+byId(id).ez[c],0); const d=n?(tot-AVG[c]*n)/n:0; let st='none'; if(n) st=d>=0.11?'win':d<=-0.11?'lose':'toss'; return {c,tot,d,st}; }); }
+function lean(prof, key){ const t=BUILDS[key].t; return t.reduce((s,c)=>s+prof[c].d,0)/t.length; }
+function bestLean(prof, exclude){
+  let best=null, bv=-99;
+  ['puntft','guards','puntast'].forEach(k=>{ if(k===exclude) return; const v=lean(prof,k); if(v>bv){bv=v;best=k;} });
+  return {key:best, val:bv};
+}
+function rawFit(p, key, prof, ctx){ return fitFor(p, key, S.mine, prof, ctx); }
+function fitFor(p, key, ids, prof, ctx){
+  const b=BUILDS[key]; const n=ids.length; let s=0;
+  for(let c=0;c<9;c++){
+    let w=b.w[c];
+    if (n>=2 && w>0) {
+      const tgt = b.t.includes(c);
+      if (tgt && prof[c].d>-0.7 && prof[c].d<0.35) w*=1.25;
+      else if (prof[c].d>=0.9) w*=0.8;
+    }
+    s+=w*p.ez[c];
+  }
+  s = s*9/b.wsum;
+  s += (171-p.rank)*0.05 + (p.rank<=10?(11-p.rank)*0.1:0) - p.risk*0.4 + posEffectFor(p,ids,ctx).bonus;
+  if (CAL) return s;
+  return s + extraFor(p, n);
+}
+let CAL=false, MYP={slot:null,v:[]};
+function pickAt(n){ if(MYP.slot!==S.slot) MYP={slot:S.slot,v:myPickNumbers()}; return MYP.v[Math.min(n,ROUNDS-1)]; }
+function extraFor(p, n){
+  let x = p.po||0;
+  const pk = pickAt(n);
+  if (p.floor && pk<p.floor) x -= 2 + 0.05*(p.floor-pk);
+  if (n>=10){ x += p.risk*0.2; if (p.upside) x += 0.6; }
+  return x;
+}
+// Josh calibration. Each player Josh ranked is moved most of the way toward his spot by scaling his expected stats, so the board, the cards and the plan math all agree.
+function calibrate(){
+  CAL=true;
+  const prof0=profileOf([]), ctx0=posContextOf([]);
+  const base=p=>Math.max(...PLAN_KEYS.map(k=>fitFor(p,k,[],prof0,ctx0)));
+  const sc=PLAYERS.map(p=>({p,v:base(p)})).sort((a,b)=>b.v-a.v);
+  sc.forEach((x,i)=>{ x.p.pos0=i+1; });
+  const vals=sc.map(x=>x.v);
+  // the order we want, each Josh player sits 70 percent of the way from our spot to his
+  const want=sc.map(x=>({p:x.p, key: x.p.josh ? Math.max(1,0.3*x.p.pos0+0.7*x.p.josh) : x.p.pos0})).sort((a,b)=>a.key-b.key || (b.p.josh?1:0)-(a.p.josh?1:0));
+  want.forEach((w,i)=>{
+    const p=w.p; if(!p.josh) return; p.tgt=i+1;
+    const goal=vals[i];
+    const keep=p.ez; p.ez=keep.map(()=>0); const c0=base(p); p.ez=keep;
+    for (let k=0;k<6;k++){
+      const cur=base(p); const A=goal-cur; if (Math.abs(A)<0.003) break;
+      const core=cur-c0;
+      if (core>0.8){ const f=Math.max(0.4,Math.min(2.5,(goal-c0)/core)); p.ez=p.ez.map(v=>v*f); }
+      else p.ez=p.ez.map(v=>v+A/9);
+    }
+  });
+  CAL=false;
+  const pool=PLAYERS.filter(p=>p.rank<=140);
+  CATS.forEach((_,c)=>{ AVG[c]=pool.reduce((a,p)=>a+p.ez[c],0)/pool.length; });
+}
+// look ahead engine. Other teams pick by ADP, you pick the best fit for a plan, then each of the 9 cats gets a win chance vs an average team.
+const adpEff = p => p.adp!=null ? p.adp : p.rank*1.08+6;
+const ADP_ORDER = PLAYERS.slice().sort((a,b)=>adpEff(a)-adpEff(b)).map(p=>p.id);
+const winP = d => 1/(1+Math.exp(-d/0.28));
+function simulate(key, extraId){
+  const ids=S.mine.slice(); const gone=new Set(S.mine.concat(S.taken));
+  let cur=S.order.length+1; const picks=myPickNumbers().filter(n=>n>=cur); let pi=0;
+  const othersTake=k=>{ for(const id of ADP_ORDER){ if(k<=0) break; if(gone.has(id)) continue; gone.add(id); k--; } };
+  if (extraId!=null){ if(!picks.length) return null; gone.add(extraId); othersTake(picks[0]-cur); ids.push(extraId); cur=picks[0]+1; pi=1; }
+  for(; pi<picks.length; pi++){
+    const P=picks[pi]; othersTake(P-cur);
+    const prof=profileOf(ids), ctx=posContextOf(ids);
+    let best=null, bv=-1e9, cnt=0;
+    for(const id of ADP_ORDER){ if(gone.has(id)) continue; if(cnt++>=30) break; const v=fitFor(byId(id),key,ids,prof,ctx); if(v>bv){bv=v;best=id;} }
+    if(best==null) break; ids.push(best); gone.add(best); cur=P+1;
+  }
+  const prof=profileOf(ids); const probs=prof.map(x=>winP(x.d));
+  return {ew:probs.reduce((a,b)=>a+b,0), probs, ids};
+}
+let planCache={k:null,v:null}; let recCache={k:null,v:null};
+function planState(){
+  const k=S.order.join(',')+'|'+S.mine.join(',')+'|'+S.slot+'|'+S.build;
+  if (planCache.k===k) return planCache.v;
+  const done=S.order.length;
+  S.log=(S.log||[]).filter(e=>e.at<=done);
+  S.autoPlan = S.log.length ? S.log[S.log.length-1].to : null;
+  const evals={}; PLAN_KEYS.forEach(key=>{ evals[key]=simulate(key); });
+  // punt guard. A plan that leaves 4 or more cats as give ups gets marked down, so Auto never drifts into a 4 cat punt
+  const gup=k=>evals[k].probs.filter(pr=>pr<0.4).length;
+  const psc=k=>evals[k].ew-(gup(k)>=4?1:0);
+  const ranked=PLAN_KEYS.filter(x=>evals[x]).sort((a,b)=>psc(b)-psc(a));
+  let eff;
+  if (S.build!=='auto') eff=S.build;
+  else if (S.mine.length<2) eff='balanced';
+  else {
+    const top=ranked[0]; const curKey=S.autoPlan||'balanced';
+    const firstCommit=!S.autoPlan;
+    if (top!==curKey && (firstCommit || psc(top)-psc(curKey)>=(S.mine.length>=6?0.4:0.3))){
+      const gain=[], lose=[];
+      CATS.forEach((n,c)=>{ const dlt=evals[top].probs[c]-evals[curKey].probs[c]; if(dlt>=0.15) gain.push(n); if(dlt<=-0.15) lose.push(n); });
+      S.log.push({at:done, pick:done+1, from:curKey, to:top, ew0:+evals[curKey].ew.toFixed(1), ew1:+evals[top].ew.toFixed(1), gain, lose, first:firstCommit});
+      S.autoPlan=top;
+    } else if (firstCommit && top===curKey){
+      S.log.push({at:done, pick:done+1, from:'balanced', to:'balanced', ew0:+evals[top].ew.toFixed(1), ew1:+evals[top].ew.toFixed(1), gain:[], lose:[], first:true, stay:true});
+      S.autoPlan='balanced';
+    }
+    eff=S.autoPlan||'balanced';
+  }
+  const backup=ranked.find(x=>x!==eff)||eff;
+  // market read, what the room is taking vs what ADP expected
+  const others=S.taken.map(byId); let market={heavy:[],light:[]};
+  if (others.length>=6){
+    const exp=ADP_ORDER.filter(id=>!S.mine.includes(id)).slice(0,others.length).map(byId);
+    CATS.forEach((n,c)=>{ const a=others.reduce((s,p)=>s+p.ez[c],0)/others.length, e=exp.reduce((s,p)=>s+p.ez[c],0)/exp.length; if(a-e>=0.2) market.heavy.push(n); if(a-e<=-0.2) market.light.push(n); });
+  }
+  save();
+  planCache={k, v:{eff, evals, ranked, backup, market}};
+  return planCache.v;
+}
+function scored(key, prof){
+  const ctx=posContext();
+  // before you commit, rank each player by his value in the plan that suits him best
+  const early = S.build==='auto' && S.mine.length<2;
+  const all = PLAYERS.map(p=>({p, raw: early ? Math.max(...PLAN_KEYS.map(k=>rawFit(p,k,prof,ctx))) : rawFit(p,key,prof,ctx)}));
+  const mx=Math.max(...all.map(x=>x.raw)), mn=Math.min(...all.map(x=>x.raw));
+  all.forEach(x=>x.fit=Math.round(100*(x.raw-mn)/(mx-mn||1)));
+  return all;
+}
+const isGone = id => S.mine.includes(id)||S.taken.includes(id);
+
+function glyph(v){ if(v>=3) return '▲▲▲'; if(v===2) return '▲▲'; if(v===1) return '▲'; if(v===0) return '·'; if(v===-1) return '▼'; if(v===-2) return '▼▼'; return '▼▼▼'; }
+function gcls(v){ return v>=3?'p3':v===2?'p2':v===1?'p1':v===0?'z':v===-1?'n1':v===-2?'n2':'n3'; }
+function riskChip(r){ return r===0?'<span class="chip good">Low risk</span>':r===1?'<span class="chip warn">Some risk</span>':'<span class="chip bad">High risk</span>'; }
+function esc(s){ return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+
+function catSummary(p, key){
+  const b=BUILDS[key]; const good=[], bad=[];
+  b.t.forEach(c=>{ if(p.g[c]>=2) good.push(CATS[c]); });
+  CATS.forEach((n,c)=>{ if(b.w[c]>0 && p.g[c]<=-2) bad.push(n); });
+  let s = good.length ? 'Boosts '+good.join(', ') : 'Small help across your cats';
+  if (bad.length) s += '. Hurts '+bad.join(', ');
+  const pe=posEffect(p,posContext());
+  if (pe.fills) s += pe.fills==='starting' ? '. Fills an open lineup spot' : '. Fills your open '+pe.fills+' slot';
+  return s;
+}
+
+function render(){
+  const prof=profile();
+  const picks=myPickNumbers();
+  const now=S.order.length+1;
+  const future=picks.filter(n=>n>=now);
+  const next=future[0]??null, after=future[1]??null;
+  const onClock = next===now;
+  // header
+  $('vClock').textContent = now>TEAMS*ROUNDS ? 'Done' : now;
+  $('cellClock').classList.toggle('live', onClock);
+  $('vNext').textContent = next ?? 'None';
+  $('vAfter').textContent = after ?? 'None';
+  $('vRoster').textContent = S.mine.length+' of '+ROUNDS;
+  const wins = prof.filter(x=>x.st==='win').length;
+  $('vWins').textContent = S.mine.length? wins : 'None yet';
+  $('winsBig').innerHTML = (S.mine.length? wins : 0)+'<small>of 9 winning, need 5</small>';
+
+  // strategy
+  const PS=planState(); const eff=PS.eff; const b=BUILDS[eff]; const effEval=PS.evals[eff];
+  $('vProj').textContent = effEval ? effEval.ew.toFixed(1) : 'None';
+  $('cats').innerHTML = prof.map(x=>{
+    const pct=Math.max(-1,Math.min(1,x.d/1.2));
+    const left = pct>=0 ? 50 : 50+pct*50; const width=Math.abs(pct)*50;
+    const col = x.st==='win'?'var(--good)':x.st==='lose'?'var(--bad)':'var(--warn)';
+    const chip = x.st==='none'?'<span class="chip muted">No picks</span>':x.st==='win'?'<span class="chip good">Winning</span>':x.st==='lose'?'<span class="chip bad">Losing</span>':'<span class="chip warn">Toss up</span>';
+    const tgt = eff!=='balanced' && b.t.includes(x.c);
+    return '<div class="catrow"><span class="cn'+(tgt?' tgt':'')+'">'+CATS[x.c]+'</span><div class="bar"><div class="mid"></div><div class="fill" style="left:'+left+'%;width:'+width+'%;background:'+col+'"></div></div>'+chip+'</div>';
+  }).join('');
+  const projChip=(pr)=> pr>=0.6?'good':pr>=0.4?'warn':'bad';
+  const projWord=(pr)=> pr>=0.6?'Win':pr>=0.4?'Swing':'Give up';
+  let st='';
+  const mode = S.build==='auto' ? (S.mine.length<2 ? 'Auto, keeping options open' : 'Auto') : 'Locked by you';
+  st+='<div class="plan-now"><div class="pn-name">'+esc(b.name)+'</div><div class="pn-mode">'+esc(mode)+'</div></div><p class="small">This is the lane for your next picks. The chips below show where your whole team should land.</p>';
+  if (effEval){
+    const n5=effEval.probs.filter(pr=>pr>=0.6).length;
+    st+='<p class="pn-proj">If the draft goes to ADP from here, this plan wins about <b>'+effEval.ew.toFixed(1)+' of 9 cats</b> against an average team, with '+n5+' cats that look like solid wins.</p>';
+    st+='<div class="pn-cats">'+CATS.map((n,c)=>'<span class="chip '+projChip(effEval.probs[c])+'" title="'+Math.round(effEval.probs[c]*100)+'% win chance">'+n+' '+projWord(effEval.probs[c])+'</span>').join('')+'</div>';
+  }
+  if (S.mine.length<2 && S.build==='auto') st+='<p class="small">Your first two picks are pure value. After pick 2 the board commits to whichever plan projects the most cats, and it keeps checking after every pick.</p>';
+  const bk=PS.evals[PS.backup];
+  if (bk && PS.backup!==eff) st+='<p class="small">Backup plan '+esc(BUILDS[PS.backup].name)+', about '+bk.ew.toFixed(1)+' cats.</p>';
+  if (PS.market.heavy.length||PS.market.light.length) st+='<p class="small">'+(PS.market.heavy.length?'The room is loading up on '+PS.market.heavy.join(', ')+'. ':'')+(PS.market.light.length?'The room is leaving '+PS.market.light.join(', ')+' on the table.':'')+'</p>';
+  if (S.build!=='auto'){
+    const top=PS.ranked[0];
+    if (top!==eff && PS.evals[top].ew-PS.evals[eff].ew>=0.3) st+='<div class="switch"><span>'+esc(BUILDS[top].name)+' now projects '+PS.evals[top].ew.toFixed(1)+' cats vs '+PS.evals[eff].ew.toFixed(1)+' for your locked plan.</span><button class="btn primary" type="button" id="doAuto">Let Auto decide</button></div>';
+  }
+  const log=(S.log||[]).filter(e=>!e.stay||true);
+  if (S.build==='auto' && log.length){
+    st+='<ol class="plog">'+log.map(e=>{
+      if (e.stay) return '<li>Pick '+e.pick+'. Committed to Balanced, it projects best at '+e.ew1+' cats.</li>';
+      if (e.first) return '<li>Pick '+e.pick+'. Committed to '+esc(BUILDS[e.to].name)+', projects '+e.ew1+' cats'+(e.gain.length?', strong in '+e.gain.join(', '):'')+'.</li>';
+      return '<li>Pick '+e.pick+'. Switched from '+esc(BUILDS[e.from].name)+' to '+esc(BUILDS[e.to].name)+'. Projection went from '+e.ew0+' to '+e.ew1+' cats.'+(e.gain.length?' Gains '+e.gain.join(', ')+'.':'')+(e.lose.length?' Gives up '+e.lose.join(', ')+'.':'')+'</li>';
+    }).join('')+'</ol>';
+  }
+  $('strategy').innerHTML=st;
+  const da=$('doAuto'); if(da) da.onclick=()=>{ S.build='auto'; $('build').value='auto'; save(); render(); };
+
+  // scoring
+  const sc = scored(eff, prof);
+  const avail = sc.filter(x=>!isGone(x.p.id)).sort((a,b)=>b.raw-a.raw);
+  const survAt = onClock ? after : next;
+  $('recFor').textContent = onClock ? 'you are on the clock' : (next? 'for pick '+next : 'draft finished');
+
+  // recs, each candidate is scored by how many cats you project to win if you take him
+  let recs='';
+  if (avail.length && next){
+    const early = S.build==='auto' && S.mine.length<2;
+    // cats projection plus player value. Early the cat gaps are tiny, so value leads, as Josh says
+    const rk=x=>x.ew+(early?0.15:0.08)*x.raw+0.5*(x.p.po||0);
+    const ck=planCache.k+'|'+eff;
+    if (recCache.k!==ck) recCache={k:ck, v:avail.slice(0,10).map(x=>{
+      const sims = early ? PLAN_KEYS.map(k=>simulate(k,x.p.id)) : [simulate(eff,x.p.id)];
+      const bs = sims.filter(Boolean).sort((a,b)=>b.ew-a.ew)[0];
+      return Object.assign({}, x, {ew: bs?bs.ew:0});
+    }).sort((a,b)=>rk(b)-rk(a))};
+    const cands=recCache.v;
+    const best=cands[0];
+    const safe=cands.slice(1).filter(x=>x.ew>=best.ew-0.3 && x.p.risk===0)[0] || cands[1];
+    const bkKey=PS.backup;
+    const bkCands = scored(bkKey, prof).filter(x=>!isGone(x.p.id) && x.p.id!==best.p.id && (!safe||x.p.id!==safe.p.id)).sort((a,b)=>b.raw-a.raw).slice(0,6)
+      .map(x=>{ const r=simulate(bkKey,x.p.id); return Object.assign({},x,{ew:r?r.ew:0}); }).sort((a,b)=>b.ew-a.ew);
+    const piv = bkKey!==eff ? bkCands[0] : null;
+    const card=(lab,x,key)=>{
+      if(!x) return '';
+      const sv = survive(x.p, survAt, now);
+      const svChip = sv==null?'':'<span class="chip '+(sv>0.7?'good':sv>0.35?'warn':'bad')+'">'+Math.round(sv*100)+'% survive</span>';
+      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
+    };
+    recs += card('Best pick now', best, eff);
+    recs += card('Safest fallback', safe, eff);
+    if (piv) recs += card('Best pivot, '+BUILDS[bkKey].name, piv, bkKey);
+    let call=best;
+    const sBest=survive(best.p,survAt,now);
+    if (!onClock){
+      recs += '<div class="final">'+esc('Top target for pick '+next+' is '+best.p.name+', about '+Math.round((sBest??1)*100)+'% chance he is still there. Keep marking picks as they happen and this updates.')+'</div>';
+    } else {
+      if (sBest!=null && sBest>0.7){
+        const alt = cands.find(x=>x.p.id!==best.p.id && best.ew-x.ew<=0.15 && (survive(x.p,survAt,now)??1)<0.4);
+        if (alt) call=alt;
+      }
+      let line = 'Take '+call.p.name+'. That projects about '+call.ew.toFixed(1)+' of 9 cats.';
+      if (call!==best) line += ' '+best.p.name+' should still be there at pick '+survAt+', so grab the one who will not come back.';
+      recs += '<div class="final">'+esc(line)+'</div>';
+    }
+  } else recs='<p class="empty">Draft complete. Tap Copy list and paste your team to me for lineups.</p>';
+  $('recs').innerHTML=recs;
+
+  // slots
+  const ctx=posContext(); const used=new Set(ctx.m.filter(x=>x!==-1));
+  const extra=S.mine.map((id,i)=>i).filter(i=>!used.has(i));
+  let sh=SLOTS.map((sl,i)=>'<span class="sl">'+sl+'</span>'+(ctx.m[i]===-1?'<span class="open">Open</span>':'<span>'+esc(byId(S.mine[ctx.m[i]]).name)+'</span>')).join('');
+  ['UTIL','UTIL'].forEach((u,k)=>{ const pi=extra[k]; sh+='<span class="sl">'+u+'</span>'+(pi==null?'<span class="open">Open</span>':'<span>'+esc(byId(S.mine[pi]).name)+'</span>'); });
+  const bench=extra.slice(2);
+  sh+='<span class="sl">BENCH</span><span>'+(bench.length?bench.map(pi=>esc(byId(S.mine[pi]).name)).join(', '):'<span class="small">Empty</span>')+'</span>';
+  $('slots').innerHTML=sh;
+  const openN=ctx.m.filter(x=>x===-1).length;
+  $('slotNote').textContent = S.mine.length ? (openN? openN+' position slots open' : 'All positions covered') : 'Yahoo lineup';
+
+  // roster
+  $('roster').innerHTML = S.mine.length ? S.mine.map((id,i)=>{ const p=byId(id); return '<li><span>'+(i+1)+'. '+esc(p.name)+'</span><span>'+p.team+' '+p.pos.replaceAll(',',' ')+'</span></li>'; }).join('') : '<li class="empty">No picks yet. Tap Mine on a player when you draft him.</li>';
+
+  // board
+  $('thead').innerHTML = '<th>Draft</th><th>Player</th><th class="num" title="Our rank">Rank</th><th class="num">ADP</th>'+CATS.map((n,c)=>'<th class="'+(eff!=='balanced'&&b.t.includes(c)?'tgt':'')+'" style="text-align:center">'+n+'</th>').join('')+'<th class="num" title="Expected games this season">GP</th><th class="num" title="Full season value rank from last season totals">Tot</th><th class="num" title="Josh Lloyd 9 cat rank. A plain number is from his top 25. The ≈ sign means it comes from his round by round comments">Josh</th><th title="Schedule during your playoffs, weeks 19 to 21">Playoffs</th><th class="num" title="Fit for your current plan, 0 to 100">Fit</th><th class="num" title="Chance he is still there at your next pick">Surv</th>';
+  const q=norm(S.search.trim());
+  let list = sc.slice().sort((a,b)=>b.raw-a.raw);
+  // tiers on available ordering
+  let tier=0, prev=null; const tierOf={};
+  list.filter(x=>!isGone(x.p.id)).forEach(x=>{ if(prev===null || prev-x.fit>4){ tier++; } tierOf[x.p.id]=tier; prev=x.fit; });
+  list = list.filter(x=>{
+    if ((S.hide==='1'||S.hide==='gems') && isGone(x.p.id)) return false;
+    if (S.hide==='gems' && !x.p.gem) return false;
+    if (S.pos!=='All' && !fits(x.p.pos, S.pos)) return false;
+    if (q && !norm(x.p.name).includes(q) && !norm(x.p.team).includes(q)) return false;
+    return true;
+  });
+  let html='', lastTier=null;
+  list.forEach(x=>{
+    const p=x.p, gone=isGone(p.id), mine=S.mine.includes(p.id);
+    const t=tierOf[p.id];
+    if (!gone && !q && t!==lastTier && S.hide!=='0'){ html+='<tr class="tier"><td colspan="19">Tier '+t+'</td></tr>'; lastTier=t; }
+    const sv=survive(p, survAt, now);
+    const acts='<td><div class="acts">'+(gone? '<button class="mini" type="button" data-undo="'+p.id+'">'+'Undo'+'</button>' : '<button class="mini mine" type="button" data-mine="'+p.id+'">Mine</button><button class="mini" type="button" data-take="'+p.id+'">Taken</button>')+'</div></td>';
+    const nt=S.notes==='1';
+    html+='<tr class="'+(mine?'mine':gone?'gone':'')+(nt?' hasnote':'')+'">'+acts+'<td class="pcell"><span class="pname">'+esc(p.name)+'</span>'+(p.gem?' <span class="chip gem">Sleeper</span>':'')+(p.inj?' <span class="chip '+(/^Out/.test(p.inj)?'bad':/day to day/i.test(p.inj)?'warn':'good')+'" title="'+esc(p.inj)+'">'+(/^Out/.test(p.inj)?'Out':/day to day/i.test(p.inj)?'DTD':'Cleared')+'</span>':'')+'<span class="psub">'+p.team+' '+p.pos.replaceAll(',',' ')+'</span></td><td class="num">'+p.rank+'</td><td class="num">'+(p.adp??'none')+'</td>'+
+      p.g.map((v,c)=>'<td class="g '+gcls(v)+(b.w[c]===0?' off':'')+'" title="'+CATS[c]+'">'+glyph(v)+'</td>').join('')+
+      '<td class="num" title="'+(p.g3?'Games played last 3 seasons, '+p.g3.map(x=>x==null?'none':x).join(', '):'Rookie')+'">'+p.eg+'</td><td class="num">'+(p.trk||'')+'</td><td class="num" title="'+esc(p.jnote||'')+'">'+(p.josh?(p.jest?'≈':'')+p.josh:'')+'</td><td title="'+esc(p.pon||'')+'">'+(p.pot?'<span class="chip '+(p.pot==='No B2B'?'good':p.pot==='2 game wk'?'bad':'warn')+'">'+(p.pot==='2 game wk'?'2 gm wk':p.pot)+'</span>':'')+'</td><td class="num">'+x.fit+'</td><td class="num">'+(gone||sv==null?'':Math.round(sv*100)+'%')+'</td>'+'</tr>'+(nt?'<tr class="noterow '+(mine?'mine':gone?'gone':'')+'"><td></td><td colspan="18">'+esc(p.note)+(p.inj?'<br><b>'+esc(p.inj)+'</b>':'')+(p.role?'<br>'+esc(p.role):'')+(p.jnote?'<br>Josh. '+esc(p.jnote):'')+'<br><span class="small">'+esc(p.line||'')+(p.g3?'. Games last 3 seasons '+p.g3.map(x=>x==null?'none':x).join(', '):'')+'</span>'+(p.news?'<br><span class="small">'+esc(p.news)+'</span>':'')+'</td></tr>':'');
+  });
+  renderQuick();
+  $('tbody').innerHTML = html || '<tr><td colspan="19" class="empty">No players match. Clear the search or position filter.</td></tr>';
+}
+
+function draft(id, mine){ if(isGone(id)) return; (mine?S.mine:S.taken).push(id); S.order.push(id); S.qover=null; S.qlast={id, mine}; save(); render(); }
+function qMode(){ if (S.qover) return S.qover; const picks=myPickNumbers(); return picks.includes(S.order.length+1) ? 'mine' : 'taken'; }
+function qMatches(){ const q=norm(($('qsearch').value||'').trim()); if(!q) return []; const out=[]; for(const id of ADP_ORDER){ if(isGone(id)) continue; const n=norm(byId(id).name); if(n.includes(q) || n.split(' ').some(w=>w.startsWith(q))) out.push(id); if(out.length>=6) break; } return out; }
+function renderQuick(){
+  const m=qMode(); const onClock=myPickNumbers().includes(S.order.length+1);
+  $('modeTaken').className='segb'+(m==='taken'?' on-taken':''); $('modeMine').className='segb'+(m==='mine'?' on-mine':'');
+  let hint = onClock ? '<b>Your turn.</b> Taps mark <b>Mine</b>.' : 'Pick '+(S.order.length+1)+'. Taps mark <b>'+(m==='mine'?'Mine':'Taken')+'</b>.';
+  if (S.qover) hint += ' You switched this by hand for one pick.';
+  if (S.qlast && byId(S.qlast.id) && isGone(S.qlast.id)) hint += ' Last marked '+esc(byId(S.qlast.id).name)+' as '+(S.qlast.mine?'Mine':'Taken')+'.';
+  $('qhint').innerHTML=hint;
+  const hits=qMatches();
+  $('qresults').innerHTML = hits.map((id,i)=>'<button type="button" class="pk'+(i===0?' hit':'')+'" data-q="'+id+'">'+esc(byId(id).name)+'<small>'+byId(id).team+'</small></button>').join('');
+  const nxt=[]; for(const id of ADP_ORDER){ if(isGone(id)) continue; nxt.push(id); if(nxt.length>=14) break; }
+  $('qnext').innerHTML = hits.length ? '' : nxt.map(id=>'<button type="button" class="pk" data-q="'+id+'">'+esc(byId(id).name)+'<small>'+byId(id).team+'</small></button>').join('');
+}
+function qMark(id){ draft(id, qMode()==='mine'); $('qsearch').value=''; renderQuick(); try{ $('qsearch').focus({preventScroll:true}); }catch(e){} }
+function undoId(id){ S.mine=S.mine.filter(x=>x!==id); S.taken=S.taken.filter(x=>x!==id); S.order=S.order.filter(x=>x!==id); save(); render(); }
+
+document.addEventListener('click', e=>{
+  const t=e.target.closest('button'); if(!t) return;
+  if (t.dataset.mine) draft(+t.dataset.mine, true);
+  else if (t.dataset.take) draft(+t.dataset.take, false);
+  else if (t.dataset.undo) undoId(+t.dataset.undo);
+  else if (t.dataset.q) qMark(+t.dataset.q);
+});
+$('qsearch').addEventListener('input', renderQuick);
+$('qsearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); const h=qMatches(); if(h.length) qMark(h[0]); } else if(e.key==='Escape'){ $('qsearch').value=''; renderQuick(); } });
+$('modeTaken').onclick=()=>{ S.qover='taken'; renderQuick(); };
+$('modeMine').onclick=()=>{ S.qover='mine'; renderQuick(); };
+$('qundo').onclick=()=>{ const id=S.order[S.order.length-1]; if(id!=null) undoId(id); };
+$('notes').value=S.notes||'0'; $('notes').onchange=e=>{ S.notes=e.target.value; save(); render(); };
+
+calibrate();
+// controls
+const slotSel=$('slot'); for(let i=1;i<=TEAMS;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Pick '+i; slotSel.appendChild(o); }
+slotSel.value=S.slot; slotSel.onchange=()=>{ S.slot=+slotSel.value; save(); render(); };
+const bSel=$('build'); { const o=document.createElement('option'); o.value='auto'; o.textContent='Auto, picks the plan for you'; bSel.appendChild(o); } Object.entries(BUILDS).forEach(([k,v])=>{ const o=document.createElement('option'); o.value=k; o.textContent=v.name; bSel.appendChild(o); });
+bSel.value=S.build; bSel.onchange=()=>{ S.build=bSel.value; save(); render(); };
+$('search').oninput=e=>{ S.search=e.target.value; render(); };
+$('pos').value=S.pos; $('pos').onchange=e=>{ S.pos=e.target.value; save(); render(); };
+$('hide').value=S.hide; $('hide').onchange=e=>{ S.hide=e.target.value; save(); render(); };
+$('undo').onclick=()=>{ const id=S.order[S.order.length-1]; if(id!=null) undoId(id); };
+let armed=false, armT=null;
+$('reset').onclick=()=>{
+  const r=$('reset');
+  if(!armed){ armed=true; r.classList.add('armed'); r.textContent='Tap again to reset'; armT=setTimeout(()=>{armed=false; r.classList.remove('armed'); r.textContent='Reset draft';},4000); return; }
+  clearTimeout(armT); armed=false; r.classList.remove('armed'); r.textContent='Reset draft';
+  S.mine=[]; S.taken=[]; S.order=[]; S.log=[]; S.autoPlan=null; save(); render();
+};
+$('copy').onclick=()=>{
+  const txt = S.mine.map((id,i)=>{const p=byId(id); return (i+1)+'. '+p.name+' '+p.team+' '+p.pos.replaceAll(',',' ');}).join('\n') || 'No picks yet';
+  const btn=$('copy');
+  const done=()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy list',1500); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>{ btn.textContent='Copy blocked'; setTimeout(()=>btn.textContent='Copy list',1500); });
+};
+function setTab(t){ S.tab=t; $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('viewBoard').hidden=t!=='board'; $('viewPlan').hidden=t!=='plan'; save(); }
+$('tabBoard').onclick=()=>setTab('board'); $('tabPlan').onclick=()=>setTab('plan');
+if (location.hash==='#plan') S.tab='plan';
+setTab(S.tab||'board');
+render();
+})();
+</script>
