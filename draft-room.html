@@ -1253,7 +1253,24 @@ $('ybtn') && ($('ybtn').onclick=()=>{
 });
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && Y.connected && S.ysync) yPoll(false); });
 
-function draft(id, mine){ if(isGone(id)) return; (mine?S.mine:S.taken).push(id); S.oslot.length=S.order.length; S.oslot.push(null); S.order.push(id); S.qover=null; S.qlast={id, mine}; save(); render(); }
+// Who owns each pick comes from the snake order and your slot, so your team and the Teams tab always agree.
+function reassign(){ const m=[], t=[]; S.order.forEach((id,i)=>{ (ownerSlot(i)===S.slot ? m : t).push(id); }); S.mine=m; S.taken=t; }
+// If you mark a player Mine at a pick that is not yours, your slot is probably wrong, so it is corrected from your first Mine pick.
+function fixSlotFrom(n){ const sl=slotOfPick(n); if(sl!==S.slot){ S.slot=sl; const ss=$('slot'); if(ss) ss.value=sl; S.slotNote='Your draft slot was set to '+sl+' because you marked pick '+n+' as yours.'; return true; } return false; }
+function draft(id, mine){
+  if(isGone(id)) return;
+  S.oslot.length=S.order.length; S.oslot.push(null); S.order.push(id);
+  const n=S.order.length; S.slotNote='';
+  if (mine && slotOfPick(n)!==S.slot){
+    const firstMine = !(S.mtap||[]).some(x=>S.order.includes(x));
+    if (firstMine) fixSlotFrom(n);
+    else S.slotNote='Pick '+n+' belongs to '+teamName(slotOfPick(n))+'. If that pick was yours, change Your draft slot.';
+  }
+  if (mine){ S.mtap=(S.mtap||[]).filter(x=>S.order.includes(x)); S.mtap.push(id); }
+  reassign(); S.qover=null; S.qlast={id, mine:S.mine.includes(id)}; save(); render();
+}
+// one time repair for boards saved before this fix, the first player you marked Mine sets your slot
+(function(){ const i=S.order.findIndex(id=>S.mine.includes(id)); if(i>=0 && !(S.oslot&&S.oslot[i])) fixSlotFrom(i+1); reassign(); })();
 function qMode(){ if (S.qover) return S.qover; const picks=myPickNumbers(); return picks.includes(S.order.length+1) ? 'mine' : 'taken'; }
 function qMatches(){ const q=norm(($('qsearch').value||'').trim()); if(!q) return []; const out=[]; for(const id of ADP_ORDER){ if(isGone(id)) continue; const n=norm(byId(id).name); if(n.includes(q) || n.split(' ').some(w=>w.startsWith(q))) out.push(id); if(out.length>=6) break; } return out; }
 function renderQuick(){
@@ -1261,6 +1278,7 @@ function renderQuick(){
   $('modeTaken').className='segb'+(m==='taken'?' on-taken':''); $('modeMine').className='segb'+(m==='mine'?' on-mine':'');
   const cur=S.order.length+1;
   let hint = cur>TEAMS*ROUNDS ? 'Draft complete.' : onClock ? '<b>Your turn.</b> Taps mark <b>Mine</b>.' : 'Pick '+cur+', '+esc(teamName(slotOfPick(cur)))+' is on the clock. Taps mark <b>'+(m==='mine'?'Mine':'Taken')+'</b>.';
+  if (S.slotNote) hint += ' <b>'+esc(S.slotNote)+'</b>';
   if (S.qover) hint += ' You switched this by hand for one pick.';
   if (S.qlast && byId(S.qlast.id) && isGone(S.qlast.id)) hint += ' Last marked '+esc(byId(S.qlast.id).name)+' as '+(S.qlast.mine?'Mine':'Taken')+'.';
   $('qhint').innerHTML=hint;
@@ -1270,7 +1288,7 @@ function renderQuick(){
   $('qnext').innerHTML = hits.length ? '' : nxt.map(id=>'<button type="button" class="pk" data-q="'+id+'">'+esc(byId(id).name)+'<small>'+byId(id).team+'</small></button>').join('');
 }
 function qMark(id){ draft(id, qMode()==='mine'); $('qsearch').value=''; renderQuick(); try{ $('qsearch').focus({preventScroll:true}); }catch(e){} }
-function undoId(id){ const i=S.order.indexOf(id); if(i>=0 && S.oslot.length>i) S.oslot.splice(i,1); S.mine=S.mine.filter(x=>x!==id); S.taken=S.taken.filter(x=>x!==id); S.order=S.order.filter(x=>x!==id); save(); render(); }
+function undoId(id){ const i=S.order.indexOf(id); if(i>=0 && S.oslot.length>i) S.oslot.splice(i,1); S.order=S.order.filter(x=>x!==id); S.slotNote=''; reassign(); save(); render(); }
 
 document.addEventListener('click', e=>{
   const t=e.target.closest('button'); if(!t) return;
@@ -1289,7 +1307,7 @@ $('notes').value=S.notes||'0'; $('notes').onchange=e=>{ S.notes=e.target.value; 
 calibrate();
 // controls
 const slotSel=$('slot'); for(let i=1;i<=TEAMS;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Pick '+i; slotSel.appendChild(o); }
-slotSel.value=S.slot; slotSel.onchange=()=>{ S.slot=+slotSel.value; save(); render(); };
+slotSel.value=S.slot; slotSel.onchange=()=>{ S.slot=+slotSel.value; S.slotNote=''; reassign(); save(); render(); };
 const bSel=$('build'); { const o=document.createElement('option'); o.value='auto'; o.textContent='Auto, picks the plan for you'; bSel.appendChild(o); } Object.entries(BUILDS).forEach(([k,v])=>{ const o=document.createElement('option'); o.value=k; o.textContent=v.name; bSel.appendChild(o); });
 bSel.value=S.build; bSel.onchange=()=>{ S.build=bSel.value; save(); render(); };
 $('search').oninput=e=>{ S.search=e.target.value; render(); };
@@ -1301,7 +1319,7 @@ $('reset').onclick=()=>{
   const r=$('reset');
   if(!armed){ armed=true; r.classList.add('armed'); r.textContent='Tap again to reset'; armT=setTimeout(()=>{armed=false; r.classList.remove('armed'); r.textContent='Reset draft';},4000); return; }
   clearTimeout(armT); armed=false; r.classList.remove('armed'); r.textContent='Reset draft';
-  S.mine=[]; S.taken=[]; S.order=[]; S.oslot=[]; S.log=[]; S.autoPlan=null; Y.sig=null; save(); render();
+  S.mine=[]; S.taken=[]; S.order=[]; S.oslot=[]; S.mtap=[]; S.slotNote=''; S.log=[]; S.autoPlan=null; Y.sig=null; save(); render();
 };
 $('copy').onclick=()=>{
   const txt = S.mine.map((id,i)=>{const p=byId(id); return (i+1)+'. '+p.name+' '+p.team+' '+p.pos.replaceAll(',',' ');}).join('\n') || 'No picks yet';
