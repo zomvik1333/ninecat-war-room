@@ -1203,7 +1203,8 @@ async function yPoll(withTeams){
     yApply(d.picks||[]);
     Y.last=Date.now(); Y.err=''; Y.connected=true;
   } catch(e){
-    if (e.status===401){ Y.connected=false; Y.err='Yahoo sign in expired. Tap Connect Yahoo. Until then mark picks by hand.'; yStop(); }
+    if (e.status===403 && e.message==='yahoo_locked'){ Y.connected=false; S.ysync=false; save(); Y.err='Yahoo has closed its fantasy data to new apps until they approve them, so auto sync is off. Type each pick and press Enter, every team still builds itself.'; yStop(); }
+    else if (e.status===401){ Y.connected=false; Y.err='Yahoo needs you to sign in again. Tap Connect Yahoo. Until then mark picks by hand.'; yStop(); }
     else Y.err=(e.detail||'Yahoo is not answering right now')+'. Keep marking picks by hand, sync picks up again on its own.';
   }
   Y.busy=false; yRender();

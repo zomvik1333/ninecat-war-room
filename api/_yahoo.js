@@ -50,6 +50,7 @@ async function tokenCall(req, params) {
   const body = new URLSearchParams(Object.assign({ redirect_uri: redirectUri(req) }, params));
   const r = await fetch(TOKEN_URL, { method: 'POST', headers: { Authorization: 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded' }, body });
   const j = await r.json().catch(() => ({}));
+  if (process.env.NCW_DEBUG) console.log('token_resp', params.grant_type, r.status, Object.keys(j).join(','), j.scope || '', j.error || '', j.error_description || '');
   if (!r.ok || !j.access_token) { const e = new Error('token'); e.status = 401; e.detail = j.error_description || j.error || r.status; throw e; }
   return { at: j.access_token, rt: j.refresh_token || params.refresh_token, exp: Date.now() + (Number(j.expires_in || 3600) - 120) * 1000 };
 }
@@ -76,16 +77,29 @@ async function api(req, res, sess, path) {
     Object.assign(sess, await tokenCall(req, { grant_type: 'refresh_token', refresh_token: sess.rt })); saveSession(res, sess);
     r = await fetch(url, { headers: { Authorization: 'Bearer ' + sess.at } });
   }
-  if (!r.ok) { const e = new Error('yahoo'); e.status = r.status === 401 ? 401 : 502; e.detail = 'Yahoo answered ' + r.status; throw e; }
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '');
+    console.error('yahoo_fail', r.status, path, 'tokenlen', String(sess.at||'').length, txt.replace(/\s+/g, ' ').slice(0, 400));
+    const m = txt.match(/<description>([^<]*)<\/description>/) || txt.match(/"description"\s*:\s*"([^"]*)"/);
+    const noAccess = r.status === 403 && /not authorized/i.test(txt);
+    const e = new Error(noAccess ? 'yahoo_locked' : 'yahoo'); e.status = r.status === 401 ? 401 : noAccess ? 403 : 502; e.detail = 'Yahoo answered ' + r.status + (m ? ', ' + m[1] : ''); throw e;
+  }
   return r.json();
 }
 
 async function leagueKey(req, res, sess) {
   if (!sess || !sess.rt) { const e = new Error('login'); e.status = 401; throw e; }
   if (sess.lk) return sess.lk;
-  const j = await api(req, res, sess, 'users;use_login=1/games;game_keys=nba/leagues');
   let lk = null;
-  walk(j, o => { if (!lk && o.league_key && String(o.league_id) === LEAGUE_ID) lk = o.league_key; });
+  // first ask for the league directly by NBA game code, then fall back to the list of your leagues
+  try { const j0 = await api(req, res, sess, 'league/nba.l.' + LEAGUE_ID); walk(j0, o => { if (!lk && o.league_key && String(o.league_id) === LEAGUE_ID) lk = o.league_key; }); } catch (e) { if (e.status === 401) throw e; }
+  if (!lk) {
+    try { const j1 = await api(req, res, sess, 'game/nba'); let gk = null; walk(j1, o => { if (!gk && o.game_key && o.code === 'nba') gk = o.game_key; }); if (gk) { const j2 = await api(req, res, sess, 'league/' + gk + '.l.' + LEAGUE_ID); walk(j2, o => { if (!lk && o.league_key) lk = o.league_key; }); } } catch (e) { if (e.status === 401) throw e; }
+  }
+  if (!lk) {
+    const j = await api(req, res, sess, 'users;use_login=1/games;game_keys=nba/leagues');
+    walk(j, o => { if (!lk && o.league_key && String(o.league_id) === LEAGUE_ID) lk = o.league_key; });
+  }
   if (!lk) { const e = new Error('noleague'); e.status = 404; e.detail = 'League ' + LEAGUE_ID + ' was not found on this Yahoo account for the current NBA season'; throw e; }
   sess.lk = lk; saveSession(res, sess);
   return lk;
