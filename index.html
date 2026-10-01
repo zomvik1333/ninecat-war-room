@@ -408,7 +408,9 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
         <li>Punting means ignoring a cat, not chasing bad players in it. Assists and turnovers move together, and blocks, rebounds and FG% move together.</li>
         <li>Josh's first rule is value. Take a player who is clearly better than his draft spot even if he does not fit your build, and let the plan adjust. Builds can change three times in a draft.</li>
         <li>Your league sends 8 of 10 teams to the playoffs, so getting in is easy. Build a team that wins 5 or 6 cats in March rather than one that wins 7 in November.</li>
-        <li>Your call. Kyrie and Lillard go above Dyson Daniels on the pick cards, unless your team is losing steals or they are a toss up.</li>
+        <li>Your calls. Kyrie and Lillard go above Dyson Daniels on the pick cards, unless your team is losing steals or they are a toss up. Kyrie also goes above Derrick White.</li>
+        <li>The board ranks picks by your chance to win the week, meaning at least 5 of the 9 cats, not by total cats. Five sure wins beat four sure wins plus a few coin flips.</li>
+        <li>Centers are scarce, and an empty center spot on a game day is stats left on the table. Do not reach for one in round 1 or 2, but the board pushes hard for a center at your 6th pick if you have none, a second by your 9th and a third by your 11th.</li>
         <li>Count on five counting cats, points, threes, rebounds, assists, steals, blocks or turnovers. Josh says FG% and FT% swing the most week to week, so a percentage is a bonus sixth cat, never one of your five. Yahoo counts the week as one win, so five sure cats is all you need.</li>
         <li>The board takes a 15 percent second opinion from Fantasy Edge on every player. Boozer is pinned near 52, where Josh says to take him, and Markkanen is pinned at 25. When the top two cards are within 0.2 cats, take the scorer or passer unless your plan has already given up points or assists.</li>
         <li>From his 10 team mock. Garland, Kyrie, Okongwu, Edey, Naz Reid and Powell were his value zone picks, while Avdija, Siakam and Derrick White go too early.</li>
@@ -751,11 +753,12 @@ const USAGE = {"Coby White": [1, "Usage and minutes up as Charlotte's starter"],
 // never recommend before this overall pick
 // your own calls, these set the board spot directly
 // Your calls on pick cards. Each listed player goes above the one he is matched with, unless your team needs that player's cat
-const USERPREF = [{above:["Kyrie Irving","Damian Lillard"], below:"Dyson Daniels", unless:6, why:"You rate Kyrie and Lillard above Daniels unless you really need steals"}];
+const USERPREF = [{above:["Kyrie Irving","Damian Lillard"], below:"Dyson Daniels", unless:6, why:"You rate Kyrie and Lillard above Daniels unless you really need steals"},
+  {above:["Kyrie Irving"], below:"Derrick White", unless:null, why:"You rate Kyrie above Derrick White"}];
 function userOrder(list, prof){
   USERPREF.forEach(r=>{
     const bi=list.findIndex(x=>x.p.name===r.below); if(bi<0) return;
-    if (S.mine.length && ['lose','toss'].includes(prof[r.unless].st)) return;
+    if (r.unless!=null && S.mine.length && ['lose','toss'].includes(prof[r.unless].st)) return;
     r.above.forEach(nm=>{
       const p=PLAYERS.find(q=>q.name===nm); if(!p || isGone(p.id)) return;
       let i=list.findIndex(x=>x.p.id===p.id); let it;
@@ -960,6 +963,10 @@ const ADP_ORDER = PLAYERS.filter(p=>!p.stub).sort((a,b)=>adpEff(a)-adpEff(b)).ma
 // FG% and FT% swing the most week to week, so the same lead there is a less sure win
 const SPREAD=[0.39,0.39,0.28,0.28,0.28,0.28,0.28,0.28,0.28];
 const winP = (d,c) => 1/(1+Math.exp(-d/(SPREAD[c]??0.28)));
+// chance to win the week, meaning at least 5 of the 9 cats, from each cat's win chance
+function pWin5(probs){ let dp=[1]; probs.forEach(p=>{ const nx=new Array(dp.length+1).fill(0); dp.forEach((v,k)=>{ nx[k]+=v*(1-p); nx[k+1]+=v*p; }); dp=nx; }); return dp.slice(5).reduce((a,b)=>a+b,0); }
+// Josh says cover every spot with 2 or 3 players. Push hard for a center at your 6th pick if you have none, a second by your 9th, a third by your 11th
+function cNeed(p){ if(!p.pos.split(',').includes('C')) return 0; const n=S.mine.length; const cc=S.mine.filter(id=>byId(id).pos.split(',').includes('C')).length; if(cc===0 && n>=5) return 0.8; if(cc<2 && n>=8) return 0.6; if(cc<3 && n>=10) return 0.5; return 0; }
 function simulate(key, extraId){
   const ids=S.mine.slice(); const gone=new Set(S.mine.concat(S.taken));
   let cur=S.order.length+1; const picks=myPickNumbers().filter(n=>n>=cur); let pi=0;
@@ -974,7 +981,7 @@ function simulate(key, extraId){
     if(best==null) break; ids.push(best); gone.add(best); cur=P+1;
   }
   const prof=profileOf(ids); const probs=prof.map(x=>winP(x.d,x.c));
-  return {ew:probs.reduce((a,b)=>a+b,0), probs, ids};
+  return {ew:probs.reduce((a,b)=>a+b,0), pw:pWin5(probs), probs, ids};
 }
 let planCache={k:null,v:null}; let recCache={k:null,v:null};
 function planState(){
@@ -986,7 +993,7 @@ function planState(){
   const evals={}; PLAN_KEYS.forEach(key=>{ evals[key]=simulate(key); });
   // punt guard. A plan that leaves 4 or more cats as give ups gets marked down, so Auto never drifts into a 4 cat punt
   const gup=k=>evals[k].probs.filter(pr=>pr<0.4).length;
-  const psc=k=>evals[k].ew-(gup(k)>=4?1:0);
+  const psc=k=>10*evals[k].pw-(gup(k)>=4?1:0);
   const ranked=PLAN_KEYS.filter(x=>evals[x]).sort((a,b)=>psc(b)-psc(a));
   let eff;
   if (S.build!=='auto') eff=S.build;
@@ -1091,7 +1098,7 @@ function render(){
   st+='<div class="plan-now"><div class="pn-name">'+esc(b.name)+'</div><div class="pn-mode">'+esc(mode)+'</div></div><p class="small">This is the lane for your next picks. The chips below show where your whole team should land.</p>';
   if (effEval){
     const n5=effEval.probs.filter((pr,c)=>c>=2 && pr>=0.6).length;
-    st+='<p class="pn-proj">If the draft goes to ADP from here, this plan wins about <b>'+effEval.ew.toFixed(1)+' of 9 cats</b> against an average team, with '+n5+' counting cats that look like solid wins. FG% and FT% are a bonus on top.</p>';
+    st+='<p class="pn-proj">If the draft goes to ADP from here, this plan wins about <b>'+effEval.ew.toFixed(1)+' of 9 cats</b> against an average team, with '+n5+' counting cats that look like solid wins. FG% and FT% are a bonus on top. It wins the week about '+Math.round(effEval.pw*100)+'% of the time.</p>';
     st+='<div class="pn-cats">'+CATS.map((n,c)=>'<span class="chip '+projChip(effEval.probs[c])+'" title="'+Math.round(effEval.probs[c]*100)+'% win chance">'+n+' '+projWord(effEval.probs[c],c)+'</span>').join('')+'</div>';
   }
   if (S.mine.length<2 && S.build==='auto') st+='<p class="small">Your first two picks are pure value. After pick 2 the board commits to whichever plan projects the most cats, and it keeps checking after every pick.</p>';
@@ -1127,26 +1134,26 @@ function render(){
   if (avail.length && next){
     const early = S.build==='auto' && S.mine.length<2;
     // cats projection plus player value. Early the cat gaps are tiny, so value leads, as Josh says
-    const rk=x=>x.ew+(early?0.15:0.08)*x.raw+0.5*(x.p.po||0);
+    const rk=x=> early ? x.ew+0.15*x.raw+0.5*(x.p.po||0) : 10*x.pw+0.08*x.raw+0.5*(x.p.po||0)+cNeed(x.p);
     const ck=planCache.k+'|'+eff;
     if (recCache.k!==ck) recCache={k:ck, v:avail.slice(0,10).map(x=>{
       const sims = early ? PLAN_KEYS.map(k=>simulate(k,x.p.id)) : [simulate(eff,x.p.id)];
-      const bs = sims.filter(Boolean).sort((a,b)=>b.ew-a.ew)[0];
-      return Object.assign({}, x, {ew: bs?bs.ew:0});
+      const bs = sims.filter(Boolean).sort((a,b)=>early ? b.ew-a.ew : b.pw-a.pw)[0];
+      return Object.assign({}, x, {ew: bs?bs.ew:0, pw: bs?bs.pw:0});
     }).sort((a,b)=>rk(b)-rk(a))};
     if (!recCache.u){ recCache.v=userOrder(recCache.v, prof); recCache.u=true; }
     const cands=recCache.v;
     const best=cands[0];
-    const safe=cands.slice(1).filter(x=>x.ew>=best.ew-0.3 && x.p.risk===0)[0] || cands[1];
+    const safe=cands.slice(1).filter(x=>(early ? x.ew>=best.ew-0.3 : x.pw>=best.pw-0.03) && x.p.risk===0)[0] || cands[1];
     const bkKey=PS.backup;
     const bkCands = scored(bkKey, prof).filter(x=>!isGone(x.p.id) && x.p.id!==best.p.id && (!safe||x.p.id!==safe.p.id)).sort((a,b)=>b.raw-a.raw).slice(0,6)
-      .map(x=>{ const r=simulate(bkKey,x.p.id); return Object.assign({},x,{ew:r?r.ew:0}); }).sort((a,b)=>b.ew-a.ew);
+      .map(x=>{ const r=simulate(bkKey,x.p.id); return Object.assign({},x,{ew:r?r.ew:0, pw:r?r.pw:0}); }).sort((a,b)=>b.pw-a.pw);
     const piv = bkKey!==eff ? bkCands[0] : null;
     const card=(lab,x,key)=>{
       if(!x) return '';
       const sv = survive(x.p, survAt, now);
       const svChip = sv==null?'':'<span class="chip '+(sv>0.7?'good':sv>0.35?'warn':'bad')+'">'+Math.round(sv*100)+'% survive</span>';
-      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(x.uwhy?'<b>'+esc(x.uwhy)+'.</b> ':'')+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.unote?' '+esc(x.p.unote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
+      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(x.uwhy?'<b>'+esc(x.uwhy)+'.</b> ':'')+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.unote?' '+esc(x.p.unote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta"><span class="chip '+(x.pw>=0.6?'good':x.pw>=0.45?'warn':'bad')+'" title="Chance to win at least 5 cats in a week">Wins week '+Math.round(x.pw*100)+'%</span>'+(cNeed(x.p)?'<span class="chip warn">Fills a C you need</span>':'')+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
     };
     recs += card('Best pick now', best, eff);
     recs += card('Safest fallback', safe, eff);
@@ -1157,10 +1164,10 @@ function render(){
       recs += '<div class="final">'+esc('Top target for pick '+next+' is '+best.p.name+', about '+Math.round((sBest??1)*100)+'% chance he is still there. Keep marking picks as they happen and this updates.')+'</div>';
     } else {
       if (sBest!=null && sBest>0.7){
-        const alt = cands.find(x=>x.p.id!==best.p.id && best.ew-x.ew<=0.15 && (survive(x.p,survAt,now)??1)<0.4);
+        const alt = cands.find(x=>x.p.id!==best.p.id && best.pw-x.pw<=0.015 && (survive(x.p,survAt,now)??1)<0.4);
         if (alt) call=alt;
       }
-      let line = 'Take '+call.p.name+'. That projects about '+call.ew.toFixed(1)+' of 9 cats.';
+      let line = 'Take '+call.p.name+'. That projects about '+call.ew.toFixed(1)+' of 9 cats and wins the week about '+Math.round(call.pw*100)+'% of the time.';
       if (call!==best) line += ' '+best.p.name+' should still be there at pick '+survAt+', so grab the one who will not come back.';
       recs += '<div class="final">'+esc(line)+'</div>';
     }
