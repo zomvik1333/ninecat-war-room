@@ -400,7 +400,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
     <div class="panel span">
       <h3>What changed after Josh Lloyd's research</h3>
       <ul>
-        <li>The board now follows Josh's 9 cat top 25. Each player he ranked sits most of the way from our stats spot to his. The Josh column shows his rank. A ≈ sign means it comes from his round by round comments.</li>
+        <li>The board follows Josh's 9 cat top 25. Players in his top 25 sit 70 percent of the way from our stats spot to his. Players he only talked about, shown with a ≈ sign in the Josh column, move 40 percent of the way, because those spots are my reading of his comments.</li>
         <li>Up the board. Giannis, Tatum, Durant, Flagg, Reaves, Amen, Jalen Williams, Dejounte Murray, Paul George, Buzelis, Markkanen, Sabonis, Hartenstein.</li>
         <li>Down the board. Maxey, Harden, Mitchell, Jaylen Brown, Booker, Chet, Mobley, Brunson, Kessler, Knueppel, Castle, Gobert, Sarr, Dybantsa.</li>
         <li>Role changes are built into the stats. More usage for Coby White, Kuminga, Buzelis, Murray Boyles, Ingram, Randle, Maluach and Jalen Green. Less for Maxey, Jaylen Brown, Vucevic, Mathurin, Aldama, MPJ, Jrue, Morant and Sarr.</li>
@@ -909,7 +909,8 @@ function calibrate(){
   sc.forEach((x,i)=>{ x.p.pos0=i+1; });
   const vals=sc.map(x=>x.v);
   // the order we want, each Josh player sits 70 percent of the way from our spot to his
-  const want=sc.map(x=>({p:x.p, key: x.p.josh ? Math.max(1,0.3*x.p.pos0+0.7*x.p.josh) : x.p.pos0})).sort((a,b)=>a.key-b.key || (b.p.josh?1:0)-(a.p.josh?1:0));
+  // Josh's real top 25 counts 70 percent, ranks estimated from his comments count 40 percent
+  const want=sc.map(x=>({p:x.p, key: x.p.josh ? Math.max(1, x.p.jest ? 0.6*x.p.pos0+0.4*x.p.josh : 0.3*x.p.pos0+0.7*x.p.josh) : x.p.pos0})).sort((a,b)=>a.key-b.key || (b.p.josh?1:0)-(a.p.josh?1:0));
   want.forEach((w,i)=>{
     const p=w.p; if(!p.josh) return; p.tgt=i+1;
     const goal=vals[i];
@@ -1001,6 +1002,19 @@ function gcls(v){ return v>=3?'p3':v===2?'p2':v===1?'p1':v===0?'z':v===-1?'n1':v
 function riskChip(r){ return r===0?'<span class="chip good">Low risk</span>':r===1?'<span class="chip warn">Some risk</span>':'<span class="chip bad">High risk</span>'; }
 function esc(s){ return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 
+// one line on how a player serves your plan, which cats he moves and which weak cats he helps
+function stratLine(p, key){
+  if (!S.mine.length) return '';
+  const b=BUILDS[key]; const old=profileOf(S.mine), nw=profileOf(S.mine.concat([p.id]));
+  const lvl={lose:0,toss:1,win:2,none:1};
+  const moved=[]; CATS.forEach((n,c)=>{ if(b.w[c]>0 && lvl[nw[c].st]>lvl[old[c].st]) moved.push(n+' to '+(nw[c].st==='win'?'winning':'toss up')); });
+  const helps=CATS.filter((n,c)=>b.w[c]>0 && old[c].st!=='win' && p.ez[c]>=0.3 && !moved.some(m=>m.startsWith(n+' ')));
+  const hurts=CATS.filter((n,c)=>b.w[c]>0 && lvl[nw[c].st]<lvl[old[c].st]);
+  let t = moved.length ? 'For your plan he moves '+moved.join(', ') : helps.length ? 'For your plan he helps your weak '+helps.join(', ') : 'For your plan he adds value without fixing a weak cat';
+  if (moved.length && helps.length) t += ' and helps your weak '+helps.join(', ');
+  if (hurts.length) t += ', but drops '+hurts.join(', ');
+  return t;
+}
 function catSummary(p, key){
   const b=BUILDS[key]; const good=[], bad=[];
   b.t.forEach(c=>{ if(p.g[c]>=2) good.push(CATS[c]); });
@@ -1101,7 +1115,7 @@ function render(){
       if(!x) return '';
       const sv = survive(x.p, survAt, now);
       const svChip = sv==null?'':'<span class="chip '+(sv>0.7?'good':sv>0.35?'warn':'bad')+'">'+Math.round(sv*100)+'% survive</span>';
-      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
+      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
     };
     recs += card('Best pick now', best, eff);
     recs += card('Safest fallback', safe, eff);
