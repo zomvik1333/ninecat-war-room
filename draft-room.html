@@ -393,6 +393,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
         <li>Punting means ignoring a cat, not chasing bad players in it. Assists and turnovers move together, and blocks, rebounds and FG% move together.</li>
         <li>Josh's first rule is value. Take a player who is clearly better than his draft spot even if he does not fit your build, and let the plan adjust. Builds can change three times in a draft.</li>
         <li>Your league sends 8 of 10 teams to the playoffs, so getting in is easy. Build a team that wins 5 or 6 cats in March rather than one that wins 7 in November.</li>
+        <li>Your call. Kyrie and Lillard go above Dyson Daniels on the pick cards, unless your team is losing steals or they are a toss up.</li>
         <li>Count on five counting cats, points, threes, rebounds, assists, steals, blocks or turnovers. Josh says FG% and FT% swing the most week to week, so a percentage is a bonus sixth cat, never one of your five. Yahoo counts the week as one win, so five sure cats is all you need.</li>
         <li>The board takes a 15 percent second opinion from Fantasy Edge on every player. Boozer is pinned near 52, where Josh says to take him, and Markkanen is pinned at 25. When the top two cards are within 0.2 cats, take the scorer or passer unless your plan has already given up points or assists.</li>
         <li>From his 10 team mock. Garland, Kyrie, Okongwu, Edey, Naz Reid and Powell were his value zone picks, while Avdija, Siakam and Derrick White go too early.</li>
@@ -734,6 +735,22 @@ const JOSH = {"Nikola Jokic": [1, "Number 1 in his 9 cat top 25"], "Victor Wemba
 const USAGE = {"Coby White": [1, "Usage and minutes up as Charlotte's starter"], "Jalen Green": [0.5, "Healthy again with a bigger role in Phoenix"], "Khaman Maluach": [1, "Minutes jump at center in Phoenix"], "Jonathan Kuminga": [1, "Starts in Minnesota"], "Brandon Ingram": [0.5, "Usage up with the Clippers"], "Collin Murray Boyles": [1, "Minutes and usage up in Toronto"], "Kon Knueppel": [0.5, "More usage in Charlotte"], "Julius Randle": [0.5, "Top option in Brooklyn"], "Matas Buzelis": [1, "Usage and minutes going up in Chicago"], "Kel'el Ware": [0.5, "Starter minutes in Milwaukee"], "Nikola Vucevic": [-1, "Moves to the bench in Orlando"], "Bennedict Mathurin": [-1, "Bench role in New Orleans"], "Kevin Porter Jr.": [-0.5, "Fewer touches in Milwaukee"], "Santi Aldama": [-1, "Role shrinks in Dallas"], "Michael Porter Jr.": [-0.5, "Usage loser in Brooklyn"], "Jaylen Brown": [-0.5, "Usage loser next to Maxey, Embiid and LeBron"], "Alex Sarr": [-0.5, "Usage loser behind Davis, Trae and Dybantsa"], "Jrue Holiday": [-0.5, "Usage loser in Portland"], "Ja Morant": [-0.5, "Usage loser in Portland"], "Tyrese Maxey": [-1, "Usage drops from 30 with Embiid, LeBron and Brown"], "Ayo Dosunmu": [-0.5, "Kuminga starting cuts his minutes"], "Jaden McDaniels": [-0.3, "Kuminga starting takes some shots"], "Derrick White": [-0.5, "Third option now behind Tatum and George"], "Payton Pritchard": [-0.5, "Bench role with Tatum and George taking the shots"]};
 // never recommend before this overall pick
 // your own calls, these set the board spot directly
+// Your calls on pick cards. Each listed player goes above the one he is matched with, unless your team needs that player's cat
+const USERPREF = [{above:["Kyrie Irving","Damian Lillard"], below:"Dyson Daniels", unless:6, why:"You rate Kyrie and Lillard above Daniels unless you really need steals"}];
+function userOrder(list, prof){
+  USERPREF.forEach(r=>{
+    const bi=list.findIndex(x=>x.p.name===r.below); if(bi<0) return;
+    if (S.mine.length && ['lose','toss'].includes(prof[r.unless].st)) return;
+    r.above.forEach(nm=>{
+      const p=PLAYERS.find(q=>q.name===nm); if(!p || isGone(p.id)) return;
+      let i=list.findIndex(x=>x.p.id===p.id); let it;
+      if (i<0){ const sim=simulate(PS_eff(),p.id); it={p, raw:0, ew:sim?sim.ew:0, pw:sim?sim.pw:0}; } else { it=list.splice(i,1)[0]; }
+      const at=list.findIndex(x=>x.p.name===r.below); it.uwhy=r.why; list.splice(at,0,it);
+    });
+  });
+  return list;
+}
+function PS_eff(){ return planState().eff; }
 const USERPOS = {"Donovan Mitchell":[9,"You and Sports Ethos rate him higher than Josh, so he sits around 10"],"Cameron Boozer":[52,"Josh calls him close to a top 50 guy but would not take him before about 51"],"Lauri Markkanen":[25,"Josh 25th and Fantasy Edge 26th, both already count his missed games"]};
 const FLOOR = {"Kawhi Leonard": 40, "Kyrie Irving": 40, "Joel Embiid": 50};
 // your playoffs are weeks 19 to 21, Mar 8 to Mar 28
@@ -1102,6 +1119,7 @@ function render(){
       const bs = sims.filter(Boolean).sort((a,b)=>b.ew-a.ew)[0];
       return Object.assign({}, x, {ew: bs?bs.ew:0});
     }).sort((a,b)=>rk(b)-rk(a))};
+    if (!recCache.u){ recCache.v=userOrder(recCache.v, prof); recCache.u=true; }
     const cands=recCache.v;
     const best=cands[0];
     const safe=cands.slice(1).filter(x=>x.ew>=best.ew-0.3 && x.p.risk===0)[0] || cands[1];
@@ -1113,7 +1131,7 @@ function render(){
       if(!x) return '';
       const sv = survive(x.p, survAt, now);
       const svChip = sv==null?'':'<span class="chip '+(sv>0.7?'good':sv>0.35?'warn':'bad')+'">'+Math.round(sv*100)+'% survive</span>';
-      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.unote?' '+esc(x.p.unote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
+      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(x.uwhy?'<b>'+esc(x.uwhy)+'.</b> ':'')+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.unote?' '+esc(x.p.unote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
     };
     recs += card('Best pick now', best, eff);
     recs += card('Safest fallback', safe, eff);
