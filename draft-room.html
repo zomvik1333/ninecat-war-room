@@ -757,7 +757,7 @@ const POOL = PLAYERS.filter(p=>p.rank<=140);
 const AVG = CATS.map((_,c)=>POOL.reduce((s,p)=>s+p.ez[c],0)/POOL.length);
 
 const KEY = 'ninecat_war_room_v7';
-let S = { slot: 5, build: 'auto', autoPlan: null, log: [], notes: '0', qover: null, qlast: null, mine: [], taken: [], order: [], oslot: [], teamNames: {}, stubs: [], ykeys: {}, ysync: false, search: '', pos: 'All', hide: '1', tab: 'board' };
+let S = { slot: 6, build: 'auto', autoPlan: null, log: [], notes: '0', qover: null, qlast: null, mine: [], taken: [], order: [], oslot: [], teamNames: {}, stubs: [], ykeys: {}, ysync: false, search: '', pos: 'All', hide: '1', tab: 'board' };
 try { const saved = JSON.parse(localStorage.getItem(KEY)||'null'); if (saved) S = Object.assign(S, saved, {search:''}); } catch(e) {}
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
 ['oslot','stubs'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; }); ['teamNames','ykeys'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
@@ -823,7 +823,10 @@ function posEffectFor(p, ids, ctx){
 function slotOfPick(n){ const r=Math.ceil(n/TEAMS), i=n-(r-1)*TEAMS; return r%2===1 ? i : TEAMS+1-i; }
 function ownerSlot(i){ return (S.oslot && S.oslot[i]) || slotOfPick(i+1); }
 function rosters(){ const R={}; for(let t=1;t<=TEAMS;t++) R[t]=[]; S.order.forEach((id,i)=>{ const sl=ownerSlot(i); (R[sl]||(R[sl]=[])).push(id); }); return R; }
-function teamName(sl){ return (S.teamNames && S.teamNames[sl]) ? S.teamNames[sl] : (sl===S.slot ? 'You' : 'Team '+sl); }
+// Ball Lovers real draft order from Yahoo, Oct 1 2026. Used when your slot is 6, Yahoo sync names win when connected.
+const LEAGUE_TEAMS = {1:"Westbrick Kangz",2:"Vinny's Team",3:"Haziq's Dandy Team",4:"Registered Nurse",5:"LeGM's Team",6:"Vik in a Box",7:"Shu's Heard of Goats",8:"Lickmylulu",9:"Rohan and Vikas CoManaged",10:"Extraterrestrial"};
+const LEAGUE_SLOT = 6;
+function teamName(sl){ if (S.teamNames && S.teamNames[sl]) return S.teamNames[sl]; if (S.slot===LEAGUE_SLOT && LEAGUE_TEAMS[sl]) return LEAGUE_TEAMS[sl]; return sl===S.slot ? 'You' : 'Team '+sl; }
 function openSlots(ids){ const m=matchSlots(ids); return SLOTS.filter((sl,i)=>m[i]===-1); }
 function openText(open){ const c={}; open.forEach(x=>c[x]=(c[x]||0)+1); return Object.entries(c).map(([k,v])=>v>1?k+' x'+v:k).join(', '); }
 // how another team picks. Early on the best ADP left. From their 6th player on, the best of the next 5 by ADP who fills an open starting spot.
@@ -1165,7 +1168,7 @@ function renderTeams(now){
   }
   $('tgrid').innerHTML=h;
   const named=Object.keys(S.teamNames||{}).length;
-  $('teamsNote').textContent = named ? 'names from Yahoo' : 'built from the picks as they happen';
+  $('teamsNote').textContent = named ? 'names from Yahoo' : (S.slot===LEAGUE_SLOT ? 'Ball Lovers draft order' : 'built from the picks as they happen');
 }
 
 // Yahoo sync. Works on the Vercel site, where the /api helpers live.
