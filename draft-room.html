@@ -731,6 +731,8 @@ const JOSH = {"Nikola Jokic": [1, "Number 1 in his 9 cat top 25"], "Victor Wemba
 // role and usage changes he flagged, +1 means clearly more usage
 const USAGE = {"Coby White": [1, "Usage and minutes up as Charlotte's starter"], "Jalen Green": [0.5, "Healthy again with a bigger role in Phoenix"], "Khaman Maluach": [1, "Minutes jump at center in Phoenix"], "Jonathan Kuminga": [1, "Starts in Minnesota"], "Brandon Ingram": [0.5, "Usage up with the Clippers"], "Collin Murray Boyles": [1, "Minutes and usage up in Toronto"], "Kon Knueppel": [0.5, "More usage in Charlotte"], "Julius Randle": [0.5, "Top option in Brooklyn"], "Matas Buzelis": [1, "Usage and minutes going up in Chicago"], "Kel'el Ware": [0.5, "Starter minutes in Milwaukee"], "Nikola Vucevic": [-1, "Moves to the bench in Orlando"], "Bennedict Mathurin": [-1, "Bench role in New Orleans"], "Kevin Porter Jr.": [-0.5, "Fewer touches in Milwaukee"], "Santi Aldama": [-1, "Role shrinks in Dallas"], "Michael Porter Jr.": [-0.5, "Usage loser in Brooklyn"], "Jaylen Brown": [-0.5, "Usage loser next to Maxey, Embiid and LeBron"], "Alex Sarr": [-0.5, "Usage loser behind Davis, Trae and Dybantsa"], "Jrue Holiday": [-0.5, "Usage loser in Portland"], "Ja Morant": [-0.5, "Usage loser in Portland"], "Tyrese Maxey": [-1, "Usage drops from 30 with Embiid, LeBron and Brown"], "Ayo Dosunmu": [-0.5, "Kuminga starting cuts his minutes"], "Jaden McDaniels": [-0.3, "Kuminga starting takes some shots"], "Derrick White": [-0.5, "Third option now behind Tatum and George"], "Payton Pritchard": [-0.5, "Bench role with Tatum and George taking the shots"]};
 // never recommend before this overall pick
+// your own calls, these set the board spot directly
+const USERPOS = {"Donovan Mitchell":[9,"You and Sports Ethos rate him higher than Josh, so he sits around 10"]};
 const FLOOR = {"Kawhi Leonard": 40, "Kyrie Irving": 40, "Joel Embiid": 50};
 // your playoffs are weeks 19 to 21, Mar 8 to Mar 28
 const PLAYOFF = {MIN:['2 game wk','Only 2 games in the week of Mar 15, the middle of your playoffs'],CLE:['2 game wk','Only 2 games in the week of Mar 22, your finals week'],BOS:['3 B2B','3 back to backs during your playoffs'],POR:['3 B2B','3 back to backs during your playoffs'],TOR:['3 B2B','3 back to backs during your playoffs'],GSW:['3 B2B','3 back to backs during your playoffs'],PHI:['3 B2B','3 back to backs during your playoffs'],MIA:['No B2B','No back to backs during your playoffs']};
@@ -756,6 +758,7 @@ const PLAYERS = RAW.map((r,i)=>{
   if (USAGE[p.name]){ applyUsage(p, USAGE[p.name][0]); p.role=USAGE[p.name][1]; }
   if (JOSH[p.name]){ p.josh=JOSH[p.name][0]; p.jnote=JOSH[p.name][1]; p.jest=!!JOSH[p.name][2]; }
   p.floor=FLOOR[p.name]||0;
+  if (USERPOS[p.name]) p.unote=USERPOS[p.name][1];
   p.upside = UPSIDE.has(p.name) || !!p.rookie || GEMS.has(p.name);
   // expected weekly value, a missed game is filled by a waiver level player
   p.ez = p.z.map(v=>p.av*v + (1-p.av)*(-0.25));
@@ -899,9 +902,9 @@ function calibrate(){
   const vals=sc.map(x=>x.v);
   // the order we want, each Josh player sits 70 percent of the way from our spot to his
   // Josh's real top 25 counts 70 percent, ranks estimated from his comments count 40 percent
-  const want=sc.map(x=>({p:x.p, key: x.p.josh ? Math.max(1, x.p.jest ? 0.6*x.p.pos0+0.4*x.p.josh : 0.3*x.p.pos0+0.7*x.p.josh) : x.p.pos0})).sort((a,b)=>a.key-b.key || (b.p.josh?1:0)-(a.p.josh?1:0));
+  const want=sc.map(x=>({p:x.p, key: USERPOS[x.p.name] ? USERPOS[x.p.name][0] : x.p.josh ? Math.max(1, x.p.jest ? 0.6*x.p.pos0+0.4*x.p.josh : 0.3*x.p.pos0+0.7*x.p.josh) : x.p.pos0})).sort((a,b)=>a.key-b.key || (b.p.josh?1:0)-(a.p.josh?1:0));
   want.forEach((w,i)=>{
-    const p=w.p; if(!p.josh) return; p.tgt=i+1;
+    const p=w.p; if(!p.josh && !USERPOS[p.name]) return; p.tgt=i+1;
     const goal=vals[i];
     const keep=p.ez; p.ez=keep.map(()=>0); const c0=base(p); p.ez=keep;
     for (let k=0;k<6;k++){
@@ -1104,7 +1107,7 @@ function render(){
       if(!x) return '';
       const sv = survive(x.p, survAt, now);
       const svChip = sv==null?'':'<span class="chip '+(sv>0.7?'good':sv>0.35?'warn':'bad')+'">'+Math.round(sv*100)+'% survive</span>';
-      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
+      return '<div class="rec"><div class="lab">'+lab+'</div><div class="nm">'+esc(x.p.name)+' <span class="psub">'+x.p.team+' '+x.p.pos.replaceAll(',',' ')+'</span></div><div class="fit" title="Projected cats won with him">'+x.ew.toFixed(1)+'<small> cats</small></div><div class="why">'+(S.mine.length?'<b>'+esc(stratLine(x.p,key))+'.</b> ':'')+esc(catSummary(x.p,key))+'. '+esc(x.p.note)+'.'+(x.p.news?' '+esc(x.p.news)+'.':'')+(x.p.role?' '+esc(x.p.role)+'.':'')+(x.p.pon?' Playoffs, '+esc(x.p.pon)+'.':'')+(x.p.josh?' Josh '+(x.p.jest?'has him around ':'has him at ')+x.p.josh+'. '+esc(x.p.jnote)+'.':'')+(x.p.unote?' '+esc(x.p.unote)+'.':'')+(x.p.g3?' Games last 3 seasons '+x.p.g3.map(v=>v==null?'none':v).join(', ')+'.':'')+'</div><div class="meta">'+(x.p.inj?'<span class="chip '+(/^Out/.test(x.p.inj)?'bad':/day to day/i.test(x.p.inj)?'warn':'good')+'">'+esc(x.p.inj)+'</span>':'')+(x.p.gem?'<span class="chip gem">Sleeper</span>':'')+riskChip(x.p.risk)+'<span class="chip '+(x.p.eg>=65?'good':x.p.eg>=50?'warn':'bad')+'">About '+x.p.eg+' games</span>'+svChip+'<span class="chip muted">ADP '+(x.p.adp??'none')+'</span></div><div class="act"><button class="mini mine" type="button" data-mine="'+x.p.id+'">Draft him</button><button class="mini" type="button" data-take="'+x.p.id+'">Taken by someone</button></div></div>';
     };
     recs += card('Best pick now', best, eff);
     recs += card('Safest fallback', safe, eff);
