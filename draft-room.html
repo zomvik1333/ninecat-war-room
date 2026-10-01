@@ -344,19 +344,19 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
 
     <div class="panel">
       <h3>Plan A, Punt FT% bigs</h3>
-      <div class="tgtline"><span class="chip good">Win FG%</span><span class="chip good">Win REB</span><span class="chip good">Win BLK</span><span class="chip good">Win STL</span><span class="chip good">Win PTS</span><span class="chip warn">Swing AST</span><span class="chip bad">Give up FT%</span><span class="chip muted">Ignore TO</span></div>
+      <div class="tgtline"><span class="chip good">Win PTS</span><span class="chip good">Win REB</span><span class="chip good">Win AST</span><span class="chip good">Win STL</span><span class="chip good">Win BLK</span><span class="chip warn">Bonus FG%</span><span class="chip bad">Give up FT%</span><span class="chip muted">Ignore TO</span></div>
       <p>My default for a 10 team league. The strongest cheap pool is bigs who shoot badly at the line, and nobody else in your room wants them.</p>
       <ul>
         <li>Anchors Giannis, Amen Thompson, Sengun, Jalen Johnson, Scottie Barnes</li>
         <li>Middle rounds Mobley, Duren, Kessler, Dyson Daniels, Clingan, Gobert, Zion</li>
         <li>Late Ausar Thompson, Claxton, Jarrett Allen, Queta, Day'Ron Sharpe, Gafford, Maluach</li>
-        <li>Grab one real assist guard by round 6 so AST stays a swing cat</li>
+        <li>Grab one real assist guard by round 6 so AST is one of your five</li>
       </ul>
     </div>
 
     <div class="panel">
       <h3>Plan B, Punt FG% and TO guards</h3>
-      <div class="tgtline"><span class="chip good">Win 3PM</span><span class="chip good">Win FT%</span><span class="chip good">Win AST</span><span class="chip good">Win STL</span><span class="chip good">Win PTS</span><span class="chip warn">Swing REB</span><span class="chip bad">Give up FG%</span><span class="chip bad">Give up TO</span></div>
+      <div class="tgtline"><span class="chip good">Win PTS</span><span class="chip good">Win 3PM</span><span class="chip good">Win REB</span><span class="chip good">Win AST</span><span class="chip good">Win STL</span><span class="chip warn">Bonus FT%</span><span class="chip bad">Give up FG%</span><span class="chip bad">Give up TO</span></div>
       <p>Best if you open with Luka, Maxey, Edwards, Curry or Trae. High usage guards bring bad FG% and turnovers together, so you drop both.</p>
       <ul>
         <li>Anchors Luka, Maxey, Edwards, Trae Young, LaMelo, Harden, Jamal Murray</li>
@@ -368,7 +368,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
 
     <div class="panel">
       <h3>Plan C, Punt AST</h3>
-      <div class="tgtline"><span class="chip good">Win 3PM</span><span class="chip good">Win REB</span><span class="chip good">Win BLK</span><span class="chip good">Win FT%</span><span class="chip good">Win TO</span><span class="chip warn">Swing FG% and PTS</span><span class="chip bad">Give up AST</span></div>
+      <div class="tgtline"><span class="chip good">Win 3PM</span><span class="chip good">Win REB</span><span class="chip good">Win BLK</span><span class="chip good">Win STL</span><span class="chip good">Win TO</span><span class="chip warn">Swing PTS</span><span class="chip warn">Bonus FG% and FT%</span><span class="chip bad">Give up AST</span></div>
       <p>The backup plan when the room takes guards early. Stretch bigs and 3 and D wings keep turnovers low for free.</p>
       <ul>
         <li>Anchors Wembanyama, Karl Anthony Towns, Durant, Chet Holmgren, Markkanen</li>
@@ -379,7 +379,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
 
     <div class="panel">
       <h3>Balanced</h3>
-      <p>Use this for your first two picks, or all draft long if the board keeps falling your way. Aim for 6 winning cats. Turnovers count a bit less and points, rebounds and assists a bit more, because those three hold steady week to week while steals, blocks and the percentages swing.</p>
+      <p>Use this for your first two picks, or all draft long if the board keeps falling your way. Aim for 6 winning cats, but count on the counting cats. FG% and FT% are a bonus, not part of your five. Turnovers count a bit less and points, rebounds and assists a bit more, because those three hold steady week to week while steals, blocks and the percentages swing.</p>
     </div>
 
     <div class="panel span">
@@ -393,6 +393,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
         <li>Punting means ignoring a cat, not chasing bad players in it. Assists and turnovers move together, and blocks, rebounds and FG% move together.</li>
         <li>Josh's first rule is value. Take a player who is clearly better than his draft spot even if he does not fit your build, and let the plan adjust. Builds can change three times in a draft.</li>
         <li>Your league sends 8 of 10 teams to the playoffs, so getting in is easy. Build a team that wins 5 or 6 cats in March rather than one that wins 7 in November.</li>
+        <li>Count on five counting cats, points, threes, rebounds, assists, steals, blocks or turnovers. Josh says FG% and FT% swing the most week to week, so a percentage is a bonus sixth cat, never one of your five. Yahoo counts the week as one win, so five sure cats is all you need.</li>
         <li>The board takes a 15 percent second opinion from Fantasy Edge on every player. Boozer is pinned near 52, where Josh says to take him, and Markkanen is pinned at 25. When the top two cards are within 0.2 cats, take the scorer or passer unless your plan has already given up points or assists.</li>
         <li>From his 10 team mock. Garland, Kyrie, Okongwu, Edey, Naz Reid and Powell were his value zone picks, while Avdija, Siakam and Derrick White go too early.</li>
       </ul>
@@ -508,14 +509,14 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
 const CATS = ['FG%','FT%','3PM','PTS','REB','AST','STL','BLK','TO'];
 const TEAMS = 10, ROUNDS = 14;
 const BUILDS = {
-  balanced: { name: 'Balanced, aim for 6', w: [0.95,0.95,1,1.1,1.1,1.1,0.95,0.95,0.6] },
-  puntft:   { name: 'Plan A, Punt FT% bigs', w: [1.3,0,0.7,1,1.3,0.8,1.1,1.3,0.4] },
-  guards:   { name: 'Plan B, Punt FG% and TO guards', w: [0,1.3,1.3,1.1,0.6,1.3,1.2,0.5,0] },
-  puntast:  { name: 'Plan C, Punt AST', w: [1,1,1.2,1,1.2,0,1,1.2,1] },
-  puntpts:  { name: 'Punt PTS, stocks and percentages', w: [1.2,1.1,0.8,0,1.1,1.1,1.2,1.2,0.8] },
-  puntto:   { name: 'Punt TO', w: [1,1,1,1.1,1,1.2,1,1,0] },
-  puntftto: { name: 'Punt FT% and TO', w: [1.3,0,0.8,1.2,1.3,1,1,1.3,0] },
-  puntfg:   { name: 'Punt FG%', w: [0,1.2,1.2,1.1,0.8,1.1,1.1,0.8,0.8] }
+  balanced: { name: 'Balanced, aim for 6', w: [0.85,0.85,1,1.1,1.1,1.1,0.95,0.95,0.6] },
+  puntft:   { name: 'Plan A, Punt FT% bigs', w: [0.9,0,0.7,1.05,1.3,1.0,1.1,1.3,0.4] },
+  guards:   { name: 'Plan B, Punt FG% and TO guards', w: [0,0.9,1.3,1.1,1.0,1.3,1.2,0.5,0] },
+  puntast:  { name: 'Plan C, Punt AST', w: [0.9,0.9,1.2,1,1.2,0,1,1.2,1] },
+  puntpts:  { name: 'Punt PTS, stocks and percentages', w: [0.95,0.95,0.8,0,1.1,1.1,1.2,1.2,0.8] },
+  puntto:   { name: 'Punt TO', w: [0.9,0.9,1,1.1,1,1.2,1,1,0] },
+  puntftto: { name: 'Punt FT% and TO', w: [0.9,0,0.8,1.2,1.3,1,1,1.3,0] },
+  puntfg:   { name: 'Punt FG%', w: [0,0.9,1.2,1.1,1.0,1.1,1.1,0.8,0.8] }
 };
 Object.values(BUILDS).forEach(b=>{ b.t=b.w.map((w,c)=>w>=1?c:-1).filter(c=>c>=0); b.wsum=b.w.reduce((a,x)=>a+x,0); });
 BUILDS.balanced.t=[0,1,2,3,4,5,6,7,8];
@@ -924,7 +925,9 @@ function calibrate(){
 // look ahead engine. Other teams pick by ADP, you pick the best fit for a plan, then each of the 9 cats gets a win chance vs an average team.
 const adpEff = p => p.adp!=null ? p.adp : p.rank*1.08+6;
 const ADP_ORDER = PLAYERS.filter(p=>!p.stub).sort((a,b)=>adpEff(a)-adpEff(b)).map(p=>p.id);
-const winP = d => 1/(1+Math.exp(-d/0.28));
+// FG% and FT% swing the most week to week, so the same lead there is a less sure win
+const SPREAD=[0.39,0.39,0.28,0.28,0.28,0.28,0.28,0.28,0.28];
+const winP = (d,c) => 1/(1+Math.exp(-d/(SPREAD[c]??0.28)));
 function simulate(key, extraId){
   const ids=S.mine.slice(); const gone=new Set(S.mine.concat(S.taken));
   let cur=S.order.length+1; const picks=myPickNumbers().filter(n=>n>=cur); let pi=0;
@@ -938,7 +941,7 @@ function simulate(key, extraId){
     for(const id of ADP_ORDER){ if(gone.has(id)) continue; if(cnt++>=30) break; const v=fitFor(byId(id),key,ids,prof,ctx); if(v>bv){bv=v;best=id;} }
     if(best==null) break; ids.push(best); gone.add(best); cur=P+1;
   }
-  const prof=profileOf(ids); const probs=prof.map(x=>winP(x.d));
+  const prof=profileOf(ids); const probs=prof.map(x=>winP(x.d,x.c));
   return {ew:probs.reduce((a,b)=>a+b,0), probs, ids};
 }
 let planCache={k:null,v:null}; let recCache={k:null,v:null};
@@ -1050,14 +1053,14 @@ function render(){
     return '<div class="catrow"><span class="cn'+(tgt?' tgt':'')+'">'+CATS[x.c]+'</span><div class="bar"><div class="mid"></div><div class="fill" style="left:'+left+'%;width:'+width+'%;background:'+col+'"></div></div>'+chip+'</div>';
   }).join('');
   const projChip=(pr)=> pr>=0.6?'good':pr>=0.4?'warn':'bad';
-  const projWord=(pr)=> pr>=0.6?'Win':pr>=0.4?'Swing':'Give up';
+  const projWord=(pr,c)=> pr>=0.6?(c<2?'Bonus':'Win'):pr>=0.4?'Swing':'Give up';
   let st='';
   const mode = S.build==='auto' ? (S.mine.length<2 ? 'Auto, keeping options open' : 'Auto') : 'Locked by you';
   st+='<div class="plan-now"><div class="pn-name">'+esc(b.name)+'</div><div class="pn-mode">'+esc(mode)+'</div></div><p class="small">This is the lane for your next picks. The chips below show where your whole team should land.</p>';
   if (effEval){
-    const n5=effEval.probs.filter(pr=>pr>=0.6).length;
-    st+='<p class="pn-proj">If the draft goes to ADP from here, this plan wins about <b>'+effEval.ew.toFixed(1)+' of 9 cats</b> against an average team, with '+n5+' cats that look like solid wins.</p>';
-    st+='<div class="pn-cats">'+CATS.map((n,c)=>'<span class="chip '+projChip(effEval.probs[c])+'" title="'+Math.round(effEval.probs[c]*100)+'% win chance">'+n+' '+projWord(effEval.probs[c])+'</span>').join('')+'</div>';
+    const n5=effEval.probs.filter((pr,c)=>c>=2 && pr>=0.6).length;
+    st+='<p class="pn-proj">If the draft goes to ADP from here, this plan wins about <b>'+effEval.ew.toFixed(1)+' of 9 cats</b> against an average team, with '+n5+' counting cats that look like solid wins. FG% and FT% are a bonus on top.</p>';
+    st+='<div class="pn-cats">'+CATS.map((n,c)=>'<span class="chip '+projChip(effEval.probs[c])+'" title="'+Math.round(effEval.probs[c]*100)+'% win chance">'+n+' '+projWord(effEval.probs[c],c)+'</span>').join('')+'</div>';
   }
   if (S.mine.length<2 && S.build==='auto') st+='<p class="small">Your first two picks are pure value. After pick 2 the board commits to whichever plan projects the most cats, and it keeps checking after every pick.</p>';
   const bk=PS.evals[PS.backup];
