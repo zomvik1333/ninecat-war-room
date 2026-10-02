@@ -1,6 +1,6 @@
 # Nine Cat War Room
 
-Draft board for the Ball Lovers Yahoo league (10 teams, head to head 9 cat, 15 rounds, snake).
+Draft board and in season pickups and trades helper for the Ball Lovers Yahoo league (10 teams, head to head 9 cat, 15 rounds, snake).
 
 Live site at https://ninecatwarroom.vercel.app
 
@@ -9,9 +9,35 @@ Live site at https://ninecatwarroom.vercel.app
 * api holds the small Vercel helpers that connect to Yahoo Fantasy. Your Yahoo sign in is kept only in an encrypted cookie in your browser.
 
 * index.html is the full website that runs on Vercel. It also works if you just open it in a browser.
-* draft-room.html is the same board in the format used for the Claude artifact.
+* draft-room.html is the draft board alone in the format used for the Claude artifact. It does not have the Pickups and trades tab.
+* moves.js is the Pickups and trades tab.
+* data holds the numbers the tab reads. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
+* scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
+* vercel.json lets the scanner read the data files from the live site.
 
-## Version 3 (branch main), Oct 2 2026
+## Version 4 (branch main), Oct 2 2026
+
+* New tab, Pickups and trades. The goal is to win 5 of 9 cats each week and finish in the top four
+* A daily Yahoo scan feeds it. The scan only reads. It runs through Claude in Chrome on your computer at 4.30 pm and then deploys the fresh numbers
+* This week panel. Your chance to win 5 or more cats against the real opponent, cat by cat, with the live score once the week starts
+* Pickups, refreshed daily. Every available player is tested in place of each player you could drop. Each one gets a need score from 0 to 100, the drop, his games left and a plain reason
+* Need bands. 85 and up is a must add even at the cost of a waiver claim. 65 to 84 is a strong add once he is a free agent. 50 to 64 helps but hold your waiver spot. Under 50 is a skip
+* Trades, refreshed each week and after any roster move in the league. Every one for one, two for two and two for one where you send two is scored. Ranked by your gain times the chance they say yes
+* Each trade shows your gain, their gain, how it looks to them on Yahoo ranks and name value, the chance they say yes and the Josh edge
+* Guard rails. Kyrie is never offered. Boozer is held until the middle of January. You always keep three centers. Trades with the co managed team are hidden unless you tick the box
+* Every card opens to a plain reason with what it does, what it costs or the pitch, what the numbers are based on and the main risk
+* What the numbers are based on is always stated. Last season before games are played, a blend once games start, this season once the blend passes 75 percent. The weight on this season is games played divided by games played plus 12
+* Josh's rank is carried in from the board. A higher or lower rank counts first as more or fewer games played, then as a small change in volume
+* The league table rates all ten teams, shows their strong and weak cats and the chance each one finishes top four. Tap a team to see its roster as Yahoo shows it
+* My players shows the per game line the numbers use for each of your players and how many of his games fit in your lineup this week
+* I made this add and I made this trade move the players right away and rerank both lists. The next Yahoo scan replaces your marks with what Yahoo shows
+* The NBA schedule comes from ESPN. Usable games are counted by setting the best legal Yahoo lineup for every day, so a crowded position costs games by itself
+
+## How to fall back to version 3
+
+* The v8 branch holds the site exactly as it was before version 4.
+
+## Version 3 (branch v8), Oct 2 2026
 
 * Opens on the real Ball Lovers draft. All 150 picks from the Yahoo draft results are on the right team, with team names, and the Oct 1 swap of LaMelo Ball and Walker Kessler is applied
 * Load league draft brings that board back at any time. Reset draft gives a clean board for a mock
