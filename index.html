@@ -1346,6 +1346,7 @@ window.addEventListener('message', ev=>{
   const d=ev.data; if(!d || d.type!=='ncw_yahoo_picks' || !Array.isArray(d.picks)) return;
   YP.on=true; YP.at=Date.now(); YP.n=d.picks.length;
   if (Array.isArray(d.teams) && d.teams.length) Y.teams=d.teams.map(t=>({key:'slot'+t.slot, name:t.name, slot:t.slot, mine:t.slot===(d.mySlot||6)}));
+  d.picks.forEach(x=>{ x.name=ypResolve(x, d.picks); });
   const picks=d.picks.map(x=>{ const k='pg:'+nkey(x.name); if(!S.ykeys[k]) S.ykeys[k]={name:x.name, team:x.team||'', pos:x.pos||''}; return {pick:x.pick, round:Math.ceil(x.pick/TEAMS), team_key:'slot'+slotOfPick(x.pick), player_key:k}; });
   // if Yahoo is a step behind picks you marked by hand, keep yours until it catches up
   const ids=picks.slice().sort((a,b)=>a.pick-b.pick).map(x=>matchName(S.ykeys[x.player_key].name));
@@ -1353,6 +1354,17 @@ window.addEventListener('message', ev=>{
   if (!behind) yApply(picks);
   ypBadge();
 });
+// Yahoo's draft room shortens names to N. Jokic. Find the real player, using the NBA team to split ties like A. Thompson or M. Bridges.
+function ypResolve(x, all){
+  const raw=String(x.name||'').trim(); const k=nkey(raw); if(k in NAMEIDX || ALIAS[k]) return raw;
+  const w=k.split(' ').filter(Boolean); if(w.length<2 || w[0].length>1){ return raw; }
+  const ini=w[0], last=w.slice(1).join(' ');
+  let c=PLAYERS.filter(p=>{ const pk=nkey(p.name); return pk[0]===ini && (pk.endsWith(' '+last) || pk.split(' ').slice(1).join(' ')===last); });
+  if(!c.length) return raw;
+  { const used=new Set(all.filter(y=>y!==x && y.pick<x.pick).map(y=>nkey(y.name))); const f=c.filter(p=>!used.has(nkey(p.name))); if(f.length) c=f; }
+  if(c.length>1 && x.team){ const t=String(x.team).toUpperCase().replace('WSH','WAS').replace('PHO','PHX').slice(0,2); const f=c.filter(p=>String(p.team||'').toUpperCase().slice(0,2)===t); if(f.length) c=f; }
+  c.sort((a,b)=>a.rank-b.rank); return c[0].name;
+}
 function ypBadge(){
   let b=document.getElementById('ypbadge');
   if(!b){ b=document.createElement('div'); b.id='ypbadge'; b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:50;padding:6px 10px;border-radius:8px;font:600 12px Barlow,system-ui,sans-serif;color:#fff;background:#1b7f4b;box-shadow:0 2px 8px rgba(0,0,0,.25)'; document.body.appendChild(b); }
