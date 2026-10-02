@@ -99,12 +99,12 @@
     if(stt){
       const hc=[...stt.querySelectorAll('thead th')].map(c=>c.textContent.replace(/\s+/g,' ').trim());
       const ix=k=>hc.findIndex(h=>h.indexOf(k)===0);
-      [...stt.tBodies[0].rows].forEach(r=>{
+      [...stt.tBodies[0].rows].forEach((r,ri)=>{
         const a=r.querySelector('a[href*="'+BASE+'/"]'); if(!a) return;
         const tid=((a.getAttribute('href')||'').match(/\/(\d+)$/)||[])[1]; if(!tid) return;
         const c=[...r.cells].map(x=>x.textContent.replace(/\s+/g,' ').trim());
         const wlt=(c[ix('W-L-T')]||'').split('-');
-        teams.push({tid,nm:clean(a.textContent),rank:digits(c[ix('Rank')]||c[0]),w:wlt[0]||'0',l:wlt[1]||'0',t:wlt[2]||'0',wv:digits(c[ix('Waiver')]),mv:digits(c[ix('Moves')])});
+        teams.push({tid,nm:clean(c[ix('Team')]),rank:digits(c[ix('Rank')])||String(ri+1),w:digits(wlt[0])||'0',l:digits(wlt[1])||'0',t:digits(wlt[2])||'0',wv:digits(c[ix('Waiver')]),mv:digits(c[ix('Moves')])||'0'});
       });
     }
     if(teams.length<10) st.log.push('standings rows '+teams.length);
@@ -152,11 +152,13 @@
     const avail=Object.keys(OWN);
     for(let i=0;i<avail.length;i+=16) out.push('A|'+avail.slice(i,i+16).map(id=>id+':'+OWN[id]+':'+(P[id].st||'')).join(','));
 
+    const qs=[];
     Object.keys(P).forEach(id=>{
       const s=S[id], l=L[id];
       if(s||l){ const b=s||l; out.push('S|'+id+'|'+(s?'s':'r')+'|'+sline(b)+'|'+(l?l.gp:'')+'|'+(l?l.mpg:'')+'|'+(l?val(l):'')+'|'+(CUR[id]||'')+'|'+(PCT[id]||'')); }
-      else if(CUR[id]||PCT[id]) out.push('Q|'+id+'|'+(CUR[id]||'')+'|'+(PCT[id]||''));
+      else if(CUR[id]||PCT[id]) qs.push(id+':'+(CUR[id]||'')+':'+(PCT[id]||''));
     });
+    for(let i=0;i<qs.length;i+=14) out.push('Q|'+qs.slice(i,i+14).join(','));
 
     if(wk){
       st.step='matchup';
@@ -185,7 +187,7 @@
     }catch(e){ st.log.push('transactions not read'); }
 
     const plines=[];
-    Object.keys(P).forEach(id=>{ const p=P[id], k=known[id]; if(!k || k[1]!==p.team || k[2]!==p.pos || (p.pre && String(k[3]||'')!==String(p.pre))) plines.push(['P',id,p.nm,p.team,p.pos,p.pre||''].join('|')); });
+    if(!opts.noP) Object.keys(P).forEach(id=>{ const p=P[id], k=known[id]; if(!k || k[1]!==p.team || k[2]!==p.pos || (p.pre && String(k[3]||'')!==String(p.pre))) plines.push(['P',id,p.nm,p.team,p.pos,p.pre||''].join('|')); });
     const head=['H','NCW1',new Date().toISOString().slice(0,16),wk,season?'season':'pre',teams.length,Object.keys(P).length].join('|');
     return [head].concat(plines,out);
   }
@@ -194,7 +196,7 @@
     const lines=body.map(x=>x+'|'+ck(x));
     lines.push('E|'+lines.length+'|'+ck(lines.join('')));
     st.lines=lines;
-    const pages=[]; let cur=[], size=0; const LIM=(st.limit||7000);
+    const pages=[]; let cur=[], size=0; const LIM=(st.limit||9000);
     lines.forEach(l=>{ if(size+l.length>LIM && cur.length){ pages.push(cur); cur=[]; size=0; } cur.push(l); size+=l.length+3; });
     if(cur.length) pages.push(cur);
     st.pages=pages;
@@ -207,7 +209,7 @@
     return 'page '+(k+1)+' of '+st.pages.length+', '+pg.length+' lines';
   }
   async function run(opts){
-    opts=opts||{}; st.done=false; st.err=''; st.log=[]; st.lines=[]; st.pages=[]; st.mode=opts.mode||'daily'; st.limit=opts.limit||7000;
+    opts=opts||{}; st.done=false; st.err=''; st.log=[]; st.lines=[]; st.pages=[]; st.mode=opts.mode||'daily'; st.limit=opts.limit||9000;
     try{ const body=st.mode==='sched'?await runSched():await runDaily(opts); finish(body); st.step='done'; }
     catch(e){ st.err=String(e&&e.message||e); }
     st.done=true; return st.pages.length;
