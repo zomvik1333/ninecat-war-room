@@ -1324,6 +1324,28 @@ function yApply(picks){
   if (order.length) S.qlast={id:order[order.length-1], mine:mine.includes(order[order.length-1])};
   save(); render();
 }
+// Live link. A Yahoo page in your own Chrome reads the league's draft results and posts the picks here, so the board fills itself.
+const YP={on:false, at:0, n:0};
+window.addEventListener('message', ev=>{
+  if (ev.origin!=='https://basketball.fantasysports.yahoo.com') return;
+  const d=ev.data; if(!d || d.type!=='ncw_yahoo_picks' || !Array.isArray(d.picks)) return;
+  YP.on=true; YP.at=Date.now(); YP.n=d.picks.length;
+  if (Array.isArray(d.teams) && d.teams.length) Y.teams=d.teams.map(t=>({key:'slot'+t.slot, name:t.name, slot:t.slot, mine:t.slot===(d.mySlot||6)}));
+  const picks=d.picks.map(x=>{ const k='pg:'+nkey(x.name); if(!S.ykeys[k]) S.ykeys[k]={name:x.name, team:x.team||'', pos:x.pos||''}; return {pick:x.pick, round:Math.ceil(x.pick/TEAMS), team_key:'slot'+slotOfPick(x.pick), player_key:k}; });
+  // if Yahoo is a step behind picks you marked by hand, keep yours until it catches up
+  const ids=picks.slice().sort((a,b)=>a.pick-b.pick).map(x=>matchName(S.ykeys[x.player_key].name));
+  const behind = ids.length<S.order.length && ids.every((id,i)=>id!=null && id===S.order[i]);
+  if (!behind) yApply(picks);
+  ypBadge();
+});
+function ypBadge(){
+  let b=document.getElementById('ypbadge');
+  if(!b){ b=document.createElement('div'); b.id='ypbadge'; b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:50;padding:6px 10px;border-radius:8px;font:600 12px Barlow,system-ui,sans-serif;color:#fff;background:#1b7f4b;box-shadow:0 2px 8px rgba(0,0,0,.25)'; document.body.appendChild(b); }
+  const age=Math.round((Date.now()-YP.at)/1000);
+  b.style.background = age>20 ? '#b3261e' : '#1b7f4b';
+  b.textContent = age>20 ? 'Yahoo link lost '+age+'s ago, mark picks by hand' : 'Live from Yahoo, '+YP.n+' picks, updated '+age+'s ago';
+}
+setInterval(()=>{ if(YP.on) ypBadge(); },2000);
 async function yInit(){
   let qp=null; try { qp=new URLSearchParams(location.search).get('yahoo'); } catch(e){}
   if (qp){ try { history.replaceState(null,'',location.pathname+location.hash); } catch(e){} }
