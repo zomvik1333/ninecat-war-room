@@ -4,7 +4,7 @@
    Use: load this file in the page, then call NCWSCAN.run() for the daily scan or NCWSCAN.run({mode:'sched'}) once for the league schedule.
    Progress is in window.__ncw. When __ncw.done is true call NCWSCAN.show(0), NCWSCAN.show(1) ... and read the page text. */
 (function(){
-  const LID='82878', ME='11', BASE='/nba/'+LID, SEASON='2026';
+  const LID='82878', ME='11', BASE='/nba/'+LID; let SEASON='2026';
   const SITE='https://ninecatwarroom.vercel.app';
   const st={log:[],lines:[],pages:[],done:false,err:'',step:'',mode:''};
   window.__ncw=st;
@@ -16,7 +16,7 @@
     }
     throw new Error('fetch failed '+u.slice(0,60));
   }
-  const clean=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[|~=;?&]/g,' ').replace(/\s+/g,' ').trim();
+  const clean=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2018\u2019\u02bc]/g,"'").replace(/[^\x20-\x7e]/g,' ').replace(/[|~=;?&]/g,' ').replace(/\s+/g,' ').trim();
   const ck=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return ('000'+((h>>>0)%1679616).toString(36)).slice(-4)};
   const num=s=>{const v=parseFloat(String(s).replace(/[^0-9.\-]/g,''));return isFinite(v)?v:null};
   const x10=s=>{const v=num(s);return v==null?'':String(Math.round(v*10))};
@@ -86,6 +86,7 @@
   }
 
   async function runDaily(opts){
+    if(opts.season) SEASON=String(opts.season);
     const out=[]; const P={}, S={}, L={}, OWN={}, PCT={}, CUR={};
     let known={};
     try{ const r=await fetch(SITE+'/data/players.json',{cache:'no-store'}); if(r.ok){ const j=await r.json(); known=j.p||{}; } }catch(e){ st.log.push('known players file not loaded'); }

@@ -297,6 +297,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
       <button class="tab" role="tab" id="tabBoard" aria-selected="true" type="button">Draft board</button>
       <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
       <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
+      <button class="tab" role="tab" id="tabMoves" aria-selected="false" type="button">Pickups and trades</button>
     </div>
   </div>
 
@@ -350,6 +351,8 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
     </div>
     <div class="tgrid" id="tgrid"></div>
   </section>
+
+  <section id="viewMoves" hidden></section>
 
   <section id="viewPlan" class="plan" hidden>
     <div class="panel span">
@@ -1526,14 +1529,19 @@ $('copy').onclick=()=>{
   const done=()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy list',1500); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>{ btn.textContent='Copy blocked'; setTimeout(()=>btn.textContent='Copy list',1500); });
 };
-function setTab(t){ S.tab=t; $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; if(t==='teams') renderTeams(nowPick()); save(); }
-$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan');
-if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams';
+function setTab(t){ if(t==='moves' && !window.NCWMoves) t='board'; S.tab=t; $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
+$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan'); $('tabMoves').onclick=()=>setTab('moves');
+if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves';
+window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab};
+const WANT_MOVES=S.tab==='moves';
+window.NCWBoot=()=>{ if(WANT_MOVES) setTab('moves'); };
 setTab(S.tab||'board');
 render();
 yInit();
 })();
 </script>
+<script src="moves.js"></script>
+<script>if(window.NCWBoot) window.NCWBoot();</script>
 
 </body>
 </html>
