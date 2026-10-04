@@ -15,7 +15,21 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 4 (branch main), Oct 2 2026
+## Version 5 (branch main), Oct 4 2026
+
+* Trades lean on the seven solid cats. Threes, points, rebounds, assists, steals, blocks and turnovers count in full. FT% counts 65 percent and FG% counts half
+* The waiver wire is closer to normal. FT% counts 90 percent and FG% 80 percent
+* This week's matchup, the league table and every win chance on screen stay on normal scoring, all nine cats the same
+* One cat rule. A trade shows only if it leaves you favored in at least one more cat in an average week, after counting any cat it costs. A cat counts as gained when it moves from under to over 50 percent by at least 5 points. A box shows the smaller trades when you want to look
+* Position balance moves a pickup or trade score by 5 to 8 percent. A spot with 3 or fewer eligible players is thin, 6 or more is crowded
+* The three center rule now also covers pickup drops
+* Trade and pickup cards say which cats are gained or lost and whether the move helps or hurts balance
+
+## How to fall back to version 4
+
+* The v9 branch holds the site exactly as it was before version 5.
+
+## Version 4 (branch v9), Oct 2 2026
 
 * New tab, Pickups and trades. The goal is to win 5 of 9 cats each week and finish in the top four
 * A daily Yahoo scan feeds it. The scan only reads. It runs through Claude in Chrome on your computer at 4.30 pm and then deploys the fresh numbers
