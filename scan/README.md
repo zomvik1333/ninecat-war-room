@@ -43,6 +43,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
    ```
    cmd /c "cd /d C:\Users\vikas\Projects\ninecat-war-room && vercel deploy --prod --yes"
    ```
+   * If it prints Not authorized or any other error, run the same command one more time. On Oct 4 the first try failed that way and the second worked
 9. Check the live site. In the Chrome tab run
    ```
    (await (await fetch('https://ninecatwarroom.vercel.app/data/scan.json',{cache:'no-store'})).json()).at
@@ -54,7 +55,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
     * That the scan ran and what time Yahoo was read
     * Week win chance and cats led
     * Any pickup with a need score of 85 or more, with who to drop
-    * Any trade marked urgent
+    * Any trade the summary lists. It only lists trades that add a full cat, so most days it will say no trade adds a full cat, and that is fine to report as is
     * Any roster change in the league since yesterday, from the X lines of the scan
     * Anything that failed
     * Remind him the numbers are model estimates and that he makes every move himself
