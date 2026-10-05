@@ -71,7 +71,12 @@ const boardOf=name=>{ const k=B.nkey(name); return BIDX[k]||BIDX[BALIAS[k]]||nul
    These calls decide which cats that value sits in. m is the change to last season per game, FG% and FT% in points then seven multipliers.
    mp is the minutes he projects. A call with no last season number next to it, mpu, can only raise minutes. */
 const JCI={};
-function loadJC(){ Object.keys(JCI).forEach(k=>delete JCI[k]); const j=D.jc&&D.jc.p; if(!j) return; Object.keys(j).forEach(k=>{ const r=j[k]; if(r && Array.isArray(r.m) && r.m.length===9) JCI[B.nkey(r.n||k)]=r; }); }
+function loadJC(){ Object.keys(JCI).forEach(k=>delete JCI[k]); const j=D.jc&&D.jc.p; if(!j || typeof j!=='object') return;
+  const cats=a=>Array.isArray(a)?a.filter(c=>Number.isInteger(c)&&c>=0&&c<9):[];
+  const str=x=>typeof x==='string'?x.trim().replace(/\.+$/,''):'';
+  Object.keys(j).forEach(k=>{ const r=j[k]; if(!r || !Array.isArray(r.m) || r.m.length!==9) return; const m=r.m.map(Number); if(!m.every(isFinite)) return; const mp=Number(r.mp);
+    JCI[B.nkey(r.n||k)]={n:String(r.n||k),m,mp:isFinite(mp)&&mp>0?mp:0,mpu:r.mpu?1:0,why:str(r.why),why0:r.why0==null?null:str(r.why0),help:cats(r.help),hurt:cats(r.hurt)}; }); }
+const hasJC=()=>Object.keys(JCI).length>0;
 const jcOf=name=>{ const k=B.nkey(name); return JCI[k]||JCI[BALIAS[k]]||JCI[PALIAS[k]]||null; };
 function applyJC(l,jc,useMin){
   const o={mp:l.mp}; TK.forEach(k=>o[k]=l[k]); const m=jc.m;
@@ -79,13 +84,15 @@ function applyJC(l,jc,useMin){
   const mul=(k,v)=>{ if(v>0 && v!==1) o[k]*=clamp(v,0.6,1.5); };
   if(m[3]>0 && m[3]!==1){ const v=clamp(m[3],0.6,1.5); o.pts*=v; o.fgm*=v; o.fga*=v; o.ftm*=v; o.fta*=v; }
   mul('tpm',m[2]); mul('reb',m[4]); mul('ast',m[5]); mul('stl',m[6]); mul('blk',m[7]); mul('to',m[8]);
-  if(m[0] && o.fga>0){ const fg=clamp(100*o.fgm/o.fga+clamp(m[0],-5,5),30,75), nm=o.fga*fg/100; o.pts+=2.1*(nm-o.fgm); o.fgm=nm; }
-  if(m[1] && o.fta>0){ const ft=clamp(100*o.ftm/o.fta+clamp(m[1],-5,5),40,96), nm=o.fta*ft/100; o.pts+=nm-o.ftm; o.ftm=nm; }
+  const shift=(old,d,a,b)=>d>0?Math.min(Math.max(old,b),old+d):Math.max(Math.min(old,a),old+d);
+  if(m[0] && o.fga>0){ const fg=shift(100*o.fgm/o.fga,clamp(m[0],-5,5),30,75), nm=o.fga*fg/100; o.pts+=2.1*(nm-o.fgm); o.fgm=nm; }
+  if(m[1] && o.fta>0){ const ft=shift(100*o.ftm/o.fta,clamp(m[1],-5,5),40,96), nm=o.fta*ft/100; o.pts+=nm-o.ftm; o.ftm=nm; }
+  if(o.tpm>o.fgm) o.tpm=o.fgm;
   return o;
 }
 function project(p,scan){
   const b=p.b, pr=priorOf(p.name); let prior=null, pb='none'; p.f=1; p.av=0.85;
-  const jc=jcOf(p.name); p.jc=jc; p.jcOn=false;
+  const jc=jcOf(p.name); p.jc=jc; p.jcOn=false; p.jcMin=false;
   if(b){
     const st=B.STATS[b.name]; const zk=!!(st&&st.z&&!st.rookie); const av0=clamp(b.av||0.85,0.45,0.96);
     const useRef=!!pr && pr[0]>=20 && !b.rookie && !(st&&st.rookie) && (!st || st.src==='2025 26');
@@ -94,23 +101,30 @@ function project(p,scan){
     // A higher or lower rank is read first as more or fewer games played, then as a small change in per game volume, so stat lines stay believable.
     const v1=b.ez.reduce((a,v)=>a+v,0);
     if(useRef || zk){
-      // his category calls bend the line first, then his rank sets how much of it there is. Minutes calls only apply to a real last season.
       const base0=useRef?lineOfPrior(pr):lineFromZ(st.z,mp?+mp:(pr?pr[1]:28));
-      const base=jc?applyJC(base0,jc,useRef):base0; if(jc) p.jcOn=true;
-      const Z=(zk?st.z.reduce((a,v)=>a+v,0):valOf(base0))+(jc?valOf(base)-valOf(base0):0);
-      let av=av0; if(Z+2.25>0.5) av=clamp((v1+2.25)/(Z+2.25),Math.max(0.5,av0-0.15),Math.max(av0,0.93));
+      // games played come from the rank alone, exactly as before the category calls existed, so a call never moves how many games a player is given
+      const Z0=zk?st.z.reduce((a,v)=>a+v,0):valOf(base0);
+      let av=av0; if(Z0+2.25>0.5) av=clamp((v1+2.25)/(Z0+2.25),Math.max(0.5,av0-0.15),Math.max(av0,0.93));
       const Z1=(v1+2.25*(1-av))/av;
-      const dv=Math.max(5,1.004*base.tpm+0.169*base.pts+0.440*base.reb+0.495*base.ast+2.823*base.stl+2.065*base.blk-1.274*base.to);
-      // when Josh gave a minutes number the per game size is already his, so the rank only fine tunes it and the rest is read as games played
-      const mUsed=!!(jc && Math.abs(base.mp-base0.mp)>0.01);
-      p.av=av; p.dz=Z1-Z; p.f=mUsed?clamp(1+(Z1-Z)/dv,0.95,1.05):clamp(1+(Z1-Z)/dv,0.88,1.15); prior=scaleLine(base,p.f); pb=useRef?'last':'older';
+      const dvOf=l=>Math.max(5,1.004*l.tpm+0.169*l.pts+0.440*l.reb+0.495*l.ast+2.823*l.stl+2.065*l.blk-1.274*l.to);
+      // a minutes number from Josh widens how far the rank may move the volume, toward his number and no further. Only for a real last season
+      let ms=1; if(jc && useRef && jc.mp>0 && base0.mp>5){ let r=jc.mp/base0.mp; if(jc.mpu && r<1) r=1; r=clamp(r,0.7,2.2); if(Math.abs(r-1)>=0.04) ms=Math.pow(r,0.9); }
+      const lo=Math.min(0.88,ms), hi=Math.max(1.15,ms);
+      const f0=clamp(1+(Z1-Z0)/dvOf(base0),lo,hi);
+      // his category calls bend the line. The rank may give back at most 5 percent of volume to make up for them, so a big call really changes the player
+      const base=jc?applyJC(base0,jc,false):base0; if(jc) p.jcOn=true;
+      const Z=Z0+(jc?valOf(base)-valOf(base0):0);
+      p.av=av; p.dz=Z1-Z; p.f=jc?clamp(clamp(1+(Z1-Z)/dvOf(base),f0-0.05,f0+0.05),lo,hi):f0;
+      prior=scaleLine(base,p.f);
+      if(ms!==1){ const want=base0.mp*Math.pow(p.f,1/0.9); prior.mp=ms>1?clamp(want,base0.mp,Math.min(jc.mp,base0.mp*2.2)):clamp(want,Math.max(jc.mp,base0.mp*0.7),base0.mp); p.jcMin=Math.abs(prior.mp/base0.mp-1)>=0.04; }
+      pb=useRef?'last':'older';
     } else {
       // no usable season on file, a rookie or a player the board only graded by eye
       const zs=b.z, Z=zs.reduce((a,v)=>a+v,0), v0=av0*Z-2.25*(1-av0), sh=clamp((v1-v0)/av0/9,-0.6,0.6); p.av=av0; p.dz=sh*9;
       prior=lineFromZ(zs.map(v=>v+sh),mp?+mp:(pr?pr[1]:26)); pb='est';
       if(jc){ prior=applyJC(prior,jc,false); p.jcOn=true; }
     }
-  } else if(pr){ prior=lineOfPrior(pr); if(jc){ prior=applyJC(prior,jc,pr[0]>=20); p.jcOn=true; } p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
+  } else if(pr){ prior=lineOfPrior(pr); if(jc){ prior=applyJC(prior,jc,pr[0]>=20); p.jcOn=true; p.jcMin=Math.abs(prior.mp/pr[1]-1)>=0.04; } p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
   const s=scan.stats&&scan.stats[p.id]; let cur=null, gp=0; p.g14=null; p.m14=null; p.v14=null;
   if(s){ gp=s[1]||0; cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); p.g14=s[14]; p.m14=s[15]; p.v14=s[16]; }
   if(cur&&gp<1) cur=null;
@@ -452,7 +466,7 @@ function basisWords(ps){
   const k=new Set(ps.map(p=>p.basis)); const gps=ps.map(p=>p.gp||0); const lo=Math.min.apply(null,gps), hi=Math.max.apply(null,gps);
   if(k.has('blend') || (k.has('now') && (k.has('last')||k.has('est')||k.has('older')))) return 'Based on a blend of last season and this season so far, with '+(lo===hi?lo:lo+' to '+hi)+' games played this season.';
   if(k.size===1 && k.has('now')) return 'Based on this season\'s numbers, '+(lo===hi?lo:lo+' to '+hi)+' games played.';
-  let s='Based on last season\'s numbers, shaped by Josh Lloyd\'s ranks and his category calls. No games have been played this season yet.';
+  let s='Based on last season\'s numbers, shaped by Josh Lloyd\'s ranks'+(hasJC()?' and his category calls':'')+'. No games have been played this season yet.';
   if(k.has('est')) s+=' Rookie numbers are a preseason estimate.';
   if(k.has('older')) s+=' A player who missed last season uses his most recent full season.';
   return s;
@@ -462,10 +476,11 @@ const statusWord=s=>s==='O'?'out':s==='INJ'?'injured':s==='Q'?'questionable':s==
 const catMoves=(dc,min)=>{ const up=[], dn=[]; dc.map((v,c)=>[v,c]).sort((a,b)=>Math.abs(b[0])-Math.abs(a[0])).forEach(x=>{ if(x[0]>=min) up.push(CATWORD[x[1]]); else if(x[0]<=-min) dn.push(CATWORD[x[1]]); }); return {up,dn}; };
 const listWords=a=>a.length<=1?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
 /* what Josh said about a player's cats, in plain words. The call fades as real games come in, so it is only shown while it still moves the numbers. */
-const jcLive=p=>!!(p.jc && (p.w||0)<0.75);
-const jcCall=p=>jcLive(p)&&p.jc.why?p.jc.why:'';
-const jcTags=p=>{ if(!p.jc) return ''; const h=(p.jc.help||[]).map(c=>CATS[c]), u=(p.jc.hurt||[]).map(c=>CATS[c]); return (h.length?'Josh rates his '+h.join(', '):'')+(h.length&&u.length?'. ':'')+(u.length?'Weakest in '+u.join(', '):''); };
+const jcLive=p=>!!(p.jc && p.jcOn && (p.w||0)<0.75);
+const jcCall=p=>{ if(!jcLive(p)) return ''; const j=p.jc; return (p.jcMin||j.why0==null)?j.why:j.why0; };
+const jcTags=p=>{ if(!p.jc) return ''; const h=(p.jc.help||[]).map(c=>CATS[c]), u=(p.jc.hurt||[]).map(c=>CATS[c]); return h.length&&u.length?'Josh rates his '+h.join(', ')+' and sees him weakest in '+u.join(', '):h.length?'Josh rates his '+h.join(', '):u.length?'Josh sees him weakest in '+u.join(', '):''; };
 const jcSay=ps=>{ const a=[]; ps.forEach(p=>{ const c=jcCall(p); if(c) a.push('For '+p.name+', '+c+'.'); }); return a.join(' '); };
+const oneDot=a=>a.map(x=>String(x).replace(/\.\.(?=\s|$)/g,'.'));
 const yrank=p=>p.cur||p.pre;
 const weekWord=(ctx,wk)=>(wk.n===ctx.wk.n && ctx.now.date>=wk.start)?'this week':'in week '+wk.n;
 function pickupWhy(ctx,pk,r){
@@ -488,8 +503,8 @@ function pickupWhy(ctx,pk,r){
   a.push(s3);
   const risk=[]; if(p.status) risk.push('he is tagged '+statusWord(p.status)); if(r.why.includes('hot stretch without extra minutes')) risk.push('his last two weeks look hot but his minutes did not grow'); if(p.role==='down') risk.push('his minutes are down lately'); if(p.basis==='est') risk.push('he is a rookie with no NBA games'); if(r.sim>=4) risk.push('several similar players are sitting there, so you can wait'); if(r.early) risk.push('his games are more than three days away, so a streaming add can wait until that week');
   a.push(risk.length?'Risk, '+listWords(risk)+'.':'Risk, nothing unusual. Check his news before you add.');
-  { const js=jcSay(r.drop?[p,r.drop]:[p]), tg=jcTags(p); a.push(((js?js+' ':'')+(tg?tg+'.':'')).trim()); }
-  return a;
+  { const js=jcSay(r.drop?[p,r.drop]:[p]), tg=jcTags(p); a.push(((js?js+' ':'')+(tg?'On '+p.name+', '+tg+'.':'')).trim()); }
+  return oneDot(a);
 }
 function tradeWhy(ctx,t){
   const oName=(ctx.teams[t.o]||{}).name||'them'; const nm=a=>listWords(a.map(p=>p.name)); const a=[];
@@ -507,7 +522,7 @@ function tradeWhy(ctx,t){
   if(t.top) risk.push('they drafted or prize what you are asking for, so expect a counter'); if(t.o===D.league.comanaged) risk.push('you may help run this team, so keep it clean'); if(t.cut) risk.push('they would have to drop '+t.cut.name);
   a.push(risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.');
   { const js=jcSay(t.give.concat(t.get)); const tg=t.get.map(p=>{ const x=jcTags(p); return x?'On '+p.name+', '+x+'.':''; }).filter(Boolean).join(' '); a.push(((js?js+' ':'')+tg).trim()); }
-  return a;
+  return oneDot(a);
 }
 function pitch(ctx,t){
   const oName=(ctx.teams[t.o]||{}).name||'them'; const nm=a=>listWords(a.map(p=>p.name+(yrank(p)?' (Yahoo '+yrank(p)+')':'')));
@@ -549,7 +564,7 @@ function scanLine(ctx){
   const sc=ctx.scan, at=new Date(sc.at), age=(nowDate()-at)/36e5;
   const hh=at.getHours(); const when=at.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' at '+((hh%12)||12)+'.'+String(at.getMinutes()).padStart(2,'0')+(hh<12?' am':' pm');
   const dot=age<=30?'ok':age<=72?'warn':'bad';
-  let basis; if(ctx.wbar<0.02) basis='Numbers are based on last season, shaped by Josh Lloyd\'s ranks. No games have been played yet.'; else if(ctx.wbar<0.75) basis='Numbers blend last season with this season so far, about '+r0(ctx.avgGP)+' games per player.'; else basis='Numbers are based on this season, about '+r0(ctx.avgGP)+' games per player.';
+  let basis; if(ctx.wbar<0.02) basis='Numbers are based on last season, shaped by Josh Lloyd\'s ranks'+(hasJC()?' and his category calls':'')+'. No games have been played yet.'; else if(ctx.wbar<0.75) basis='Numbers blend last season with this season so far, about '+r0(ctx.avgGP)+' games per player.'; else basis='Numbers are based on this season, about '+r0(ctx.avgGP)+' games per player.';
   return '<div class="mvscan"><span class="ydot '+dot+'"></span><span>Yahoo was last scanned '+esc(when)+(age>30?', that is '+r0(age/24)+' day'+(r0(age/24)===1?'':'s')+' old':'')+'. '+basis+' Every number is a model estimate.</span></div>';
 }
 function render(){
@@ -645,7 +660,7 @@ function teamPanel(ctx,wk){
     h+='<tr><td class="mvnm" style="white-space:normal"><b>'+esc(p.name)+'</b> <span class="small">'+esc(p.team)+' '+esc(p.slot)+(p.status?', '+esc(statusWord(p.status)):'')+(p.role?', minutes '+p.role:'')+'</span>'+(jcCall(p)?'<div class="small mvjc">'+esc(jcCall(p))+'</div>':'')+(jcTags(p)?'<div class="small mvjc">'+esc(jcTags(p))+'</div>':'')+'</td><td class="num">'+r1(g)+' of '+n+'</td><td class="num">'+(p.gp||0)+'</td>';
     if(l) h+='<td class="num">'+r1(l.mp)+'</td><td class="num">'+(l.fga>0?(100*l.fgm/l.fga).toFixed(1):'')+'</td><td class="num">'+(l.fta>0?(100*l.ftm/l.fta).toFixed(1):'')+'</td><td class="num">'+r1(l.tpm)+'</td><td class="num">'+r1(l.pts)+'</td><td class="num">'+r1(l.reb)+'</td><td class="num">'+r1(l.ast)+'</td><td class="num">'+r1(l.stl)+'</td><td class="num">'+r1(l.blk)+'</td><td class="num">'+r1(l.to)+'</td>'; else h+='<td colspan="10" class="small">no numbers yet</td>';
     h+='<td>'+basisChip(p)+'</td></tr>'; });
-  h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster. The line under a name is the category call Josh Lloyd made for that player. His rank sets how much the player is worth and the call sets which cats it sits in. A normal call moves a cat about 5 to 8 percent, a strong one or one with real numbers up to 20 percent, and FG% or FT% by about a point.</p></div>';
+  h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster.'+(hasJC()?' The line under a name is the category call Josh Lloyd made for that player. His rank sets how much the player is worth and how many games he gets. The call sets which cats that value sits in. A normal call moves a cat about 5 to 8 percent and a strong one about double. Where he gave real numbers the cat moves most of the way to them. FG% or FT% moves about a point, more where he gave numbers. A minutes call only lets the rank move the whole line as far as his minutes number.':'')+'</p></div>';
   return h;
 }
 function wire(){

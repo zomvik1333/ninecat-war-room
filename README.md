@@ -17,17 +17,23 @@ Live site at https://ninecatwarroom.vercel.app
 
 ## Version 6 (branch main), Oct 4 2026
 
-* Josh Lloyd's category calls now shape every stat line. They come from all 39 of his shows on file and sit in data/josh_cats.json, 168 players, 82 of them with a change to the line
-* His rank still decides how much a player is worth. The calls decide which cats that value sits in
-* A normal call moves a counting cat 5 percent when he said it in one show and up to 8 percent when he repeated it in five or more. A strong call counts double. Where he gave real numbers the cat moves 60 percent of the change he quoted, never more than 20 percent
-* FG% moves about 1 point per call and FT% about 1.3 points, both capped
-* Minutes he projects scale the whole line. When he gave a minutes number the rank cannot undo it, so the rest of the gap is read as games played
-* A guest reporter's call counts 60 percent of a Josh call
-* The calls only bend last season's numbers. As real games come in they fade with the same weight as before, games played over games played plus 12
-* The My players table shows each call under the player's name, with the cats Josh rates him for and where he is weakest
+* Josh Lloyd's category calls now shape every stat line. They come from all 39 of his shows on file and sit in data/josh_cats.json, 176 players, 85 of them with a change to the line
+* His rank still decides how much a player is worth and how many games he is given. The calls decide which cats that value sits in. A call never changes games played
+* A normal call moves a counting cat 5 percent when he said it in one show and up to 8 percent when he repeated it in five or more. A strong call counts double. Where he gave real numbers the cat moves 60 percent of the change he quoted, capped at 20 percent
+* A short list of hand checked rows goes further because he gave a firm projection. Nembhard, Coby White, Kessler, Sabonis, Daniels, Sarr, Siakam, Jaylen Brown and Nesmith. Each carries a note in the file
+* FG% moves about 1 point per call and FT% about 1.3 points, both capped, more only on the hand checked rows
+* After a call bends the line, the rank may give back at most 5 percent of volume. So a small call only moves value between cats and a big call really changes the player
+* A minutes number from Josh does not move the line by itself. It widens how far the rank may move the whole line, toward his number and no further. Vucevic at 21 minutes can now be cut below the old 12 percent limit. A backup with a low rank is not lifted just because Josh gave him minutes
+* Minutes calls only apply when the line is a real last season of 20 games or more
+* A guest reporter's call counts 60 percent of a Josh call and the card says who made it
+* The calls only bend last season's numbers. As real games come in they fade with the same weight as before, games played over games played plus 12. The text is hidden once this season carries 75 percent of the line
+* The My players table shows each call under the player's name, with the cats Josh rates him for and where he sees him weakest
 * Trade and pickup cards have a new part, Josh on the cats
-* Board ranks updated from the new shows. Kyrie Irving 36 to 29, Alexander Walker 49 to 43, Porter Jr. 63 to 55, Rollins 67 to 59, Hartenstein 71 to 65, Naz Reid 75 to 69, Queen 84 to 75, Watson 124 to 108, Grayson Allen 169 to 117, Nesmith 156 to 125, Diabate 158 to 132, P.J. Washington 168 to 140. Down are Harden 28 to 34, Jalen Johnson 16 to 18, Clingan 73 to 83, Harper 89 to 97 and Dybantsa 121 to 149. Others shift a spot or two to make room
-* The site still works if data/josh_cats.json is missing. It just uses the plain lines
+* Board ranks updated from the new shows. Up are Kyrie Irving 36 to 32, Alexander Walker 49 to 43, Porter Jr. 63 to 54, Rollins 67 to 59, Hartenstein 71 to 65, Naz Reid 75 to 69, Queen 84 to 75, Edgecombe 90 to 85, Watson 124 to 108, Grayson Allen 169 to 117, Nesmith 156 to 125, Diabate 158 to 132 and P.J. Washington 168 to 140. Down are Harden 28 to 34, Jalen Johnson 16 to 18, Boozer 51 to 58, Clingan 73 to 83, Harper 89 to 97 and Dybantsa 121 to 149. Gafford is new at 141. Others shift a spot or two to make room
+* Eight of those ranks used to rest on one passing remark and counted 40 percent. He has now given a range for each, so they count the usual 70 percent
+* draft-room.html carries the same ranks
+* The site still works if data/josh_cats.json is missing or badly shaped. It just uses the plain lines
+* The table was checked twice by separate reviewers, once against the transcripts and once for code errors. 127 checks pass
 
 ## How to fall back to version 5
 
