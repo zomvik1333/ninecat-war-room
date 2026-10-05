@@ -67,8 +67,25 @@ const BALIAS={'nicolas claxton':'nic claxton','alexandre sarr':'alex sarr','carl
 const BIDX={}; B.PLAYERS.forEach(p=>{ if(!p.stub) BIDX[B.nkey(p.name)]=p; });
 const boardOf=name=>{ const k=B.nkey(name); return BIDX[k]||BIDX[BALIAS[k]]||null; };
 
+/* Josh Lloyd's category calls, from data/josh_cats.json. His rank still decides how much a player is worth.
+   These calls decide which cats that value sits in. m is the change to last season per game, FG% and FT% in points then seven multipliers.
+   mp is the minutes he projects. A call with no last season number next to it, mpu, can only raise minutes. */
+const JCI={};
+function loadJC(){ Object.keys(JCI).forEach(k=>delete JCI[k]); const j=D.jc&&D.jc.p; if(!j) return; Object.keys(j).forEach(k=>{ const r=j[k]; if(r && Array.isArray(r.m) && r.m.length===9) JCI[B.nkey(r.n||k)]=r; }); }
+const jcOf=name=>{ const k=B.nkey(name); return JCI[k]||JCI[BALIAS[k]]||JCI[PALIAS[k]]||null; };
+function applyJC(l,jc,useMin){
+  const o={mp:l.mp}; TK.forEach(k=>o[k]=l[k]); const m=jc.m;
+  if(useMin && jc.mp>0 && l.mp>5){ let r=jc.mp/l.mp; if(jc.mpu && r<1) r=1; r=clamp(r,0.7,2.2); if(Math.abs(r-1)>=0.04){ const f=Math.pow(r,0.9); TK.forEach(k=>o[k]*=f); o.mp=l.mp*r; } }
+  const mul=(k,v)=>{ if(v>0 && v!==1) o[k]*=clamp(v,0.6,1.5); };
+  if(m[3]>0 && m[3]!==1){ const v=clamp(m[3],0.6,1.5); o.pts*=v; o.fgm*=v; o.fga*=v; o.ftm*=v; o.fta*=v; }
+  mul('tpm',m[2]); mul('reb',m[4]); mul('ast',m[5]); mul('stl',m[6]); mul('blk',m[7]); mul('to',m[8]);
+  if(m[0] && o.fga>0){ const fg=clamp(100*o.fgm/o.fga+clamp(m[0],-5,5),30,75), nm=o.fga*fg/100; o.pts+=2.1*(nm-o.fgm); o.fgm=nm; }
+  if(m[1] && o.fta>0){ const ft=clamp(100*o.ftm/o.fta+clamp(m[1],-5,5),40,96), nm=o.fta*ft/100; o.pts+=nm-o.ftm; o.ftm=nm; }
+  return o;
+}
 function project(p,scan){
   const b=p.b, pr=priorOf(p.name); let prior=null, pb='none'; p.f=1; p.av=0.85;
+  const jc=jcOf(p.name); p.jc=jc; p.jcOn=false;
   if(b){
     const st=B.STATS[b.name]; const zk=!!(st&&st.z&&!st.rookie); const av0=clamp(b.av||0.85,0.45,0.96);
     const useRef=!!pr && pr[0]>=20 && !b.rookie && !(st&&st.rookie) && (!st || st.src==='2025 26');
@@ -77,18 +94,23 @@ function project(p,scan){
     // A higher or lower rank is read first as more or fewer games played, then as a small change in per game volume, so stat lines stay believable.
     const v1=b.ez.reduce((a,v)=>a+v,0);
     if(useRef || zk){
-      const base=useRef?lineOfPrior(pr):lineFromZ(st.z,mp?+mp:(pr?pr[1]:28));
-      const Z=zk?st.z.reduce((a,v)=>a+v,0):valOf(base);
+      // his category calls bend the line first, then his rank sets how much of it there is. Minutes calls only apply to a real last season.
+      const base0=useRef?lineOfPrior(pr):lineFromZ(st.z,mp?+mp:(pr?pr[1]:28));
+      const base=jc?applyJC(base0,jc,useRef):base0; if(jc) p.jcOn=true;
+      const Z=(zk?st.z.reduce((a,v)=>a+v,0):valOf(base0))+(jc?valOf(base)-valOf(base0):0);
       let av=av0; if(Z+2.25>0.5) av=clamp((v1+2.25)/(Z+2.25),Math.max(0.5,av0-0.15),Math.max(av0,0.93));
       const Z1=(v1+2.25*(1-av))/av;
       const dv=Math.max(5,1.004*base.tpm+0.169*base.pts+0.440*base.reb+0.495*base.ast+2.823*base.stl+2.065*base.blk-1.274*base.to);
-      p.av=av; p.dz=Z1-Z; p.f=clamp(1+(Z1-Z)/dv,0.88,1.15); prior=scaleLine(base,p.f); pb=useRef?'last':'older';
+      // when Josh gave a minutes number the per game size is already his, so the rank only fine tunes it and the rest is read as games played
+      const mUsed=!!(jc && Math.abs(base.mp-base0.mp)>0.01);
+      p.av=av; p.dz=Z1-Z; p.f=mUsed?clamp(1+(Z1-Z)/dv,0.95,1.05):clamp(1+(Z1-Z)/dv,0.88,1.15); prior=scaleLine(base,p.f); pb=useRef?'last':'older';
     } else {
       // no usable season on file, a rookie or a player the board only graded by eye
       const zs=b.z, Z=zs.reduce((a,v)=>a+v,0), v0=av0*Z-2.25*(1-av0), sh=clamp((v1-v0)/av0/9,-0.6,0.6); p.av=av0; p.dz=sh*9;
       prior=lineFromZ(zs.map(v=>v+sh),mp?+mp:(pr?pr[1]:26)); pb='est';
+      if(jc){ prior=applyJC(prior,jc,false); p.jcOn=true; }
     }
-  } else if(pr){ prior=lineOfPrior(pr); p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
+  } else if(pr){ prior=lineOfPrior(pr); if(jc){ prior=applyJC(prior,jc,pr[0]>=20); p.jcOn=true; } p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
   const s=scan.stats&&scan.stats[p.id]; let cur=null, gp=0; p.g14=null; p.m14=null; p.v14=null;
   if(s){ gp=s[1]||0; cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); p.g14=s[14]; p.m14=s[15]; p.v14=s[16]; }
   if(cur&&gp<1) cur=null;
@@ -430,7 +452,7 @@ function basisWords(ps){
   const k=new Set(ps.map(p=>p.basis)); const gps=ps.map(p=>p.gp||0); const lo=Math.min.apply(null,gps), hi=Math.max.apply(null,gps);
   if(k.has('blend') || (k.has('now') && (k.has('last')||k.has('est')||k.has('older')))) return 'Based on a blend of last season and this season so far, with '+(lo===hi?lo:lo+' to '+hi)+' games played this season.';
   if(k.size===1 && k.has('now')) return 'Based on this season\'s numbers, '+(lo===hi?lo:lo+' to '+hi)+' games played.';
-  let s='Based on last season\'s numbers, shaped by Josh Lloyd\'s ranks. No games have been played this season yet.';
+  let s='Based on last season\'s numbers, shaped by Josh Lloyd\'s ranks and his category calls. No games have been played this season yet.';
   if(k.has('est')) s+=' Rookie numbers are a preseason estimate.';
   if(k.has('older')) s+=' A player who missed last season uses his most recent full season.';
   return s;
@@ -439,6 +461,11 @@ const basisChip=p=>p.basis==='now'?'<span class="chip good">This season</span>':
 const statusWord=s=>s==='O'?'out':s==='INJ'?'injured':s==='Q'?'questionable':s==='GTD'?'a game time call':s==='DTD'?'day to day':s==='P'?'probable':s==='NA'?'not active':s==='SUSP'?'suspended':s==='OFS'?'out for the season':s?'flagged':'';
 const catMoves=(dc,min)=>{ const up=[], dn=[]; dc.map((v,c)=>[v,c]).sort((a,b)=>Math.abs(b[0])-Math.abs(a[0])).forEach(x=>{ if(x[0]>=min) up.push(CATWORD[x[1]]); else if(x[0]<=-min) dn.push(CATWORD[x[1]]); }); return {up,dn}; };
 const listWords=a=>a.length<=1?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+/* what Josh said about a player's cats, in plain words. The call fades as real games come in, so it is only shown while it still moves the numbers. */
+const jcLive=p=>!!(p.jc && (p.w||0)<0.75);
+const jcCall=p=>jcLive(p)&&p.jc.why?p.jc.why:'';
+const jcTags=p=>{ if(!p.jc) return ''; const h=(p.jc.help||[]).map(c=>CATS[c]), u=(p.jc.hurt||[]).map(c=>CATS[c]); return (h.length?'Josh rates his '+h.join(', '):'')+(h.length&&u.length?'. ':'')+(u.length?'Weakest in '+u.join(', '):''); };
+const jcSay=ps=>{ const a=[]; ps.forEach(p=>{ const c=jcCall(p); if(c) a.push('For '+p.name+', '+c+'.'); }); return a.join(' '); };
 const yrank=p=>p.cur||p.pre;
 const weekWord=(ctx,wk)=>(wk.n===ctx.wk.n && ctx.now.date>=wk.start)?'this week':'in week '+wk.n;
 function pickupWhy(ctx,pk,r){
@@ -461,6 +488,7 @@ function pickupWhy(ctx,pk,r){
   a.push(s3);
   const risk=[]; if(p.status) risk.push('he is tagged '+statusWord(p.status)); if(r.why.includes('hot stretch without extra minutes')) risk.push('his last two weeks look hot but his minutes did not grow'); if(p.role==='down') risk.push('his minutes are down lately'); if(p.basis==='est') risk.push('he is a rookie with no NBA games'); if(r.sim>=4) risk.push('several similar players are sitting there, so you can wait'); if(r.early) risk.push('his games are more than three days away, so a streaming add can wait until that week');
   a.push(risk.length?'Risk, '+listWords(risk)+'.':'Risk, nothing unusual. Check his news before you add.');
+  { const js=jcSay(r.drop?[p,r.drop]:[p]), tg=jcTags(p); a.push(((js?js+' ':'')+(tg?tg+'.':'')).trim()); }
   return a;
 }
 function tradeWhy(ctx,t){
@@ -478,6 +506,7 @@ function tradeWhy(ctx,t){
   const risk=[]; t.get.forEach(p=>{ if(p.status) risk.push(p.name+' is tagged '+statusWord(p.status)); if(p.b&&p.b.risk>=2) risk.push(p.name+' carries injury risk'); if(p.basis==='est') risk.push(p.name+' is a rookie estimate'); });
   if(t.top) risk.push('they drafted or prize what you are asking for, so expect a counter'); if(t.o===D.league.comanaged) risk.push('you may help run this team, so keep it clean'); if(t.cut) risk.push('they would have to drop '+t.cut.name);
   a.push(risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.');
+  { const js=jcSay(t.give.concat(t.get)); const tg=t.get.map(p=>{ const x=jcTags(p); return x?'On '+p.name+', '+x+'.':''; }).filter(Boolean).join(' '); a.push(((js?js+' ':'')+tg).trim()); }
   return a;
 }
 function pitch(ctx,t){
@@ -509,7 +538,7 @@ function css(){
   +'.mvcard{border:1px solid var(--line);border-radius:8px;background:var(--panel-2);margin-bottom:8px}.mvcard[open]{border-color:var(--accent)}.mvcard summary{list-style:none;cursor:pointer;padding:10px 12px;display:grid;grid-template-columns:54px minmax(0,1fr);gap:4px 10px;align-items:center}.mvcard summary::-webkit-details-marker{display:none}'
   +'.mvn{font-family:var(--display);font-size:28px;line-height:1;text-align:center;border-radius:8px;padding:6px 0;background:var(--panel);border:1px solid var(--line)}.mvn small{display:block;font-family:var(--body);font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}.mvn.must{background:var(--good-bg);color:var(--good);border-color:var(--good)}.mvn.strong{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}.mvn.helps{background:var(--warn-bg);color:var(--warn)}.mvn.skip{color:var(--muted)}'
   +'.mvt{min-width:0}.mvt b{font-size:15.5px}.mvt .sub{color:var(--muted);font-size:12.5px}.mvt .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.mvbody{padding:0 12px 12px;font-size:14px;display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);margin-top:2px;padding-top:10px}.mvbody p{margin:0;max-width:72ch}.mvbody .lab{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;display:block}'
-  +'.mvact{display:flex;flex-wrap:wrap;gap:8px}.mvtbl{overflow-x:auto}.mvtbl table{font-size:12.5px}.mvtbl td.num,.mvtbl th.num{text-align:right}.mvme td{background:var(--accent-soft)}'
+  +'.mvact{display:flex;flex-wrap:wrap;gap:8px}.mvtbl{overflow-x:auto}.mvtbl table{font-size:12.5px}.mvtbl td.num,.mvtbl th.num{text-align:right}.mvme td{background:var(--accent-soft)}.mvjc{color:var(--muted);max-width:46ch;margin-top:2px}.mvnm{min-width:210px}'
   +'.mvrow{display:grid;grid-template-columns:44px minmax(0,1fr) 108px 44px;align-items:center;gap:8px;font-size:13px;margin-bottom:5px}.mvrow .cn{font-family:var(--mono);font-size:12px}.mvrow .tv{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;white-space:nowrap}.mvrow .pv{font-family:var(--mono);font-size:12px;text-align:right;font-weight:700}'
   +'.mvbig{font-family:var(--display);font-size:44px;line-height:1}.mvbig small{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:500;margin-left:6px}'
   +'.mvscan{flex-wrap:nowrap;align-items:flex-start}.mvscan .ydot{margin-top:5px}.mvteam summary{cursor:pointer;list-style:none}.mvteam summary::-webkit-details-marker{display:none}.mvteam[open] summary b{color:var(--accent)}.mvteam ul{list-style:none;margin:6px 0 2px;padding:0;display:flex;flex-direction:column;gap:2px;font-size:12px}.mvteam li{display:flex;justify-content:space-between;gap:8px}.mvteam li span:last-child{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}'
@@ -576,7 +605,7 @@ function pickPanel(ctx,pk){
     const p=r.p; const why=pickupWhy(ctx,pk,r);
     h+='<details class="mvcard"><summary><span class="mvn '+r.band+'">'+r.need+'<small>'+(r.band==='must'?'must add':r.band==='strong'?'strong':r.band==='helps'?'helps':'skip')+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
       +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span><span class="chip muted">'+r.gl+(weekWord(ctx,pk.week)==='this week'?' games left':' games '+weekWord(ctx,pk.week))+'</span>'+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">Crowded spot</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+basisChip(p)+'</span></span></summary>'
-      +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p><p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
+      +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-add="'+p.id+'" data-drop="'+(r.drop?r.drop.id:'')+'" data-il="'+(r.il||'')+'">I made this add</button></div></div></details>';
   });
   h+='</div>'; return h;
@@ -594,7 +623,7 @@ function tradePanel(ctx){
     const look=t.ratio>=1.12?'Looks like a win for them':t.ratio>=0.97?'Looks even to them':'Looks a bit light to them';
     h+='<details class="mvcard"><summary><span class="mvn '+(t.urgent?'must':t.acc>=0.5?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
       +'<span class="meta">'+(t.urgent?'<span class="chip gem">Do this now</span>':'')+(t.pass?'<span class="chip gem">Adds '+t.up.map(c=>CATS[c]).join(' ')+'</span>':'<span class="chip muted">Under one cat</span>')+(t.dn.length?'<span class="chip bad">Loses '+t.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+'<span class="chip '+(t.acc>=0.6?'good':t.acc>=0.4?'':'warn')+'">'+pc(t.acc)+'% they say yes</span>'+(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')+'<span class="chip muted">'+look+'</span><span class="chip muted">'+(r1(t.oGain)>=0?'They gain ':'They lose ')+Math.abs(r1(t.oGain))+'</span><span class="chip '+(t.josh>=4?'good':t.josh<=-4?'bad':'muted')+'">Josh edge '+(r1(t.josh)>=0?'plus ':'minus ')+Math.abs(r1(t.josh))+'</span>'+(t.o===D.league.comanaged?'<span class="chip warn">Team you may co manage</span>':'')+'</span></span></summary>'
-      +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">The pitch</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p><p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
+      +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">The pitch</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-trade="'+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+i+'">Copy a message to send</button></div></div></details>';
   });
   h+='<p class="small"><label><input type="checkbox" id="mvsmall"'+(ST.small?' checked':'')+'> Show the smaller trades too, the ones under one cat</label></p>';
@@ -613,10 +642,10 @@ function teamPanel(ctx,wk){
   const mine=ctx.ros[ME].slice().sort((a,b)=>b.val-a.val);
   let h='<div class="panel"><h2>My players <span>what the numbers above use, per game</span></h2><div class="mvtbl"><table><thead><tr><th>Player</th><th class="num">Wk G</th><th class="num">GP</th><th class="num">MIN</th><th class="num">FG%</th><th class="num">FT%</th><th class="num">3PM</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th><th>Based on</th></tr></thead><tbody>';
   mine.forEach(p=>{ const l=p.proj; const g=wk?(wk.me.ug.get(p.id)||0):0; const n=ctx.days.filter(d=>playsOn(p.team,d)).length;
-    h+='<tr><td style="white-space:normal"><b>'+esc(p.name)+'</b> <span class="small">'+esc(p.team)+' '+esc(p.slot)+(p.status?', '+esc(statusWord(p.status)):'')+(p.role?', minutes '+p.role:'')+'</span></td><td class="num">'+r1(g)+' of '+n+'</td><td class="num">'+(p.gp||0)+'</td>';
+    h+='<tr><td class="mvnm" style="white-space:normal"><b>'+esc(p.name)+'</b> <span class="small">'+esc(p.team)+' '+esc(p.slot)+(p.status?', '+esc(statusWord(p.status)):'')+(p.role?', minutes '+p.role:'')+'</span>'+(jcCall(p)?'<div class="small mvjc">'+esc(jcCall(p))+'</div>':'')+(jcTags(p)?'<div class="small mvjc">'+esc(jcTags(p))+'</div>':'')+'</td><td class="num">'+r1(g)+' of '+n+'</td><td class="num">'+(p.gp||0)+'</td>';
     if(l) h+='<td class="num">'+r1(l.mp)+'</td><td class="num">'+(l.fga>0?(100*l.fgm/l.fga).toFixed(1):'')+'</td><td class="num">'+(l.fta>0?(100*l.ftm/l.fta).toFixed(1):'')+'</td><td class="num">'+r1(l.tpm)+'</td><td class="num">'+r1(l.pts)+'</td><td class="num">'+r1(l.reb)+'</td><td class="num">'+r1(l.ast)+'</td><td class="num">'+r1(l.stl)+'</td><td class="num">'+r1(l.blk)+'</td><td class="num">'+r1(l.to)+'</td>'; else h+='<td colspan="10" class="small">no numbers yet</td>';
     h+='<td>'+basisChip(p)+'</td></tr>'; });
-  h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster.</p></div>';
+  h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster. The line under a name is the category call Josh Lloyd made for that player. His rank sets how much the player is worth and the call sets which cats it sits in. A normal call moves a cat about 5 to 8 percent, a strong one or one with real numbers up to 20 percent, and FG% or FT% by about a point.</p></div>';
   return h;
 }
 function wire(){
@@ -642,8 +671,8 @@ function computeInner(redoTrades){
 async function load(){
   if(D.loaded || D.loading) return; D.loading=true; render();
   const get=async f=>{ try{ const r=await fetch('data/'+f,{cache:'no-store'}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } };
-  const a=await Promise.all(['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json'].map(get));
-  D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=a[5]||a[4];
+  const a=await Promise.all(['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json','josh_cats.json'].map(get));
+  D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=a[5]||a[4]; D.jc=a[6]; loadJC();
   D.gset={}; if(D.sched) Object.keys(D.sched.games).forEach(t=>D.gset[t]=new Set(D.sched.games[t]));
   D.loading=false; D.loaded=true; compute(true);
 }
@@ -661,5 +690,5 @@ function summary(){
   const out=c.ros[ME].filter(p=>p.status).map(p=>p.name+' '+statusWord(p.status)); if(out.length) o.push('my injury tags, '+out.join(', '));
   return o.join(' ~ ');
 }
-window.NCWMoves={summary,show:()=>{ document.body.classList.add('moves'); if(!D.loaded) load(); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP}};
+window.NCWMoves={summary,show:()=>{ document.body.classList.add('moves'); if(!D.loaded) load(); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags}};
 })();

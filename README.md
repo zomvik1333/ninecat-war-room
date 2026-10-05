@@ -11,11 +11,29 @@ Live site at https://ninecatwarroom.vercel.app
 * index.html is the full website that runs on Vercel. It also works if you just open it in a browser.
 * draft-room.html is the draft board alone in the format used for the Claude artifact. It does not have the Pickups and trades tab.
 * moves.js is the Pickups and trades tab.
-* data holds the numbers the tab reads. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
+* data holds the numbers the tab reads. josh_cats.json holds Josh Lloyd's category calls. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 5 (branch main), Oct 4 2026
+## Version 6 (branch main), Oct 4 2026
+
+* Josh Lloyd's category calls now shape every stat line. They come from all 39 of his shows on file and sit in data/josh_cats.json, 168 players, 82 of them with a change to the line
+* His rank still decides how much a player is worth. The calls decide which cats that value sits in
+* A normal call moves a counting cat 5 percent when he said it in one show and up to 8 percent when he repeated it in five or more. A strong call counts double. Where he gave real numbers the cat moves 60 percent of the change he quoted, never more than 20 percent
+* FG% moves about 1 point per call and FT% about 1.3 points, both capped
+* Minutes he projects scale the whole line. When he gave a minutes number the rank cannot undo it, so the rest of the gap is read as games played
+* A guest reporter's call counts 60 percent of a Josh call
+* The calls only bend last season's numbers. As real games come in they fade with the same weight as before, games played over games played plus 12
+* The My players table shows each call under the player's name, with the cats Josh rates him for and where he is weakest
+* Trade and pickup cards have a new part, Josh on the cats
+* Board ranks updated from the new shows. Kyrie Irving 36 to 29, Alexander Walker 49 to 43, Porter Jr. 63 to 55, Rollins 67 to 59, Hartenstein 71 to 65, Naz Reid 75 to 69, Queen 84 to 75, Watson 124 to 108, Grayson Allen 169 to 117, Nesmith 156 to 125, Diabate 158 to 132, P.J. Washington 168 to 140. Down are Harden 28 to 34, Jalen Johnson 16 to 18, Clingan 73 to 83, Harper 89 to 97 and Dybantsa 121 to 149. Others shift a spot or two to make room
+* The site still works if data/josh_cats.json is missing. It just uses the plain lines
+
+## How to fall back to version 5
+
+* The v10 branch holds the site exactly as it was before version 6.
+
+## Version 5 (branch v10), Oct 4 2026
 
 * Trades lean on the seven solid cats. Threes, points, rebounds, assists, steals, blocks and turnovers count in full. FT% counts 65 percent and FG% counts half
 * The waiver wire is closer to normal. FT% counts 90 percent and FG% 80 percent
