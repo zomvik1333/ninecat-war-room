@@ -11,6 +11,7 @@ Live site at https://ninecatwarroom.vercel.app
 * index.html is the full website that runs on Vercel. It also works if you just open it in a browser.
 * draft-room.html is the draft board alone in the format used for the Claude artifact. It does not have the Pickups and trades tab.
 * moves.js is the Pickups and trades tab.
+* josh-teams.html is the Josh by team page, a plain page with no data files behind it.
 * data holds the numbers the tab reads. josh_cats.json holds Josh Lloyd's category calls. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
@@ -28,6 +29,8 @@ Live site at https://ninecatwarroom.vercel.app
 * Trade cards have two new tags. Helps lists the cats where your chance to win that cat in an average week rises 1.5 points or more. Costs lists the cats where it falls that much. Biggest move first. A new part in the card, Stats it helps and costs, gives the number for each
 * The log line the daily scan writes now carries the helps and costs for each trade
 * An independent fact check read every changed rank and every changed category row against the transcripts. 40 rank claims, none wrong, 13 adjusted. 50 category rows, 2 wrong and 27 adjusted. All fixes are in. 132 checks pass
+* New page, josh-teams.html, reached from the Josh by team button in the tab bar. It condenses what Josh has said about all 30 teams, one team per panel, with a search box, a jump bar and my 15 players marked. It is built from josh_team_by_team_2026_27.md in the notes folder by build_team_page.py
+* The tab bar now wraps onto a second row on a phone, so five buttons fit
 * The scripts and the fact check files are in the fantasy notes folder under app_data/josh_cats
 
 ## How to fall back to version 6

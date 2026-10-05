@@ -89,7 +89,7 @@ select, input[type="search"] { background: var(--panel); border: 1px solid var(-
 
 /* layout */
 .grid { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } .tabs { margin-left: 0; } }
+@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } .tabs { margin-left: 0; flex-wrap: wrap; } .tab { white-space: nowrap; } }
 .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
 .panel h2 { font-size: 20px; text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -298,6 +298,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
       <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
       <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
       <button class="tab" role="tab" id="tabMoves" aria-selected="false" type="button">Pickups and trades</button>
+      <a class="tab" id="tabJosh" href="josh-teams.html" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center">Josh by team</a>
     </div>
   </div>
 
