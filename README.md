@@ -16,7 +16,21 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 10 (branch main), Oct 5 2026
+## Version 11 (branch main), Oct 5 2026
+
+* The crowded spot rule now knows a player can be slotted where there is room. Each player counts once. He fills a thin spot if he can play one, and he only counts as crowding when every spot he can play is crowded
+* Before, a player counted at every position he was eligible for, so a wing like Aaron Nesmith, who is SG and SF, was marked crowded at SG on a guard heavy roster even though he replaces a forward and can play forward
+* A thin spot is 3 or fewer eligible players, a crowded one is 6 or more, as before. The 5 to 8 percent size is the same
+* The pickup tag now says which it is. Crowded spot means he can only play crowded positions. Leaves SF thin means the drop is the problem
+* On the Oct 4 scan Duncan Robinson goes from 66 to 70, Aaron Nesmith from 64 to 68, and Devin Vassell comes onto the list at 63. Pure guards like Miles McBride keep the trim. The trade list is the same
+* 140 checks pass
+
+## How to fall back to version 10
+
+* The v16 branch holds the site exactly as it was before version 11.
+* `git checkout v16 -- moves.js` then deploy
+
+## Version 10 (branch v16), Oct 5 2026
 
 * Trades are listed by your gain, biggest first. Before, the list followed a hidden score, your gain times the chance they say yes, lifted by Josh's ranks and cut when the deal hurt the other team, so the big number on each card looked out of order
 * Groups are unchanged. Do this now first, then trades that add a full cat, then the smaller ones

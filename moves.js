@@ -270,12 +270,20 @@ function strength(ctx,tid,typ,wt){
 }
 /* a cat is gained when it goes from under to over 50 percent by at least 5 points, and lost when it goes the other way by at least 2 */
 function flipNet(before,after,w){ let n=0; const up=[], dn=[]; for(let c=0;c<9;c++){ const b=before[c]>0.5, a=after[c]>0.5; if(!b && a && after[c]-before[c]>=0.05){ n+=w[c]; up.push(c); } else if(b && !a && before[c]-after[c]>=0.02){ n-=w[c]; dn.push(c); } } return {n,up,dn}; }
-/* position balance. A spot with 3 or fewer eligible players is thin, 6 or more is crowded. A move that helps balance lifts its score 5 to 8 percent, one that hurts it cuts the score the same way */
+/* position balance. A spot with 3 or fewer eligible players is thin, 6 or more is crowded. Each player counts once, at the spot where he matters.
+   A player who can play a thin spot fills it. A player is only crowding when every spot he can play is crowded, because otherwise he can be slotted somewhere with room.
+   Going out works the same way in reverse. A move that helps balance lifts its score 5 to 8 percent, one that hurts it cuts the score the same way */
 function balance(ctx,outs,ins){
   const c={PG:0,SG:0,SF:0,PF:0,C:0}; ctx.ros[ME].forEach(p=>{ if(isIL(p)) return; p.pos.forEach(x=>{ if(x in c) c[x]++; }); });
-  let b=0; const good=[], bad=[];
-  Object.keys(c).forEach(x=>{ const d=ins.filter(p=>p.pos.includes(x)).length-outs.filter(p=>p.pos.includes(x)).length; if(!d) return; const need=c[x]<=3?1:c[x]>=6?-1:0; if(!need) return; b+=need*d; (need*d>0?good:bad).push(x); });
-  return {b,good,bad,mult:b>=2?1.08:b>=1?1.05:b<=-2?0.92:b<=-1?0.95:1};
+  const elig=p=>(p.pos||[]).filter(x=>x in c), thinOf=ps=>ps.filter(x=>c[x]<=3).sort((a,b)=>c[a]-c[b])[0], allFull=ps=>ps.length>0 && ps.every(x=>c[x]>=6);
+  const tn={}, cin=[], cout=[];
+  ins.forEach(p=>{ const ps=elig(p), t=thinOf(ps); if(t) tn[t]=(tn[t]||0)+1; else if(allFull(ps)) cin.push(ps); });
+  outs.forEach(p=>{ const ps=elig(p), t=thinOf(ps); if(t) tn[t]=(tn[t]||0)-1; else if(allFull(ps)) cout.push(ps); });
+  const uniq=a=>[...new Set([].concat(...a))], order=['PG','SG','SF','PF','C'], srt=a=>a.sort((x,y)=>order.indexOf(x)-order.indexOf(y));
+  const filled=srt(Object.keys(tn).filter(x=>tn[x]>0)), thin=srt(Object.keys(tn).filter(x=>tn[x]<0)), cn=cout.length-cin.length;
+  const crowd=cn<0?srt(uniq(cin)):[], eased=cn>0?srt(uniq(cout)):[];
+  const b=Object.keys(tn).reduce((s,x)=>s+tn[x],0)+cn;
+  return {b,good:srt(uniq([filled,eased])),bad:srt(uniq([crowd,thin])),crowd,thin,mult:b>=2?1.08:b>=1?1.05:b<=-2?0.92:b<=-1?0.95:1};
 }
 
 /* this week against the real opponent, with the live score once the week has started */
@@ -510,7 +518,7 @@ function pickupWhy(ctx,pk,r){
   if(r.wd) s2+='He is on waivers until '+nice(r.wd)+'. A claim sends you to the back of the waiver line, you are number '+((ctx.teams[ME]||{}).waiver||'?')+' now.';
   else if(r.waiver) s2+='He is on waivers. A claim sends you to the back of the waiver line.';
   else s2+='He is a free agent, so he costs one of your '+pk.adds+' adds left for the week and no waiver spot.';
-  if(r.bal.mult>1) s2+=' He also helps your position balance at '+listWords(r.bal.good)+'.'; else if(r.bal.mult<1) s2+=' He adds to a crowded spot at '+listWords(r.bal.bad)+', so his score is trimmed a little.';
+  if(r.bal.mult>1) s2+=' He also helps your position balance at '+listWords(r.bal.good)+'.'; else if(r.bal.mult<1){ const w=[]; if(r.bal.crowd.length) w.push('he can only play '+listWords(r.bal.crowd)+', where you are already crowded'); if(r.bal.thin.length) w.push('the drop leaves you thin at '+listWords(r.bal.thin)); s2+=' For position balance, '+w.join(' and ')+', so his score is trimmed a little.'; }
   a.push(s2);
   let s3=basisWords([p]); if(r.josh>0 && p.b) s3+=' Josh has him at '+p.b.josh+', well above his Yahoo rank of '+(yrank(p)||'none')+'.'; if(r.josh<0 && p.b) s3+=' Josh has him at '+p.b.josh+', below his Yahoo rank of '+(yrank(p)||'none')+'.';
   a.push(s3);
@@ -660,7 +668,7 @@ function pickPanel(ctx,pk){
   pk.list.forEach((r,i)=>{
     const p=r.p; const why=pickupWhy(ctx,pk,r);
     h+='<details class="mvcard"><summary><span class="mvn '+r.band+'">'+r.need+'<small>'+(r.band==='must'?'must add':r.band==='strong'?'strong':r.band==='helps'?'helps':'skip')+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
-      +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span><span class="chip muted">'+r.gl+(weekWord(ctx,pk.week)==='this week'?' games left':' games '+weekWord(ctx,pk.week))+'</span>'+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">Crowded spot</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+basisChip(p)+'</span></span></summary>'
+      +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span><span class="chip muted">'+r.gl+(weekWord(ctx,pk.week)==='this week'?' games left':' games '+weekWord(ctx,pk.week))+'</span>'+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">'+(r.bal.crowd.length?'Crowded spot':'Leaves '+r.bal.thin.join(' ')+' thin')+'</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+basisChip(p)+'</span></span></summary>'
       +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-add="'+p.id+'" data-drop="'+(r.drop?r.drop.id:'')+'" data-il="'+(r.il||'')+'">I made this add</button></div></div></details>';
   });
