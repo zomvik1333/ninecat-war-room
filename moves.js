@@ -24,7 +24,7 @@ const WP=[0.8,0.9,1,1,1,1,1,1,1];
 const KEY='ncw_moves_v1';
 const ME='11';
 const D={};
-let ST={marks:[],co:false,small:false,at:''};
+let ST={marks:[],small:false,at:''};
 try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j&&j.marks) ST=Object.assign(ST,j); }catch(e){}
 const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} };
 
@@ -367,7 +367,7 @@ function trades(ctx,done){
   const res={list:[],count:0,hidden:0,pass:0,base:ctx.base[ME]}; const L=D.league;
   const today=ctx.now.date; if(L.tradeDeadline && today>L.tradeDeadline){ res.note='The trade deadline has passed.'; done(res); return; }
   const mine=ctx.ros[ME].filter(p=>p.proj && !NEVER.has(B.nkey(p.name)) && !(HOLD[B.nkey(p.name)] && today<HOLD[B.nkey(p.name)]));
-  const opps=Object.keys(ctx.ros).filter(t=>t!==ME && (ST.co || t!==L.comanaged));
+  const opps=Object.keys(ctx.ros).filter(t=>t!==ME);
   const combos=(arr,k)=>{ if(k===1) return arr.map(x=>[x]); const o=[]; for(let i=0;i<arr.length;i++) for(let j=i+1;j<arr.length;j++) o.push([arr[i],arr[j]]); return o; };
   const gives={1:combos(mine,1),2:combos(mine,2)};
   const W={}; Object.keys(ctx.ros).forEach(t=>W[t]=oppWeights(ctx,t));
@@ -522,7 +522,7 @@ function tradeWhy(ctx,t){
   let s3=basisWords(t.give.concat(t.get)); const je=t.josh; if(Math.abs(je)>=4) s3+=' By Josh\'s ranks you '+(je>0?'win':'lose')+' the value in this deal.';
   a.push(s3);
   const risk=[]; t.get.forEach(p=>{ if(p.status) risk.push(p.name+' is tagged '+statusWord(p.status)); if(p.b&&p.b.risk>=2) risk.push(p.name+' carries injury risk'); if(p.basis==='est') risk.push(p.name+' is a rookie estimate'); });
-  if(t.top) risk.push('they drafted or prize what you are asking for, so expect a counter'); if(t.o===D.league.comanaged) risk.push('you may help run this team, so keep it clean'); if(t.cut) risk.push('they would have to drop '+t.cut.name);
+  if(t.top) risk.push('they drafted or prize what you are asking for, so expect a counter'); if(t.cut) risk.push('they would have to drop '+t.cut.name);
   a.push(risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.');
   { const js=jcSay(t.give.concat(t.get)); const tg=t.get.map(p=>{ const x=jcTags(p); return x?'On '+p.name+', '+x+'.':''; }).filter(Boolean).join(' '); a.push(((js?js+' ':'')+tg).trim()); }
   return oneDot(a);
@@ -640,12 +640,11 @@ function tradePanel(ctx){
     const why=tradeWhy(cw,t); const oName=(cw.teams[t.o]||{}).name||''; const nm=a=>a.map(p=>esc(p.name)).join(' and ');
     const look=t.ratio>=1.12?'Looks like a win for them':t.ratio>=0.97?'Looks even to them':'Looks a bit light to them';
     h+='<details class="mvcard"><summary><span class="mvn '+(t.urgent?'must':t.acc>=0.5?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
-      +'<span class="meta">'+(t.urgent?'<span class="chip gem">Do this now</span>':'')+(t.pass?'<span class="chip gem">Adds '+t.up.map(c=>CATS[c]).join(' ')+'</span>':'<span class="chip muted">Under one cat</span>')+(t.dn.length?'<span class="chip bad">Loses '+t.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+'<span class="chip '+(t.acc>=0.6?'good':t.acc>=0.4?'':'warn')+'">'+pc(t.acc)+'% they say yes</span>'+(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')+'<span class="chip muted">'+look+'</span><span class="chip muted">'+(r1(t.oGain)>=0?'They gain ':'They lose ')+Math.abs(r1(t.oGain))+'</span><span class="chip '+(t.josh>=4?'good':t.josh<=-4?'bad':'muted')+'">Josh edge '+(r1(t.josh)>=0?'plus ':'minus ')+Math.abs(r1(t.josh))+'</span>'+(t.o===D.league.comanaged?'<span class="chip warn">Team you may co manage</span>':'')+'</span></span></summary>'
+      +'<span class="meta">'+(t.urgent?'<span class="chip gem">Do this now</span>':'')+(t.pass?'<span class="chip gem">Adds '+t.up.map(c=>CATS[c]).join(' ')+'</span>':'<span class="chip muted">Under one cat</span>')+(t.dn.length?'<span class="chip bad">Loses '+t.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+'<span class="chip '+(t.acc>=0.6?'good':t.acc>=0.4?'':'warn')+'">'+pc(t.acc)+'% they say yes</span>'+(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')+'<span class="chip muted">'+look+'</span><span class="chip muted">'+(r1(t.oGain)>=0?'They gain ':'They lose ')+Math.abs(r1(t.oGain))+'</span><span class="chip '+(t.josh>=4?'good':t.josh<=-4?'bad':'muted')+'">Josh edge '+(r1(t.josh)>=0?'plus ':'minus ')+Math.abs(r1(t.josh))+'</span>'+'</span></span></summary>'
       +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">The pitch</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-trade="'+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+i+'">Copy a message to send</button></div></div></details>';
   });
   h+='<p class="small"><label><input type="checkbox" id="mvsmall"'+(ST.small?' checked':'')+'> Show the smaller trades too, the ones under one cat</label></p>';
-  h+='<p class="small"><label><input type="checkbox" id="mvco"'+(ST.co?' checked':'')+'> Also show trades with '+esc((cw.teams[D.league.comanaged]||{}).name||'the co managed team')+'</label></p>';
   h+='</div>'; return h;
 }
 function leaguePanel(ctx,rc){
@@ -672,7 +671,6 @@ function wire(){
   root.querySelectorAll('[data-trade]').forEach(b=>b.onclick=()=>{ const t=TR.list[+b.getAttribute('data-trade')]; if(!t) return; ST.marks.push({type:'trade',withTeam:t.o,give:t.give.map(p=>p.id),get:t.get.map(p=>p.id),cut:t.cut?t.cut.id:null}); ST.at=D.scan.at; save(); compute(true); });
   root.querySelectorAll('[data-pitch]').forEach(b=>b.onclick=()=>{ const t=TR.list[+b.getAttribute('data-pitch')]; if(!t) return; const txt=pitchText(CTXW,t); const ok=()=>{ b.textContent='Copied'; setTimeout(()=>{ b.textContent='Copy a message to send'; },1500); }; try{ navigator.clipboard.writeText(txt).then(ok,()=>{ window.prompt&&0; b.textContent=txt; }); }catch(e){ b.textContent=txt; } });
   const u=$('mvundo'); if(u) u.onclick=()=>{ ST.marks=[]; save(); compute(true); };
-  const co=$('mvco'); if(co) co.onchange=()=>{ ST.co=co.checked; save(); compute(true); };
   const sm=$('mvsmall'); if(sm) sm.onchange=()=>{ ST.small=sm.checked; save(); compute(true); };
 }
 function compute(redoTrades){

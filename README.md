@@ -17,6 +17,8 @@ Live site at https://ninecatwarroom.vercel.app
 
 ## Version 6 (branch main), Oct 4 2026
 
+* Small change later on Oct 4. The box that hid trades with Rohan and Vikas CoManaged Team is gone. It was a guess that Vik helps run that team. He does not, so it is now treated like every other team. Branch v11 holds the site as it was just before this change
+
 * Josh Lloyd's category calls now shape every stat line. They come from all 39 of his shows on file and sit in data/josh_cats.json, 176 players, 85 of them with a change to the line
 * His rank still decides how much a player is worth and how many games he is given. The calls decide which cats that value sits in. A call never changes games played
 * A normal call moves a counting cat 5 percent when he said it in one show and up to 8 percent when he repeated it in five or more. A strong call counts double. Where he gave real numbers the cat moves 60 percent of the change he quoted, capped at 20 percent
@@ -64,7 +66,7 @@ Live site at https://ninecatwarroom.vercel.app
 * Need bands. 85 and up is a must add even at the cost of a waiver claim. 65 to 84 is a strong add once he is a free agent. 50 to 64 helps but hold your waiver spot. Under 50 is a skip
 * Trades, refreshed each week and after any roster move in the league. Every one for one, two for two and two for one where you send two is scored. Ranked by your gain times the chance they say yes
 * Each trade shows your gain, their gain, how it looks to them on Yahoo ranks and name value, the chance they say yes and the Josh edge
-* Guard rails. Kyrie is never offered. Boozer is held until the middle of January. You always keep three centers. Trades with the co managed team are hidden unless you tick the box
+* Guard rails. Kyrie is never offered. Boozer is held until the middle of January. You always keep three centers. Trades with the co managed team were hidden behind a box until Oct 4, when that rule was removed
 * Every card opens to a plain reason with what it does, what it costs or the pitch, what the numbers are based on and the main risk
 * What the numbers are based on is always stated. Last season before games are played, a blend once games start, this season once the blend passes 75 percent. The weight on this season is games played divided by games played plus 12
 * Josh's rank is carried in from the board. A higher or lower rank counts first as more or fewer games played, then as a small change in volume

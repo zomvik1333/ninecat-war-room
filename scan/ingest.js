@@ -39,7 +39,7 @@ if(K.length && (K.length!==21 || K.some(f=>!f[2]||!f[3]))){ console.log('CHECK F
 if(K.length){
   const TEAMS={1:{name:"Vinny's Team",slot:2},2:{name:"Shu's Heard of Goats",slot:7},3:{name:'Extraterrestrial',slot:10},4:{name:"Haziq's Dandy Team",slot:3},5:{name:'Registered Nurse',slot:4},6:{name:'Lickmylulu',slot:8},7:{name:'The Jokic On You',slot:1},8:{name:'Rohan and Vikas CoManaged Team',slot:9},11:{name:'Vik in a Box',slot:6},12:{name:"LeGM's Team",slot:5}};
   const iso=md=>{ const m=md.split('/'); if(m.length<2) return ''; const mo=+m[0], d=+m[1]; return (mo>=9?2026:2027)+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'); };
-  const league={league:'Ball Lovers',id:82878,me:'11',comanaged:'8',teams:TEAMS,adds:4,tradeDeadline:'2027-03-04',lastRegularWeek:18,playoffTeams:8,
+  const league={league:'Ball Lovers',id:82878,me:'11',teams:TEAMS,adds:4,tradeDeadline:'2027-03-04',lastRegularWeek:18,playoffTeams:8,
     weeks:K.map(f=>({n:+f[1],start:iso(f[2]),end:iso(f[3]),games:(f[5]||'').split(',').filter(Boolean).map(x=>x.split('v'))}))};
   wr('league.json',league); console.log('league schedule saved, '+league.weeks.length+' weeks');
 }
