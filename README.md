@@ -15,7 +15,27 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 6 (branch main), Oct 4 2026
+## Version 7 (branch main), Oct 5 2026
+
+* 17 more Josh Lloyd shows were read, so the site now rests on 56. Two are his own fantasy previews, Pistons and Clippers. One is the late round flyers show from Oct 3, the newest view on file. One is a July bounce back show. Thirteen are team shows with a beat reporter
+* Board ranks moved. Down are Brandon Ingram 50 to 103, Derik Queen 75 to 102, Kristaps Porzingis 105 to 136, Darius Garland 28 to 36, Myles Turner 107 to 117, John Collins 104 to 111, Paul Reed 136 to 151, Jalen Duren 40 to 44 and Kel'el Ware 73 to 76. Up are Rui Hachimura 160 to 135, Quentin Grimes 161 to 144, Daniel Gafford 141 to 126, Egor Demin 137 to 124, Ausar Thompson 71 to 63 and Khaman Maluach 115 to 108. New are Yves Missi at 138 and Max Strus at 142. Everyone else only shifted a spot or two to keep ranks unique
+* Ingram carries a partially torn Achilles flag on the board, out until about Christmas or January, about 41 games
+* 25 notes were rewritten without a rank change, most of them to add what a team reporter said and to say that the reporter said it
+* The category table went from 176 players to 215, with 109 that change a stat line. Hand checked rows added for Hachimura, Ausar Thompson, Maxey, Trae Young, Strus, Gafford, Isaiah Jackson, Jalen Green and others. Each carries a note in data/josh_cats.json
+* A lone reporter call counts 60 percent and the sentence on the card names the reporter
+* A what if is not a projection. Minutes that only hold if a player starts, or only for a month, are left out or set to a season number
+* When shows disagree the newer one wins. The July bounce back show does not override September or October
+* Trade cards have two new tags. Helps lists the cats where your chance to win that cat in an average week rises 1.5 points or more. Costs lists the cats where it falls that much. Biggest move first. A new part in the card, Stats it helps and costs, gives the number for each
+* The log line the daily scan writes now carries the helps and costs for each trade
+* An independent fact check read every changed rank and every changed category row against the transcripts. 40 rank claims, none wrong, 13 adjusted. 50 category rows, 2 wrong and 27 adjusted. All fixes are in. 132 checks pass
+* The scripts and the fact check files are in the fantasy notes folder under app_data/josh_cats
+
+## How to fall back to version 6
+
+* The v12 branch holds the site exactly as it was before version 7.
+* `git checkout v12 -- index.html draft-room.html moves.js data/josh_cats.json` then deploy
+
+## Version 6 (branch v12), Oct 4 2026
 
 * Small change later on Oct 4. The box that hid trades with Rohan and Vikas CoManaged Team is gone. It was a guess that Vik helps run that team. He does not, so it is now treated like every other team. Branch v11 holds the site as it was just before this change
 
