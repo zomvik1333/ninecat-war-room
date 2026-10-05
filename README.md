@@ -16,7 +16,24 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 7 (branch main), Oct 5 2026
+## Version 8 (branch main), Oct 5 2026
+
+* The last 5 Josh Lloyd shows were read, so the site now rests on 61 and every one of the 30 teams has a show of its own. Four are team shows with a beat reporter, Grizzlies, Blazers, Raptors and Kings. One is Josh's own June reaction to the Giannis trade, the oldest show on file
+* The new shows line up with the 56 before them, so no rank moved. 22 notes were reworded, most of them to add what a team reporter said and to say that the reporter said it
+* The category table still holds 215 players. Giannis gains Josh's June call of 32 or 33 minutes after 29 and more assists. Quickley gains a small threes bump that is the Raptors reporter's call only. Avdija and LaVine each move one point on assists because Josh repeated the call
+* A minutes number a reporter gives never sets a player's minutes. Only Josh's own number does
+* An older show never pulls a newer number back. The June guess of 25 minutes for Ware and the August guess of 20 for Henderson are on file but not used
+* Max Strus carries an injury flag on the board. He hurt his right foot in the Oct 4 preseason opener and tests are pending. That comes from news, not from a show
+* The Josh by team page has new pages for Memphis, Portland, Toronto, Sacramento and Miami, each now built on its own show, and Milwaukee notes what the June trade show got wrong later
+* A strength or weakness that only a reporter named is no longer counted as Josh's
+* An independent fact check read every reworded note, every changed category row and the six changed team pages against the 5 transcripts. 3 items were wrong and 8 were adjusted, and all fixes are in. 132 checks pass
+
+## How to fall back to version 7
+
+* The v13 branch holds the site exactly as it was before version 8.
+* `git checkout v13 -- index.html draft-room.html josh-teams.html data/josh_cats.json` then deploy
+
+## Version 7 (branch v13), Oct 5 2026
 
 * 17 more Josh Lloyd shows were read, so the site now rests on 56. Two are his own fantasy previews, Pistons and Clippers. One is the late round flyers show from Oct 3, the newest view on file. One is a July bounce back show. Thirteen are team shows with a beat reporter
 * Board ranks moved. Down are Brandon Ingram 50 to 103, Derik Queen 75 to 102, Kristaps Porzingis 105 to 136, Darius Garland 28 to 36, Myles Turner 107 to 117, John Collins 104 to 111, Paul Reed 136 to 151, Jalen Duren 40 to 44 and Kel'el Ware 73 to 76. Up are Rui Hachimura 160 to 135, Quentin Grimes 161 to 144, Daniel Gafford 141 to 126, Egor Demin 137 to 124, Ausar Thompson 71 to 63 and Khaman Maluach 115 to 108. New are Yves Missi at 138 and Max Strus at 142. Everyone else only shifted a spot or two to keep ranks unique
