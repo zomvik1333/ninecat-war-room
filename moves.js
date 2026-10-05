@@ -74,7 +74,7 @@ const JCI={};
 function loadJC(){ Object.keys(JCI).forEach(k=>delete JCI[k]); const j=D.jc&&D.jc.p; if(!j || typeof j!=='object') return;
   const cats=a=>Array.isArray(a)?a.filter(c=>Number.isInteger(c)&&c>=0&&c<9):[];
   const str=x=>typeof x==='string'?x.trim().replace(/\.+$/,''):'';
-  Object.keys(j).forEach(k=>{ const r=j[k]; if(!r || !Array.isArray(r.m) || r.m.length!==9) return; const m=r.m.map(Number); if(!m.every(isFinite)) return; const mp=Number(r.mp);
+  Object.keys(j).forEach(k=>{ const r=j[k]; if(!r || !Array.isArray(r.m) || r.m.length!==9 || r.m.some(x=>x===null||x===''||typeof x==='boolean')) return; const m=r.m.map(Number); if(!m.every(isFinite)) return; const mp=Number(r.mp);
     JCI[B.nkey(r.n||k)]={n:String(r.n||k),m,mp:isFinite(mp)&&mp>0?mp:0,mpu:r.mpu?1:0,why:str(r.why),why0:r.why0==null?null:str(r.why0),help:cats(r.help),hurt:cats(r.hurt)}; }); }
 const hasJC=()=>Object.keys(JCI).length>0;
 const jcOf=name=>{ const k=B.nkey(name); return JCI[k]||JCI[BALIAS[k]]||JCI[PALIAS[k]]||null; };
@@ -92,7 +92,7 @@ function applyJC(l,jc,useMin){
 }
 function project(p,scan){
   const b=p.b, pr=priorOf(p.name); let prior=null, pb='none'; p.f=1; p.av=0.85;
-  const jc=jcOf(p.name); p.jc=jc; p.jcOn=false; p.jcMin=false;
+  const jc=jcOf(p.name); p.jc=jc; p.jcOn=false; p.jcMin=false; let mpPlain=null;
   if(b){
     const st=B.STATS[b.name]; const zk=!!(st&&st.z&&!st.rookie); const av0=clamp(b.av||0.85,0.45,0.96);
     const useRef=!!pr && pr[0]>=20 && !b.rookie && !(st&&st.rookie) && (!st || st.src==='2025 26');
@@ -116,7 +116,7 @@ function project(p,scan){
       const Z=Z0+(jc?valOf(base)-valOf(base0):0);
       p.av=av; p.dz=Z1-Z; p.f=jc?clamp(clamp(1+(Z1-Z)/dvOf(base),f0-0.05,f0+0.05),lo,hi):f0;
       prior=scaleLine(base,p.f);
-      if(ms!==1){ const want=base0.mp*Math.pow(p.f,1/0.9); prior.mp=ms>1?clamp(want,base0.mp,Math.min(jc.mp,base0.mp*2.2)):clamp(want,Math.max(jc.mp,base0.mp*0.7),base0.mp); p.jcMin=Math.abs(prior.mp/base0.mp-1)>=0.04; }
+      if(ms!==1){ const want=base0.mp*Math.pow(p.f,1/0.9); prior.mp=ms>1?clamp(want,base0.mp,Math.min(jc.mp,base0.mp*2.2)):clamp(want,Math.max(jc.mp,base0.mp*0.7),base0.mp); p.jcMin=Math.abs(prior.mp/base0.mp-1)>=0.04; if(p.jcMin) mpPlain=base0.mp; }
       pb=useRef?'last':'older';
     } else {
       // no usable season on file, a rookie or a player the board only graded by eye
@@ -124,7 +124,7 @@ function project(p,scan){
       prior=lineFromZ(zs.map(v=>v+sh),mp?+mp:(pr?pr[1]:26)); pb='est';
       if(jc){ prior=applyJC(prior,jc,false); p.jcOn=true; }
     }
-  } else if(pr){ prior=lineOfPrior(pr); if(jc){ prior=applyJC(prior,jc,pr[0]>=20); p.jcOn=true; p.jcMin=Math.abs(prior.mp/pr[1]-1)>=0.04; } p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
+  } else if(pr){ prior=lineOfPrior(pr); if(jc){ prior=applyJC(prior,jc,pr[0]>=20); p.jcOn=true; p.jcMin=Math.abs(prior.mp/pr[1]-1)>=0.04; if(p.jcMin) mpPlain=pr[1]; } p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
   const s=scan.stats&&scan.stats[p.id]; let cur=null, gp=0; p.g14=null; p.m14=null; p.v14=null;
   if(s){ gp=s[1]||0; cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); p.g14=s[14]; p.m14=s[15]; p.v14=s[16]; }
   if(cur&&gp<1) cur=null;
@@ -132,7 +132,10 @@ function project(p,scan){
   // a real last season counts like 12 games, an older season like 9, a rookie guess like 6
   if(cur){ const pp=prior||REPL_LINE; w=gp/(gp+(!prior?6:pb==='est'?6:pb==='older'?9:12)); line=mixLine(pp,cur,w); } else line=prior;
   p.role='';
-  if(line && p.m14!=null && p.g14>=3 && line.mp>5){ const r=p.m14/line.mp; if(Math.abs(r-1)>=0.15){ const f=Math.pow(clamp(r,0.6,1.5),0.9); line=scaleLine(line,f); line.mp=p.m14; p.role=r>1?'up':'down'; } }
+  // real minutes over the last two weeks beat any projection. The up or down tag is judged against the minutes without Josh's call, so playing last season's minutes is never tagged as a change
+  if(line && p.m14!=null && p.g14>=3 && line.mp>5){ const r=p.m14/line.mp; const mp0=mpPlain==null?line.mp:(cur?mpPlain*(1-w)+cur.mp*w:mpPlain), r0=p.m14/mp0;
+    if(Math.abs(r-1)>=0.15){ const f=Math.pow(clamp(r,0.6,1.5),0.9); line=scaleLine(line,f); line.mp=p.m14; p.jcMin=false; }
+    if(Math.abs(r0-1)>=0.15) p.role=r0>1?'up':'down'; }
   p.proj=line; p.w=w; p.gp=gp; p.prior=prior;
   p.basis=!line?'none':gp<2?pb:w>=0.75?'now':'blend';
   p.val=line?valOf(line):-12;
@@ -479,7 +482,7 @@ const listWords=a=>a.length<=1?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.l
 const jcLive=p=>!!(p.jc && p.jcOn && (p.w||0)<0.75);
 const jcCall=p=>{ if(!jcLive(p)) return ''; const j=p.jc; return (p.jcMin||j.why0==null)?j.why:j.why0; };
 const jcTags=p=>{ if(!p.jc) return ''; const h=(p.jc.help||[]).map(c=>CATS[c]), u=(p.jc.hurt||[]).map(c=>CATS[c]); return h.length&&u.length?'Josh rates his '+h.join(', ')+' and sees him weakest in '+u.join(', '):h.length?'Josh rates his '+h.join(', '):u.length?'Josh sees him weakest in '+u.join(', '):''; };
-const jcSay=ps=>{ const a=[]; ps.forEach(p=>{ const c=jcCall(p); if(c) a.push('For '+p.name+', '+c+'.'); }); return a.join(' '); };
+const jcSay=ps=>{ const a=[]; ps.forEach(p=>{ const c=jcCall(p); if(c) a.push('For '+p.name+', '+c.replace(/^The /,'the ')+'.'); }); return a.join(' '); };
 const oneDot=a=>a.map(x=>String(x).replace(/\.\.(?=\s|$)/g,'.'));
 const yrank=p=>p.cur||p.pre;
 const weekWord=(ctx,wk)=>(wk.n===ctx.wk.n && ctx.now.date>=wk.start)?'this week':'in week '+wk.n;
@@ -540,7 +543,7 @@ function pitchText(ctx,t){
   if(up.length) s+=' It helps you in '+listWords(up)+', which is where your team is light.';
   if(t.give.length>t.get.length) s+=' You get two useful players for one.';
   s+=' Let me know what you think.';
-  return s;
+  return oneDot([s])[0];
 }
 
 /* drawing */
