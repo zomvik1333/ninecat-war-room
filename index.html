@@ -420,7 +420,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
         <li>Josh ignores turnovers when he drafts for head to head. He says you can still win them some weeks without trying.</li>
         <li>Josh says points, assists and FT% dry up early in a draft, while threes are easy to find on the waiver wire.</li>
         <li>Josh expects much less tanking this season because of the new lottery rules, with heavy resting only in the last week to 10 days. That is why he now ends his leagues on March 28, the same day yours ends.</li>
-        <li>The board takes a 15 percent second opinion from Fantasy Edge on every player. Boozer is pinned near 52, close to where Josh has him, and Markkanen is pinned at 25. When the top two cards are within 0.2 cats, take the scorer or passer unless your plan has already given up points or assists.</li>
+        <li>The board takes a 15 percent second opinion from Fantasy Edge on every player. No player is pinned to a spot by hand. Every spot comes from that blend. When the top two cards are within 0.2 cats, take the scorer or passer unless your plan has already given up points or assists.</li>
       </ul>
     </div>
 
@@ -785,7 +785,8 @@ function userOrder(list, prof){
   return list;
 }
 function PS_eff(){ return planState().eff; }
-const USERPOS = {"Donovan Mitchell":[9,"You and Sports Ethos rate him higher than Josh, so he sits around 10"],"Cameron Boozer":[52,"Josh has him close to a top 50 guy, so he sits near 52"],"Lauri Markkanen":[25,"Josh 25th and Fantasy Edge 26th, both already count his missed games"]};
+// No player is pinned to a spot any more, as of Oct 5 2026. Every spot comes from the blend of our stats, Josh Lloyd and Fantasy Edge.
+const USERPOS = {};
 const FLOOR = {"Kawhi Leonard": 40, "Kyrie Irving": 40, "Joel Embiid": 50};
 // your playoffs are weeks 19 to 21, Mar 8 to Mar 28
 const PLAYOFF = {MIN:['2 game wk','Only 2 games in the week of Mar 15, the middle of your playoffs'],CLE:['2 game wk','Only 2 games in the week of Mar 22, your finals week'],BOS:['3 B2B','3 back to backs during your playoffs'],POR:['3 B2B','3 back to backs during your playoffs'],TOR:['3 B2B','3 back to backs during your playoffs'],GSW:['3 B2B','3 back to backs during your playoffs'],PHI:['3 B2B','3 back to backs during your playoffs'],MIA:['No B2B','No back to backs during your playoffs']};

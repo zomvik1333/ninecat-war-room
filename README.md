@@ -16,7 +16,21 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 8 (branch main), Oct 5 2026
+## Version 9 (branch main), Oct 5 2026
+
+* No player is pinned to a board spot by hand any more. Three pins are gone. Donovan Mitchell was held at 9, Cameron Boozer at 52 and Lauri Markkanen at 25
+* Every spot now comes from the same blend. 70 percent Josh Lloyd's rank and 30 percent our stats spot, then 15 percent Fantasy Edge
+* On the board Mitchell moves from 9 to 11, Markkanen from 23 to 30 and Boozer from 53 to 59. Fifteen players next to them each move up one spot
+* The Pickups and trades tab reads a player's worth from his board spot, so it moves too. On the Oct 4 scan the week 1 win chance goes from 39 to 38 percent, the average week from 63 to 62 and the top four chance from 64 to 62
+* The pick card calls for Kyrie and Lillard are a different rule and are unchanged
+* 133 checks pass
+
+## How to fall back to version 8
+
+* The v14 branch holds the site exactly as it was before version 9.
+* `git checkout v14 -- index.html draft-room.html` then deploy
+
+## Version 8 (branch v14), Oct 5 2026
 
 * The last 5 Josh Lloyd shows were read, so the site now rests on 61 and every one of the 30 teams has a show of its own. Four are team shows with a beat reporter, Grizzlies, Blazers, Raptors and Kings. One is Josh's own June reaction to the Giannis trade, the oldest show on file
 * The new shows line up with the 56 before them, so no rank moved. 22 notes were reworded, most of them to add what a team reporter said and to say that the reporter said it
