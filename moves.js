@@ -406,7 +406,9 @@ function trades(ctx,done){
   const score=t=>{
     const top=t.get.some(p=>(pickOf[B.nkey(p.name)]||99)<=20 || LEGEND.has(B.nkey(p.name)));
     t.top=top; t.acc=clamp(1/(1+Math.exp(-(7*(Math.min(t.ratio,1.6)-1.03)+0.3*t.oGain+0.25*(t.need||0)-(top?1:0)-(t.two?0.4:0)))),0.03,0.92);
-    t.josh=dw(t.get.map(p=>p.jv))-dw(t.give.map(p=>p.jv));
+    const gJ=dw(t.give.map(p=>p.jv)), rJ=dw(t.get.map(p=>p.jv)); t.josh=rJ-gJ;
+    // fairness by Josh Lloyd's overall ranks. Even means the two sides are close in his value. A deal where you give up clearly more than you get is never shown
+    t.jside=t.josh<-Math.max(6,0.2*gJ)?'lose':t.josh>Math.max(4,0.15*Math.max(gJ,rJ))?'win':'even';
     t.bal=balance(ctx,t.give,t.get);
     // a deal that also helps them by the numbers ranks ahead of one that only looks good to them. Position balance moves the score 5 to 8 percent
     t.score=t.myGain*t.acc*(1+clamp(t.josh,-15,15)/60)*(t.oGain>=0?1:0.6)*t.bal.mult;
@@ -427,18 +429,23 @@ function trades(ctx,done){
     t.weakHelp=weak.filter(c=>t.dop[c]>=1.5); t.need=clamp(weak.reduce((s,c)=>s+t.dop[c],0)/5,-1.5,2.5);
   };
   const finish=()=>{
-    out.forEach(score); out.sort((a,b)=>b.score-a.score);
-    const seen={}, keep=[], cnt={}; let extra=0;
-    for(const t of out){ const k=t.o+'|'+t.get.map(p=>p.id).sort().join('+'); const sk=t.give.length+'for'+t.get.length; const flip=t.cats>=0.9;
-      if((cnt[sk]||0)>=30 && !(flip && extra<40)) continue; seen[k]=(seen[k]||0)+1; if(seen[k]>2 && !flip) continue; if((cnt[sk]||0)>=30) extra++; cnt[sk]=(cnt[sk]||0)+1; keep.push(t); }
+    // listed by your gain, biggest first. The chance they say yes, Josh's ranks and balance decide what is shown, not the order
+    const shown=t=>t.acc>=0.25 && t.jside!=='lose', pre=t=>t.myGain*(shown(t)?1:0.3), byGain=(a,b)=>b.myGain-a.myGain||b.score-a.score;
+    out.forEach(score);
+    // the quick pass only narrows the field. Take the best by gain and the best by the old blended score, so a sendable version of each idea always reaches the exact pass
+    const sel=key=>{ const seen={}, cnt={}, r=[]; let extra=0;
+      for(const t of out.slice().sort((a,b)=>key(b)-key(a))){ const k=t.o+'|'+t.get.map(p=>p.id).sort().join('+'); const sk=t.give.length+'for'+t.get.length; const flip=t.cats>=0.9;
+        if((cnt[sk]||0)>=30 && !(flip && extra<40)) continue; seen[k]=(seen[k]||0)+1; if(seen[k]>2 && !flip) continue; if((cnt[sk]||0)>=30) extra++; cnt[sk]=(cnt[sk]||0)+1; r.push(t); }
+      return r; };
+    const keep=[...new Set(sel(pre).concat(sel(t=>t.score)))];
     keep.forEach(t=>{ exact(t); score(t); });
-    const good=keep.filter(t=>t.myGain>=0.3 && t.oGain>=-1.0 && t.acc>=0.25).sort((a,b)=>b.score-a.score);
+    const good=keep.filter(t=>t.myGain>=0.3 && t.oGain>=-1.0 && shown(t)).sort(byGain);
     const pick=list=>{ const s2={}, shape={}, o=[]; for(const t of list){ const k=t.o+'|'+t.get.map(p=>p.id).sort().join('+'); if(s2[k]) continue; const sk=t.give.length+'for'+t.get.length; if((shape[sk]||0)>=6) continue; s2[k]=1; shape[sk]=(shape[sk]||0)+1; o.push(t); if(o.length>=14) break; } return o; };
     // the one cat rule. A trade is shown only if it leaves you favored in at least one more cat, counting the weights
     const pass=pick(good.filter(t=>t.pass)), small=pick(good.filter(t=>!t.pass));
     const hurt=ctx.ros[ME].filter(p=>isOut(p) && p.val>0 && myProtected(ctx).has(p.id));
     pass.forEach((t,i)=>{ t.urgent=i<2 && t.oGain>=-0.3 && ((t.myGain>=3 && t.acc>=0.6) || (hurt.length>0 && t.myGain>=1.5 && t.acc>=0.5)); });
-    pass.sort((a,b)=>(b.urgent?1:0)-(a.urgent?1:0)||b.score-a.score);
+    pass.sort((a,b)=>(b.urgent?1:0)-(a.urgent?1:0)||byGain(a,b));
     res.pass=pass.length; res.hidden=ST.small?0:small.length; res.small=small.length;
     res.list=ST.small?pass.concat(small).slice(0,14):pass; res.count=out.length; done(res);
   };
@@ -522,13 +529,41 @@ function tradeWhy(ctx,t){
   if(t.two) s1+=' It also opens a roster spot for streaming.';
   a.push(s1);
   a.push(pitch(ctx,t));
-  let s3=basisWords(t.give.concat(t.get)); const je=t.josh; if(Math.abs(je)>=4) s3+=' By Josh\'s ranks you '+(je>0?'win':'lose')+' the value in this deal.';
+  let s3=basisWords(t.give.concat(t.get));
   a.push(s3);
   const risk=[]; t.get.forEach(p=>{ if(p.status) risk.push(p.name+' is tagged '+statusWord(p.status)); if(p.b&&p.b.risk>=2) risk.push(p.name+' carries injury risk'); if(p.basis==='est') risk.push(p.name+' is a rookie estimate'); });
   if(t.top) risk.push('they drafted or prize what you are asking for, so expect a counter'); if(t.cut) risk.push('they would have to drop '+t.cut.name);
   a.push(risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.');
   { const js=jcSay(t.give.concat(t.get)); const tg=t.get.map(p=>{ const x=jcTags(p); return x?'On '+p.name+', '+x+'.':''; }).filter(Boolean).join(' '); a.push(((js?js+' ':'')+tg).trim()); }
   return oneDot(a);
+}
+/* why the cats a trade moves matter for my team. A swing cat sits between 42 and 58 percent, where a few points decide the week */
+function tradeMatter(ctx,t){
+  const per=ctx.base[ME].per, aft=c=>clamp(per[c]+t.dme[c]/100,0,1), st=x=>x<0.42?0:x<=0.58?1:2, tc=tradeCats(t), a=[];
+  const cap=c=>CATWORD[c].charAt(0).toUpperCase()+CATWORD[c].slice(1);
+  let sw=0;
+  tc.up.slice(0,3).forEach(c=>{ const b=per[c], n=aft(c), go='from '+pc(b)+' to '+pc(n)+' percent';
+    if(st(b)===1) a.push(cap(c)+(sw++?' is also a swing cat.':' is a swing cat for you, so this is where the trade pays most.')+' Your chance to win it goes '+go+'.');
+    else if(st(b)===0) a.push(cap(c)+' is a cat you usually lose. Your chance to win it goes '+go+(n>0.5?', which makes you the favorite.':n>=0.42?', which turns it into a real fight.':', so you are still the underdog there.'));
+    else a.push(cap(c)+' is already a strength and goes '+go+', so it adds less.'); });
+  tc.dn.slice(0,3).forEach(c=>{ const b=per[c], n=aft(c), go='from '+pc(b)+' to '+pc(n)+' percent';
+    if(st(n)===2) a.push('You can afford the hit in '+CATWORD[c]+', where you stay a clear favorite, '+go+'.');
+    else if(st(n)===1) a.push('Watch '+CATWORD[c]+'. It '+(st(b)===2?'becomes':'stays')+' a swing cat, '+go+'.');
+    else if(st(b)===0) a.push('You were already losing '+CATWORD[c]+', so the drop '+go+' costs little.');
+    else a.push('The real cost is '+CATWORD[c]+', which falls '+go+' and becomes a cat you usually lose.'); });
+  const fb=per.filter(x=>x>0.5).length, fa=per.map((x,c)=>aft(c)).filter(x=>x>0.5).length;
+  if(!a.length) a.push('No single cat moves by 1.5 points or more. The gain comes from small lifts across several cats.');
+  a.push('In an average week you are favored in '+fb+' of 9 cats now and '+fa+' after.');
+  return a.join(' ');
+}
+/* is it fair. Judged by Josh Lloyd's overall ranks for my side and by how it looks on Yahoo for theirs */
+function tradeFair(ctx,t){
+  const jr=p=>p.name+(p.b&&p.b.josh?' ('+p.b.josh+')':' (no Josh rank)');
+  let s='By Josh\'s overall ranks you give '+listWords(t.give.map(jr))+' and get '+listWords(t.get.map(jr))+'. ';
+  s+=t.jside==='win'?'By his ranks you get the better side of it.':'By his ranks it is about even.';
+  s+=' For them it '+(t.ratio>=1.12?'looks like a win':t.ratio>=0.97?'looks even':'looks a touch light')+' on Yahoo ranks and name value, and their average week moves '+(t.oGain>=0?'up ':'down ')+Math.abs(r1(t.oGain))+' points by this model.';
+  s+=' A trade never shows here if you give up clearly more than you get by Josh\'s ranks, or if their numbers drop by more than a point.';
+  return s;
 }
 function pitch(ctx,t){
   const oName=(ctx.teams[t.o]||{}).name||'them'; const nm=a=>listWords(a.map(p=>p.name+(yrank(p)?' (Yahoo '+yrank(p)+')':'')));
@@ -537,7 +572,7 @@ function pitch(ctx,t){
   else { const up=catMoves(t.dop,1.5).up; if(up.length) s+='It makes them better in '+listWords(up.slice(0,3))+'. '; }
   s+='They get '+nm(t.give)+' for '+nm(t.get)+'. ';
   s+=t.ratio>=1.12?'On Yahoo ranks and name value it looks like a win for them.':t.ratio>=0.97?'On Yahoo ranks and name value it looks even.':'On Yahoo ranks it looks a touch light, so sell the fit.';
-  s+=' Their average week moves '+(t.oGain>=0?'up ':'down ')+Math.abs(r1(t.oGain))+' points by this model.';
+  s+=' This model puts the chance they say yes near '+pc(t.acc)+' percent.';
   return s;
 }
 function pitchText(ctx,t){
@@ -634,7 +669,7 @@ function pickPanel(ctx,pk){
 function tradePanel(ctx){
   let h='<div class="panel"><h2>Trades <span>updates each week and after any roster move in the league</span></h2>';
   const cw=CTXW; const snap=new Date(cw.scan.at).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-  h+='<p class="small">A trade shows here only if it leaves you favored in at least one more cat in an average week. Solid cats count in full, FT% counts 65 percent and FG% counts half. Ranked by your gain times the chance they say yes, with deals that also help them first. Position balance moves a score by 5 to 8 percent. The Helps and Costs tags name the cats where your chance to win that cat moves by 1.5 points or more, biggest first. Built from the snapshot of '+esc(snap)+'. Kyrie is never offered. Boozer is held until the middle of January. You always keep three centers.</p>';
+  h+='<p class="small">A trade shows here only if it leaves you favored in at least one more cat in an average week. Solid cats count in full, FT% counts 65 percent and FG% counts half. Listed by your gain, biggest first. Your gain is how many points your chance to win an average week goes up, with your solid cats counted first. Every trade here is one you could fairly send. It looks close to even or better to them on Yahoo ranks, their numbers do not drop by more than a point, and by Josh\'s overall ranks you do not give up clearly more than you get. Open a card to see which cats it moves, why those cats matter for your team and whether it is fair. The Helps and Costs tags name the cats where your chance to win that cat moves by 1.5 points or more, biggest first. Built from the snapshot of '+esc(snap)+'. Kyrie is never offered. Boozer is held until the middle of January. You always keep three centers.</p>';
   if(!TR){ h+='<p class="empty" id="mvtrwait">Scoring trades with all nine teams.</p></div>'; return h; }
   if(TR.note) h+='<p class="empty">'+esc(TR.note)+'</p>';
   else if(!TR.list.length) h+='<p class="empty">No trade adds a full cat right now, so there is nothing worth sending. Checked '+TR.count+' offers.'+(TR.hidden?' '+TR.hidden+' smaller trades are hidden.':'')+'</p>';
@@ -642,9 +677,9 @@ function tradePanel(ctx){
   TR.list.forEach((t,i)=>{
     const why=tradeWhy(cw,t); const tc=tradeCats(t); const oName=(cw.teams[t.o]||{}).name||''; const nm=a=>a.map(p=>esc(p.name)).join(' and ');
     const look=t.ratio>=1.12?'Looks like a win for them':t.ratio>=0.97?'Looks even to them':'Looks a bit light to them';
-    h+='<details class="mvcard"><summary><span class="mvn '+(t.urgent?'must':t.acc>=0.5?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
-      +'<span class="meta">'+(t.urgent?'<span class="chip gem">Do this now</span>':'')+(t.pass?'<span class="chip gem">Adds '+t.up.map(c=>CATS[c]).join(' ')+'</span>':'<span class="chip muted">Under one cat</span>')+(t.dn.length?'<span class="chip bad">Loses '+t.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+(tc.up.length?'<span class="chip good">Helps '+tc.up.map(c=>CATS[c]).join(' ')+'</span>':'')+(tc.dn.length?'<span class="chip warn">Costs '+tc.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+'<span class="chip '+(t.acc>=0.6?'good':t.acc>=0.4?'':'warn')+'">'+pc(t.acc)+'% they say yes</span>'+(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')+'<span class="chip muted">'+look+'</span><span class="chip muted">'+(r1(t.oGain)>=0?'They gain ':'They lose ')+Math.abs(r1(t.oGain))+'</span><span class="chip '+(t.josh>=4?'good':t.josh<=-4?'bad':'muted')+'">Josh edge '+(r1(t.josh)>=0?'plus ':'minus ')+Math.abs(r1(t.josh))+'</span>'+'</span></span></summary>'
-      +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">Stats it helps and costs</span>'+esc(tradeCatLine(t))+'</p><p><span class="lab">The pitch</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
+    h+='<details class="mvcard"><summary><span class="mvn '+(t.urgent?'must':t.myGain>=1?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
+      +'<span class="meta">'+(t.urgent?'<span class="chip gem">Do this now</span>':'')+(t.pass?'<span class="chip gem">Adds '+t.up.map(c=>CATS[c]).join(' ')+'</span>':'<span class="chip muted">Under one cat</span>')+(t.dn.length?'<span class="chip bad">Loses '+t.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+(tc.up.length?'<span class="chip good">Helps '+tc.up.map(c=>CATS[c]).join(' ')+'</span>':'')+(tc.dn.length?'<span class="chip warn">Costs '+tc.dn.map(c=>CATS[c]).join(' ')+'</span>':'')+(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')+(t.jside==='win'?'<span class="chip good">You win by Josh\'s ranks</span>':'<span class="chip muted">Even by Josh\'s ranks</span>')+'<span class="chip muted">'+look+'</span>'+'</span></span></summary>'
+      +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">Stats it helps and costs</span>'+esc(tradeCatLine(t))+'</p><p><span class="lab">Why it matters for your team</span>'+esc(tradeMatter(cw,t))+'</p><p><span class="lab">Is it fair</span>'+esc(tradeFair(cw,t))+'</p><p><span class="lab">The pitch</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-trade="'+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+i+'">Copy a message to send</button></div></div></details>';
   });
   h+='<p class="small"><label><input type="checkbox" id="mvsmall"'+(ST.small?' checked':'')+'> Show the smaller trades too, the ones under one cat</label></p>';
@@ -709,5 +744,5 @@ function summary(){
   const out=c.ros[ME].filter(p=>p.status).map(p=>p.name+' '+statusWord(p.status)); if(out.length) o.push('my injury tags, '+out.join(', '));
   return o.join(' ~ ');
 }
-window.NCWMoves={summary,show:()=>{ document.body.classList.add('moves'); if(!D.loaded) load(); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,tradeCatLine}};
+window.NCWMoves={summary,show:()=>{ document.body.classList.add('moves'); if(!D.loaded) load(); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,tradeMatter,tradeFair,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,tradeCatLine}};
 })();

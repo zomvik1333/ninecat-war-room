@@ -16,7 +16,24 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 9 (branch main), Oct 5 2026
+## Version 10 (branch main), Oct 5 2026
+
+* Trades are listed by your gain, biggest first. Before, the list followed a hidden score, your gain times the chance they say yes, lifted by Josh's ranks and cut when the deal hurt the other team, so the big number on each card looked out of order
+* Groups are unchanged. Do this now first, then trades that add a full cat, then the smaller ones
+* The Josh edge number is gone. Each card now says in words whether the deal is even by Josh Lloyd's overall ranks or whether you win by them
+* A trade where you give up clearly more than you get by Josh's ranks is never shown. Clearly more means over 6 value points and over a fifth of what you give
+* The percent chance they say yes left the card front. It is one sentence in The pitch and no longer moves the order. A trade still needs a 25 percent chance to be listed
+* Two new parts in each card. Why it matters for your team says which moved cats are swing cats, which you usually lose and which you can afford to give, with the chance to win each one before and after. Is it fair lists Josh's rank for every player in the deal and how it looks to the other team
+* The quick pass now sends the best trades by gain to the exact pass as well as the best by the old score, so a sendable version of each idea is always checked
+* Pickups, the week panel and the league race did not change
+* 136 checks pass
+
+## How to fall back to version 9
+
+* The v15 branch holds the site exactly as it was before version 10.
+* `git checkout v15 -- moves.js` then deploy
+
+## Version 9 (branch v15), Oct 5 2026
 
 * No player is pinned to a board spot by hand any more. Three pins are gone. Donovan Mitchell was held at 9, Cameron Boozer at 52 and Lauri Markkanen at 25
 * Every spot now comes from the same blend. 70 percent Josh Lloyd's rank and 30 percent our stats spot, then 15 percent Fantasy Edge
