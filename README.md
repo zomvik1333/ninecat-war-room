@@ -16,7 +16,34 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 11 (branch main), Oct 5 2026
+## Version 12 (branch main), Oct 6 2026
+
+Fixes for the bugs found in the independent audit of Oct 5. The full list with evidence is in audit_report_2026_10_05.md in the fantasy notes folder.
+
+* Trades. Every offer that passes the market value check is now scored in full, with both teams' daily lineups set again. The old quick first pass is gone. It was off by more than its own cut lines and dropped most good trades before the full maths saw them
+* Trades. The scoring pauses every 40 thousandths of a second so a slow phone still answers taps while it runs, and the smaller trades box only filters what is already scored. The full scoring takes longer than the old shortcut, about 4 seconds on a normal phone
+* Trades. A two for one is credited only for what it adds beyond simply dropping your least useful player for a streamer, whoever the two outgoing players are. Without this the full scoring would fill the list with inflated two for ones
+* Lineups. Players are seated best first by per game value, so a questionable star keeps his spot and is credited for the share of the time he is fit. When a starter sits, the best bench player who plays that day steps in, and only a spot that is still empty gets the waiver level fill in. Before, a questionable star was benched all day behind weaker healthy players
+* Injury tags. A tag the code does not know now counts as questionable, never as healthy. Doubtful counts 25 percent
+* Rest of season. The window stops on the last day of the fantasy playoffs, March 28. Before, the last two weeks counted games played after the season ends
+* Pickups. The rest of season lift is worked out with your lineups set again for the new roster. With no adds left the list is scored for next week and says so, also late on Sunday when the list has already moved on by the clock. When the list is for next week and this week still has adds, the card says an add made before the week ends uses this week's count. A waiver date that has passed counts as cleared. A marked add counts against a week only when its day falls in that week, the same as a scanned add
+* Board to engine. A move up the board can no longer read as fewer games for a player whose nine numbers sum below zero. The direction comes from the board value and the size from the nine numbers. A rank can lift the games share by 15 points at most, the same room it has to lower it, so Dejounte Murray moves from a 45 percent share to 60 and not to 93
+* Josh calls. On a line blended from two seasons a call goes only as far as it takes to reach the number it points at, measured from last season. It never moves a cat further than the call itself and never against it, so a fluke the blend already removed is not removed twice. Kessler's steals stay at the blended 0.66. Before they were cut to 0.40
+* Minutes. A blended line with a minutes number from Josh uses that number as its label. Without one the label still shows last season's minutes until the player has played this season, then his own minutes replace it without rescaling the line, and the usual check against the last two weeks runs from there
+* Scan timing. A scan taken late in the evening no longer writes off games still being played. The first week still to play is read from the win, loss and tie counts in the scan, so the week that just ended stays in the top four number until Yahoo has put it in the records. After week 18 the top four uses Yahoo's own standings place
+* Page safety. If a data file fails to load the tab says which one and shows no numbers, with a Try again button. A file that loads but holds nothing useful, such as a scan with no players on your team, is treated the same way. A damaged saved state is cleaned on load, and a marked add for a player the scan does not know is dropped. Player ids are escaped. A scan more than 2 days old gets a clear warning, and a week whose score is missing from the scan says the numbers cover only the days left
+* Words. Cards say plainly when Josh has no rank or call for a player. The adds cell and the scan summary name their week. Before a week has a score the page says cats you are favored in, not cats you lead. A swing cat means 42 to 58 percent everywhere. The help text mismatches listed in the audit are corrected, and the draft help no longer tells you to tap Connect Yahoo
+* Scan intake. ingest.js runs every check before it writes anything, and refuses duplicate players, unknown team ids, wrong counts, bad times and scans older than the one on file. fetch-sched.js leaves out the NBA Cup championship game
+* Draft board, Teams tab and Josh by team page. Rosters follow the latest Yahoo scan. The draft room page has a proper phone layout and no longer opens blank. The name matcher no longer reads Jaylin Williams as Jalen Williams. Placeholders no longer shift the board. Stale help text, the playoff back to back list, the Cleared chip, five Josh table labels, two Josh category tags and one rebound call are corrected. Board spots are unchanged for all 191 players
+* On the Oct 6 scan the week 1 chance goes from 65 to 59 percent, the average week from 62 to 61 and the top four chance from 62 to 61. The trade list now leads with Matas Buzelis and Kyshawn George for Julius Randle and Reed Sheppard at 2.3. Nine trades are listed and 14 smaller ones are hidden, from 5,907 offers scored
+* Not changed, by choice. A one week streamer can still score high while its drop costs the season, preseason injury tags still count in full, and the headline is still top four. These are design questions listed in the audit report
+
+## How to fall back to version 11
+
+* The v17 branch holds the site exactly as it was before version 12. It is pushed to GitHub in the same step as version 12.
+* `git checkout v17 -- index.html draft-room.html josh-teams.html moves.js scan data/josh_cats.json` then deploy
+
+## Version 11 (branch v17), Oct 5 2026
 
 * The crowded spot rule now knows a player can be slotted where there is room. Each player counts once. He fills a thin spot if he can play one, and he only counts as crowding when every spot he can play is crowded
 * Before, a player counted at every position he was eligible for, so a wing like Aaron Nesmith, who is SG and SF, was marked crowded at SG on a guard heavy roster even though he replaces a forward and can play forward

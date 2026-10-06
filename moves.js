@@ -26,7 +26,7 @@ const ME='11';
 const D={};
 let ST={marks:[],small:false,at:''};
 // a saved state that is damaged is cleaned on load, so one bad entry can never break the tab
-const okMark=m=>!!m && typeof m==='object' && ((m.type==='add' && m.add!=null) || (m.type==='trade' && m.withTeam!=null && Array.isArray(m.give) && Array.isArray(m.get)));
+const okMark=m=>!!m && typeof m==='object' && ((m.type==='add' && typeof m.add==='string' && m.add!=='') || (m.type==='trade' && m.withTeam!=null && Array.isArray(m.give) && Array.isArray(m.get)));
 try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=!!j.small; ST.at=typeof j.at==='string'?j.at:''; } }catch(e){}
 const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} };
 
@@ -80,17 +80,18 @@ function loadJC(){ Object.keys(JCI).forEach(k=>delete JCI[k]); const j=D.jc&&D.j
     JCI[B.nkey(r.n||k)]={n:String(r.n||k),m,mp:isFinite(mp)&&mp>0?mp:0,mpu:r.mpu?1:0,why:str(r.why),why0:r.why0==null?null:str(r.why0),help:cats(r.help),hurt:cats(r.hurt)}; }); }
 const hasJC=()=>Object.keys(JCI).length>0;
 const jcOf=name=>{ const k=B.nkey(name); return JCI[k]||JCI[BALIAS[k]]||JCI[PALIAS[k]]||null; };
-/* ref is last season's own line, given only when l is a blend of two seasons. A call is written as a change to last season,
-   so on a blended line it is turned into the change that reaches the same target, and a fluke the blend already took out is not taken out twice */
+/* ref is last season's own line, given only when l is a blend of two seasons. A call is written as a change to last season.
+   On a blended line it goes only as far as it takes to reach the number the call points at, so a fluke the blend already took out is not taken out twice.
+   It never moves a cat further than the call itself would, and never the other way from what the call says */
 function applyJC(l,jc,useMin,ref){
   const o={mp:l.mp}; TK.forEach(k=>o[k]=l[k]); const m=jc.m;
   if(useMin && jc.mp>0 && l.mp>5){ let r=jc.mp/l.mp; if(jc.mpu && r<1) r=1; r=clamp(r,0.7,2.2); if(Math.abs(r-1)>=0.04){ const f=Math.pow(r,0.9); TK.forEach(k=>o[k]*=f); o.mp=l.mp*r; } }
-  const rel=(k,v)=>{ let x=clamp(v,0.6,1.5); if(ref && ref[k]>0 && l[k]>0) x=clamp(x*ref[k]/l[k],0.6,1.5); return x; };
+  const rel=(k,v)=>{ const x=clamp(v,0.6,1.5); if(ref && ref[k]>0 && l[k]>0) return clamp(x*ref[k]/l[k],Math.min(1,x),Math.max(1,x)); return x; };
   const mul=(k,v)=>{ if(v>0 && v!==1) o[k]*=rel(k,v); };
   if(m[3]>0 && m[3]!==1){ const v=rel('pts',m[3]); o.pts*=v; o.fgm*=v; o.fga*=v; o.ftm*=v; o.fta*=v; }
   mul('tpm',m[2]); mul('reb',m[4]); mul('ast',m[5]); mul('stl',m[6]); mul('blk',m[7]); mul('to',m[8]);
   const shift=(old,d,a,b)=>d>0?Math.min(Math.max(old,b),old+d):Math.max(Math.min(old,a),old+d);
-  const dOf=(d,mk,ak)=>{ d=clamp(d,-5,5); if(ref && ref[ak]>0 && l[ak]>0) d=clamp(100*ref[mk]/ref[ak]+d-100*l[mk]/l[ak],-5,5); return d; };
+  const dOf=(d,mk,ak)=>{ d=clamp(d,-5,5); if(ref && ref[ak]>0 && l[ak]>0) d=clamp(100*ref[mk]/ref[ak]+d-100*l[mk]/l[ak],Math.min(0,d),Math.max(0,d)); return d; };
   if(m[0] && o.fga>0){ const d=dOf(m[0],'fgm','fga'); if(d){ const fg=shift(100*o.fgm/o.fga,d,30,75), nm=o.fga*fg/100; o.pts+=2.1*(nm-o.fgm); o.fgm=nm; } }
   if(m[1] && o.fta>0){ const d=dOf(m[1],'ftm','fta'); if(d){ const ft=shift(100*o.ftm/o.fta,d,40,96), nm=o.fta*ft/100; o.pts+=nm-o.ftm; o.ftm=nm; } }
   if(o.tpm>o.fgm) o.tpm=o.fgm;
@@ -106,18 +107,20 @@ function project(p,scan){
     // the board moves each player 70 percent of the way to Josh's rank. Carry that same change in value over here.
     // A higher or lower rank is read first as more or fewer games played, then as a small change in per game volume, so stat lines stay believable.
     // The board reaches a spot by scaling or shifting his nine numbers. Scaling makes a sum that is below zero more negative, so the plain sum can read a move up as a move down.
-    // The board value itself always moves the right way, so the direction is read from it and the size stays what the nine numbers say
+    // The board value itself always moves the right way, so the direction is read from it and the size stays what the nine numbers say.
+    // A rank can lift the games share by 15 points at most, the same room it has to lower it, so a player the board expects to miss time is not handed a full season
     const ezs1=b.ez.reduce((a,v)=>a+v,0);
     const v1=(b.ezs0!=null && b.bv0!=null && b.bv1!=null)?b.ezs0+(b.bv1>b.bv0?1:b.bv1<b.bv0?-1:0)*Math.abs(ezs1-b.ezs0):ezs1;
     if(useRef || zk){
       // a line blended from two seasons has no minutes of its own. Last season's minutes come from the short sample, so they are not used as its label.
-      // Josh's minutes number is used when he gave one. Without it the label is soft and real minutes later replace it without scaling the line
+      // Josh's minutes number is used when he gave one. Without it the label is soft. It shows last season's minutes until he has played this season,
+      // then this season's own minutes take its place and the usual check against the last two weeks runs from there
       const blend=!useRef && !!st && st.src==='blend', jmp=blend && jc && jc.mp>0;
       if(blend && !mp && !jmp) mpSoft=true;
       const base0=useRef?lineOfPrior(pr):lineFromZ(st.z,mp?+mp:(jmp?jc.mp:(pr?pr[1]:28)));
       // games played come from the rank alone, exactly as before the category calls existed, so a call never moves how many games a player is given
       const Z0=zk?st.z.reduce((a,v)=>a+v,0):valOf(base0);
-      let av=av0; if(Z0+2.25>0.5) av=clamp((v1+2.25)/(Z0+2.25),Math.max(0.5,av0-0.15),Math.max(av0,0.93));
+      let av=av0; if(Z0+2.25>0.5) av=clamp((v1+2.25)/(Z0+2.25),Math.max(0.5,av0-0.15),Math.max(av0,Math.min(0.93,av0+0.15)));
       const Z1=(v1+2.25*(1-av))/av;
       const dvOf=l=>Math.max(5,1.004*l.tpm+0.169*l.pts+0.440*l.reb+0.495*l.ast+2.823*l.stl+2.065*l.blk-1.274*l.to);
       // a minutes number from Josh widens how far the rank may move the volume, toward his number and no further. Only for a real last season
@@ -143,7 +146,7 @@ function project(p,scan){
   if(cur&&gp<1) cur=null;
   let w=0, line=null;
   // a real last season counts like 12 games, an older season like 9, a rookie guess like 6
-  if(cur){ const pp=prior||REPL_LINE; w=gp/(gp+(!prior?6:pb==='est'?6:pb==='older'?9:12)); line=mixLine(pp,cur,w); } else line=prior;
+  if(cur){ const pp=prior||REPL_LINE; w=gp/(gp+(!prior?6:pb==='est'?6:pb==='older'?9:12)); line=mixLine(pp,cur,w); if(mpSoft && cur.mp>5){ line.mp=cur.mp; mpSoft=false; } } else line=prior;
   p.role='';
   // real minutes over the last two weeks beat any projection. The up or down tag is judged against the minutes without Josh's call, so playing last season's minutes is never tagged as a change
   if(line && mpSoft && p.m14!=null && p.g14>=3){ line=scaleLine(line,1); line.mp=p.m14; }
@@ -311,7 +314,8 @@ function timeline(ctx){
   else { const nx=weeks.find(w=>w.n===wk.n+1); if(nx){ ctx.pwk=nx; ctx.pdays=dayList(nx.start,nx.end); ctx.pact=null; ctx.popp=oppOf(nx); if(addDay<nx.start) ctx.addDay=nx.start; } else { ctx.pwk=wk; ctx.pdays=[]; ctx.pact=act; ctx.popp=ctx.opp; } }
   // with no adds left this week a pickup can only help from next week on, so the list is scored for next week
   ctx.addsNow=addsLeft(ctx,wk); ctx.noAdds=false;
-  if(ctx.pwk===wk && ctx.addsNow<=0){ const nx=weeks.find(w=>w.n===wk.n+1); if(nx){ ctx.noAdds=true; ctx.pwk=nx; ctx.pdays=dayList(nx.start,nx.end); ctx.pact=null; ctx.popp=oppOf(nx); ctx.addDay=nx.start; } }
+  // The same holds late on the last day of the week, when the list has already moved on by the clock. Yahoo still counts an add made that night against this week
+  if(ctx.addsNow<=0 && now.date>=wk.start && now.date<=wk.end){ const nx=weeks.find(w=>w.n===wk.n+1); if(nx && (ctx.pwk===wk || ctx.pwk===nx)){ ctx.noAdds=true; ctx.pwk=nx; ctx.pdays=dayList(nx.start,nx.end); ctx.pact=null; ctx.popp=oppOf(nx); ctx.addDay=nx.start; } }
   // every day from now to the last day of the fantasy playoffs, used for the rest of season numbers. Nothing after the final counts
   const last=weeks[weeks.length-1].end;
   ctx.tdays=from<=last?dayList(from,last):[]; ctx.tweeks=Math.max(1,ctx.tdays.length/7);
@@ -440,7 +444,7 @@ function addsLeft(ctx,week){ const L=D.league, wk=week||ctx.wk, tx=ctx.scan.tx||
   used+=ST.marks.filter(m=>m.type==='add' && (m.day?(m.day>=wk.start && m.day<=wk.end):(wk.n===ctx.wk.n && ctx.now.date>=wk.start))).length; return Math.max(0,(L.adds||4)-used); }
 
 /* trades */
-function trades(ctx,done){
+function trades(ctx,done,live){
   const res={list:[],count:0,hidden:0,pass:0,base:ctx.base[ME]}; const L=D.league;
   const today=ctx.now.date; if(L.tradeDeadline && today>L.tradeDeadline){ res.note='The trade deadline has passed.'; done(res); return; }
   const mine=ctx.ros[ME].filter(p=>p.proj && !NEVER.has(B.nkey(p.name)) && !(HOLD[B.nkey(p.name)] && today<HOLD[B.nkey(p.name)]));
@@ -460,10 +464,12 @@ function trades(ctx,done){
   const spotOf=()=>{ let b=0; ctx.ros[ME].forEach(p=>{ const k=B.nkey(p.name); if(p.proj && !isIL(p) && !NEVER.has(k) && !(HOLD[k] && today<HOLD[k])) b=Math.max(b,dropEx(p)); }); return b; }; let spotV=null;
   // by Josh's overall ranks, do you give up clearly more than you get. Such a deal is never shown, so it is not scored either
   const joshOf=(give,get)=>{ const gJ=dw(give.map(p=>p.jv)), rJ=dw(get.map(p=>p.jv)), j=rJ-gJ; return {j,side:j<-Math.max(6,0.2*gJ)?'lose':j>Math.max(4,0.15*Math.max(gJ,rJ))?'win':'even'}; };
-  const out=[]; let oi=0, seen=0;
-  const step=()=>{
-    if(oi>=opps.length){ finish(); return; }
-    const o=opps[oi++], their=ctx.ros[o].filter(p=>p.proj);
+  // Scoring every offer takes a few seconds on a slow phone, so the work stops every 40 thousandths of a second to let the page answer a tap, then picks up where it left off.
+  // live says whether this run is still the newest one. An older run stops quietly
+  const out=[]; let seen=0; const clock=()=>(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
+  const work=function*(){ let t0=clock();
+   for(const o of opps){
+    const their=ctx.ros[o].filter(p=>p.proj);
     const gets={1:combos(their,1),2:combos(their,2)};
     const worst=their.slice().sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0));
     for(const sh of [[1,1],[2,2],[2,1]]){
@@ -474,6 +480,7 @@ function trades(ctx,done){
         const thC=ctx.ros[o].filter(isC).length-get.filter(isC).length+give.filter(isC).length; if(thC<2) continue;
         if(joshOf(give,get).side==='lose') continue;
         seen++;
+        if(clock()-t0>40){ yield; t0=clock(); }
         // every offer that gets this far is scored exactly, with both teams' daily lineups set again for the new rosters. No shortcut decides what is dropped
         const two=sh[0]>sh[1]; let cut=null, credit=0;
         if(two){ cut=worst.find(p=>!get.includes(p))||null; if(spotV==null) spotV=spotOf(); credit=spotV; }
@@ -487,8 +494,9 @@ function trades(ctx,done){
         out.push({o,give,get,ratio,myGain,oGain,cut,credit,two,Tm,To});
       }
     }
-    setTimeout(step,0);
+   }
   };
+  const it=work(); const pump=()=>{ if(live && !live()) return; if(it.next().done) finish(); else setTimeout(pump,0); };
   const score=t=>{
     const top=t.get.some(p=>(pickOf[B.nkey(p.name)]||99)<=20 || LEGEND.has(B.nkey(p.name)));
     t.top=top; t.acc=clamp(1/(1+Math.exp(-(7*(Math.min(t.ratio,1.6)-1.03)+0.3*t.oGain+0.25*(t.need||0)-(top?1:0)-(t.two?0.4:0)))),0.03,0.92);
@@ -522,10 +530,11 @@ function trades(ctx,done){
     const hurt=ctx.ros[ME].filter(p=>isOut(p) && p.val>0 && myProtected(ctx).has(p.id));
     pass.forEach((t,i)=>{ t.urgent=i<2 && t.oGain>=-0.3 && ((t.myGain>=3 && t.acc>=0.6) || (hurt.length>0 && t.myGain>=1.5 && t.acc>=0.5)); });
     pass.sort((a,b)=>(b.urgent?1:0)-(a.urgent?1:0)||byGain(a,b));
-    res.pass=pass.length; res.hidden=ST.small?0:small.length; res.small=small.length;
-    res.list=ST.small?pass.concat(small).slice(0,14):pass; res.count=seen; res.pool=out.map(t=>t.o+'|'+t.give.map(p=>p.id).join('+')+'|'+t.get.map(p=>p.id).join('+')+'|'+t.myGain.toFixed(4)+'|'+t.oGain.toFixed(4)); done(res);
+    // the box that shows the smaller trades only changes which of these are listed, so it never has to score anything again
+    res.relist=()=>{ res.pass=pass.length; res.hidden=ST.small?0:small.length; res.small=small.length; res.list=ST.small?pass.concat(small).slice(0,14):pass; }; res.relist();
+    res.count=seen; res.pool=out.map(t=>t.o+'|'+t.give.map(p=>p.id).join('+')+'|'+t.get.map(p=>p.id).join('+')+'|'+t.myGain.toFixed(4)+'|'+t.oGain.toFixed(4)); done(res);
   };
-  setTimeout(step,0);
+  setTimeout(pump,0);
 }
 
 /* league table and the race for the top four */
@@ -534,7 +543,11 @@ function race(ctx){
   const L=D.league, tids=Object.keys(ctx.ros), rnd=mulberry(82878), N=3000;
   const P={}; tids.forEach(a=>{ P[a]={}; tids.forEach(b=>{ if(a!==b) P[a][b]=pWin5(catProbs(ctx.typ[a],ctx.typ[b],ctx.u,ctx.up)); }); });
   // the records in the scan stop at the week the scan was taken in. A week that has ended since then is in no record yet, so it is played out here too
-  const w0=(ctx.scan.week && ctx.scan.week<ctx.wk.n)?ctx.scan.week:ctx.wk.n;
+  // Each team's wins, losses and ties add up to the weeks already in the records, so the first week still to play is read from the records themselves.
+  // That holds when the scan is a day old on a Monday and when Yahoo has named the new week but not yet closed the old one
+  const recW=tids.length?Math.min.apply(null,tids.map(t=>{ const x=ctx.teams[t]||{}; return Math.round((+x.w||0)+(+x.l||0)+(+x.t||0)); })):0;
+  // Records that run ahead of the calendar would mean they are not one win a week, so in that case the week named in the scan is used as before
+  const w0=recW<=ctx.wk.n?recW+1:((ctx.scan.week && ctx.scan.week<ctx.wk.n)?ctx.scan.week:ctx.wk.n);
   const games=[]; L.weeks.filter(w=>w.n>=w0 && w.n<=(L.lastRegularWeek||18)).forEach(w=>w.games.forEach(g=>{ if(P[g[0]]&&P[g[1]]) games.push(g); }));
   const top4={}, wins={}; tids.forEach(t=>{ top4[t]=0; wins[t]=0; });
   // once the regular season is over the standings are final, so Yahoo's own place decides the first four
@@ -594,7 +607,7 @@ function pickupWhy(ctx,pk,r){
   else if(pk.ilMove) s2+='Move '+pk.ilMove.name+' to IL first, he is tagged '+statusWord(pk.ilMove.status)+', then no drop is needed. ';
   if(r.wd) s2+='He is on waivers until '+nice(r.wd)+'. A claim sends you to the back of the waiver line, you are number '+((ctx.teams[ME]||{}).waiver||'?')+' now.';
   else if(r.waiver) s2+='He is on waivers. A claim sends you to the back of the waiver line.';
-  else s2+='He is a free agent, so he costs no waiver spot. '+(pk.adds<=0?'You have no adds left for that week, so Yahoo will not take the add.':pk.adds===1?'It would use your last add for that week.':'It uses one of your '+pk.adds+' adds left for that week.');
+  else s2+='He is a free agent, so he costs no waiver spot. '+(pk.adds<=0?'You have no adds left for that week, so Yahoo will not take the add.':pk.adds===1?'It would use your last add for that week.':(pk.week && pk.week.n!==ctx.wk.n && !ctx.noAdds && ctx.now.date>=ctx.wk.start)?'Added before week '+ctx.wk.n+' ends, it uses one of your '+ctx.addsNow+' adds left for week '+ctx.wk.n+'. Added after that, it uses one of the '+pk.adds+' for week '+pk.week.n+'.':'It uses one of your '+pk.adds+' adds left for that week.');
   if(r.bal.mult>1) s2+=' He also helps your position balance at '+listWords(r.bal.good)+'.'; else if(r.bal.mult<1){ const w=[]; if(r.bal.crowd.length) w.push('he can only play '+listWords(r.bal.crowd)+', where you are already crowded'); if(r.bal.thin.length) w.push('the drop leaves you thin at '+listWords(r.bal.thin)); s2+=' For position balance, '+w.join(' and ')+', so his score is trimmed a little.'; }
   a.push(s2);
   let s3=basisWords([p]); if(r.josh>0 && p.b) s3+=' Josh has him at '+p.b.josh+', well above his Yahoo rank of '+(yrank(p)||'none')+'.'; if(r.josh<0 && p.b) s3+=' Josh has him at '+p.b.josh+', below his Yahoo rank of '+(yrank(p)||'none')+'.';
@@ -670,7 +683,7 @@ function pitchText(ctx,t){
 }
 
 /* drawing */
-let CTX=null, CTXW=null, TR=null, PK=null, WK=null, RACE=null, ERR='';
+let CTX=null, CTXW=null, TR=null, PK=null, WK=null, RACE=null, ERR='', TRUN=0;
 function css(){
   if($('mvcss')) return; const s=document.createElement('style'); s.id='mvcss';
   s.textContent='.mv{display:flex;flex-direction:column;gap:16px}.mvgrid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:16px;align-items:start}@media (max-width:1100px){.mvgrid{grid-template-columns:minmax(0,1fr)}}.mvcol{display:flex;flex-direction:column;gap:16px;min-width:0}'
@@ -696,7 +709,7 @@ function scanLine(ctx){
 }
 function render(){
   css(); const root=$('viewMoves'); if(!root) return;
-  if(D.miss && D.miss.length && !D.loading){ root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">'+(D.miss.length===1?'One data file did not load, ':'Some data files did not load, ')+esc(D.miss.join(', '))+'. No numbers are shown because they would be wrong without '+(D.miss.length===1?'it':'them')+'. Check your connection and try again.</p><div class="mvact"><button class="btn" id="mvretry" type="button">Try again</button></div></div>'; const b=$('mvretry'); if(b) b.onclick=()=>{ D.miss=null; load(); }; return; }
+  if(D.miss && D.miss.length && !D.loading){ root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">'+(D.miss.length===1?'One data file did not load properly, ':'Some data files did not load properly, ')+esc(D.miss.join(', '))+'. No numbers are shown because they would be wrong without '+(D.miss.length===1?'it':'them')+'. Check your connection and try again.</p><div class="mvact"><button class="btn" id="mvretry" type="button">Try again</button></div></div>'; const b=$('mvretry'); if(b) b.onclick=()=>{ D.miss=null; load(); }; return; }
   if(!D.scan || !D.league || !D.sched){ root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">'+(D.loading?'Loading the league data.':'No Yahoo scan is loaded yet. The daily scan puts it here.')+'</p></div>'; return; }
   const ctx=CTX, wk=WK, pk=PK, me=ctx.base[ME], rc=RACE; const mine=rc.rows.find(r=>r.tid===ME);
   const oppName=ctx.opp?((ctx.teams[ctx.opp]||{}).name||''):'';
@@ -704,7 +717,7 @@ function render(){
   h+='<div class="panel">'+scanLine(ctx);
   h+='<div class="mvcells">';
   h+='<div class="mvc"><div class="k">Week '+ctx.wk.n+' win chance</div><div class="v">'+(wk?pc(wk.win)+'%':'none')+'</div><div class="s">'+(wk?'vs '+esc(oppName)+(ctx.partial?', days left only':''):'no matchup')+'</div></div>';
-  h+='<div class="mvc"><div class="k">Cats you lead</div><div class="v">'+(wk?wk.fav:0)+' of 9</div><div class="s">you need 5</div></div>';
+  h+='<div class="mvc"><div class="k">'+(ctx.act?'Cats you lead':'Cats you are favored in')+'</div><div class="v">'+(wk?wk.fav:0)+' of 9</div><div class="s">you need 5</div></div>';
   h+='<div class="mvc"><div class="k">Average week</div><div class="v">'+pc(me.week)+'%</div><div class="s">rest of season, ranks '+mine.pos+' of 10</div></div>';
   h+='<div class="mvc"><div class="k">Top four chance</div><div class="v">'+pc(mine.top4)+'%</div><div class="s">about '+r1(mine.wins)+' wins by week 18</div></div>';
   h+='<div class="mvc"><div class="k">Adds left, week '+ctx.wk.n+'</div><div class="v">'+ctx.addsNow+' of '+(D.league.adds||4)+'</div><div class="s">waiver spot '+((ctx.teams[ME]||{}).waiver||'?')+' of 10'+(pk.week && pk.week.n!==ctx.wk.n?', week '+pk.week.n+' has '+pk.adds+' left':'')+'</div></div>';
@@ -719,8 +732,10 @@ function render(){
 function goalLine(ctx,wk,pk){
   if(!wk) return 'No matchup found for this week.';
   const need=5-wk.fav; const top=pk.list[0];
-  let s=wk.fav>=5?'You lead '+wk.fav+' of 9 cats against '+esc((ctx.teams[ctx.opp]||{}).name||'')+'. Hold the lead and protect the close ones.':'You lead only '+wk.fav+' of 9 cats, so you need '+need+' more. Keep adding and trading until this reads 5 or more.';
-  const close=wk.probs.map((p,c)=>[Math.abs(p-0.5),c,p]).filter(x=>x[0]<0.12).sort((a,b)=>a[0]-b[0]).slice(0,3).map(x=>CATS[x[1]]);
+  // before the week has a score nobody leads anything yet, so the words say favored. A swing cat is the same thing everywhere on this page, a cat between 42 and 58 percent
+  const lead=ctx.act?'lead':'are favored in';
+  let s=wk.fav>=5?'You '+lead+' '+wk.fav+' of 9 cats against '+esc((ctx.teams[ctx.opp]||{}).name||'')+'. '+(ctx.act?'Hold the lead':'Keep it that way')+' and protect the close ones.':'You '+lead+' only '+wk.fav+' of 9 cats, so you need '+need+' more. Keep adding and trading until this reads 5 or more.';
+  const close=wk.probs.map((p,c)=>[Math.abs(p-0.5),c,p]).filter(x=>x[0]<=0.08).sort((a,b)=>a[0]-b[0]).slice(0,3).map(x=>CATS[x[1]]);
   if(close.length) s+=close.length===1?' The swing cat is '+close[0]+'.':' The swing cats are '+listWords(close)+'.';
   if(top) s+=(ctx.noAdds?' You have no adds left this week. Best pickup for week '+pk.week.n+' is ':' Best pickup now is ')+esc(top.p.name)+' at '+top.need+'.';
   return s;
@@ -731,7 +746,7 @@ function weekPanel(ctx,wk){
   let h='<div class="panel"><h2>Week '+ctx.wk.n+' vs '+esc(oppName)+' <span>'+nice(ctx.wk.start)+' to '+nice(ctx.wk.end)+'</span></h2>';
   h+='<div class="mvbig">'+pc(wk.win)+'%<small>chance to win 5 or more cats'+(ctx.partial?' over the days left':'')+', about '+r1(wk.exp)+' cats expected</small></div>';
   if(ctx.partial) h+='<div class="switch">The last scan holds no score for this week, so the days already played are missing. These numbers cover only the games from '+nice(ctx.from)+' on and are not the real state of the week. Run a fresh scan to see it.</div>';
-  h+='<p class="small">'+(live?'Live score from the scan plus the games still to come. ':ctx.partial?'Projected totals for the days left. ':'Projected totals for the week. ')+'Your lineup has '+r0(wk.me.rest.s)+' player starts '+(live||ctx.partial?'left':'planned')+', theirs has '+r0(wk.op.rest.s)+'.</p>';
+  h+='<p class="small">'+(live?'Live score from the scan plus the games still to come. ':ctx.partial?'Projected totals for the days left. ':'Projected totals for the week. ')+'Your lineup has '+r0(wk.me.rest.s)+(r0(wk.me.rest.s)===1?' player start ':' player starts ')+(live||ctx.partial?'left':'planned')+', theirs has '+r0(wk.op.rest.s)+'.</p>';
   wk.probs.forEach((p,c)=>{ const col=p>=0.5?'var(--good)':'var(--bad)'; const w=Math.abs(p-0.5)*100; const left=p>=0.5?50:50-w;
     h+='<div class="mvrow"><span class="cn">'+CATS[c]+'</span><span class="bar"><span class="mid"></span><span class="fill" style="left:'+left+'%;width:'+w+'%;background:'+col+'"></span></span><span class="tv">'+fm(wk.me.tot,c)+' vs '+fm(wk.op.tot,c)+'</span><span class="pv" style="color:'+col+'">'+pc(p)+'</span></div>'; });
   h+='<p class="small">The number on the right is your chance to win that cat. Green means you are ahead.</p></div>';
@@ -798,7 +813,7 @@ function wire(){
   root.querySelectorAll('[data-trade]').forEach(b=>b.onclick=()=>{ const t=TR.list[+b.getAttribute('data-trade')]; if(!t) return; ST.marks.push({type:'trade',withTeam:t.o,give:t.give.map(p=>p.id),get:t.get.map(p=>p.id),cut:t.cut?t.cut.id:null}); ST.at=D.scan.at; save(); compute(true); });
   root.querySelectorAll('[data-pitch]').forEach(b=>b.onclick=()=>{ const t=TR.list[+b.getAttribute('data-pitch')]; if(!t) return; const txt=pitchText(CTXW,t); const ok=()=>{ b.textContent='Copied'; setTimeout(()=>{ b.textContent='Copy a message to send'; },1500); }; try{ navigator.clipboard.writeText(txt).then(ok,()=>{ window.prompt&&0; b.textContent=txt; }); }catch(e){ b.textContent=txt; } });
   const u=$('mvundo'); if(u) u.onclick=()=>{ ST.marks=[]; save(); compute(true); };
-  const sm=$('mvsmall'); if(sm) sm.onchange=()=>{ ST.small=sm.checked; save(); compute(true); };
+  const sm=$('mvsmall'); if(sm) sm.onchange=()=>{ ST.small=sm.checked; save(); if(TR && TR.relist){ TR.relist(); render(); } else compute(true); };
 }
 function compute(redoTrades){
   try{ ERR=''; computeInner(redoTrades); }
@@ -806,9 +821,11 @@ function compute(redoTrades){
 }
 function computeInner(redoTrades){
   if(!D.scan || !D.league || !D.sched){ render(); return; }
-  if(ST.at && ST.at!==D.scan.at && ST.marks.length){ ST.marks=[]; ST.at=D.scan.at; save(); }
+  if(ST.at!==D.scan.at && ST.marks.length){ ST.marks=[]; ST.at=D.scan.at; save(); }
+  // a marked add must be a player the scan knows, so a damaged saved mark can never put a made up player on your roster or use up an add
+  if(ST.marks.length){ const known=new Set(Object.keys(D.scan.avail||{})); Object.keys(D.scan.rosters||{}).forEach(t=>(D.scan.rosters[t]||[]).forEach(e=>known.add(String(e[0])))); const keep=ST.marks.filter(m=>m.type!=='add' || known.has(m.add)); if(keep.length!==ST.marks.length){ ST.marks=keep; save(); } }
   CTX=build(D.scan); WK=thisWeek(CTX); PK=pickups(CTX); RACE=race(CTX);
-  if(redoTrades || !TR){ TR=null; CTXW=build(D.week||D.scan); render(); trades(CTXW,res=>{ TR=res; try{ render(); }catch(e){ ERR=String(e&&e.message||e); } }); }
+  if(redoTrades || !TR){ TR=null; CTXW=build(D.week||D.scan); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ ERR=String(e&&e.message||e); } },()=>run===TRUN); }
   else render();
 }
 async function load(){
@@ -817,7 +834,13 @@ async function load(){
   const files=['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json','josh_cats.json'];
   const a=await Promise.all(files.map(get));
   // every file but the weekly snapshot is needed for the numbers to be right. If one did not arrive, say so and draw nothing, because numbers built without it look normal and are wrong
-  const okShape=[x=>x&&Array.isArray(x.weeks),x=>x&&x.games,x=>x&&x.p,x=>x&&x.p,x=>x&&x.rosters,()=>true,x=>x&&x.p];
+  // A file that arrives but holds nothing useful is treated the same way, for example a scan with no players on your team or a schedule with no games
+  const obj=x=>!!x && typeof x==='object' && !Array.isArray(x), full=x=>obj(x) && Object.keys(x).length>0;
+  const okShape=[x=>obj(x)&&Array.isArray(x.weeks)&&x.weeks.length>0&&x.weeks.every(w=>w&&Array.isArray(w.games))&&full(x.teams),
+    x=>obj(x)&&full(x.games)&&Object.keys(x.games).some(t=>Array.isArray(x.games[t])&&x.games[t].length>0),
+    x=>obj(x)&&full(x.p), x=>obj(x)&&full(x.p),
+    x=>obj(x)&&typeof x.at==='string'&&isFinite(Date.parse(x.at))&&obj(x.rosters)&&Array.isArray(x.rosters[ME])&&x.rosters[ME].length>0&&Object.keys(x.rosters).every(t=>Array.isArray(x.rosters[t])),
+    ()=>true, x=>obj(x)&&obj(x.p)];
   D.miss=files.filter((f,i)=>!okShape[i](a[i]));
   if(D.miss.length){ D.loading=false; D.loaded=false; render(); return; }
   D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=(a[5]&&a[5].rosters)?a[5]:a[4]; D.jc=a[6]; loadJC();
@@ -831,7 +854,7 @@ function summary(){
   o.push('scan '+c.scan.at+', week '+c.wk.n+' vs '+((c.teams[c.opp]||{}).name||'none'));
   if(WK) o.push('week win chance '+pc(WK.win)+' percent, leading '+WK.fav+' of 9 cats, cat chances '+WK.probs.map((p,i)=>CATS[i]+' '+pc(p)).join(', ')); else o.push('no matchup found for this week');
   o.push('average week '+pc(c.base[ME].week)+' percent, rank '+me.pos+' of 10, top four chance '+pc(me.top4)+' percent, record '+(me.rec.w||0)+' wins '+(me.rec.l||0)+' losses');
-  o.push('adds left '+PK.adds+', waiver spot '+((c.teams[ME]||{}).waiver||'unknown')+(PK.ilMove&&!PK.free?', IL move open for '+PK.ilMove.name:'')+(PK.free?', open roster spots '+PK.free:''));
+  o.push('adds left for week '+c.wk.n+' '+c.addsNow+(PK.week && PK.week.n!==c.wk.n?', pickups below are scored for week '+PK.week.n+' which has '+PK.adds+' adds left':', pickups below are scored for week '+c.wk.n)+', waiver spot '+((c.teams[ME]||{}).waiver||'unknown')+(PK.ilMove&&!PK.free?', IL move open for '+PK.ilMove.name:'')+(PK.free?', open roster spots '+PK.free:''));
   PK.list.slice(0,4).forEach((r,i)=>o.push('pickup '+(i+1)+', need '+r.need+', '+r.p.name+(r.drop?', drop '+r.drop.name:', no drop')+', '+r.tag+', '+(r.wd?'waivers until '+nice(r.wd):r.waiver?'on waivers':'free agent')));
   if(!TR.list.length) o.push('no trade adds a full cat right now'+(TR.hidden?', '+TR.hidden+' smaller ones hidden':''));
   TR.list.slice(0,3).forEach((t,i)=>o.push('trade '+(i+1)+(t.urgent?' urgent':'')+(t.pass?', adds '+t.up.map(c=>CATS[c]).join(' '):', under one cat')+', with '+((CTXW.teams[t.o]||{}).name||'')+', give '+t.give.map(p=>p.name).join(' and ')+', get '+t.get.map(p=>p.name).join(' and ')+(tradeCats(t).up.length?', helps '+tradeCats(t).up.map(c=>CATS[c]).join(' '):'')+(tradeCats(t).dn.length?', costs '+tradeCats(t).dn.map(c=>CATS[c]).join(' '):'')+', my gain '+r1(t.myGain)+', their gain '+r1(t.oGain)+', yes chance '+pc(t.acc)+' percent'));
