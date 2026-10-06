@@ -38,6 +38,8 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
    * It prints scan saved when every line checks out
    * If it prints CHECK FAILED it names the bad lines. Show that page again, read those lines again, fix the file and run it again. Try at most three times, then report and stop. Nothing is written when a check fails
    * If it warns about player ids with no name, run the scan once more with `NCWSCAN.run({all:true,limit:12000})` and ingest again
+   * A line that starts with WARNING does not stop the save. Read it and pass it on in the report
+   * If it says the scan on file is newer, the page files are from an older scan. Only to recover on purpose, run `node scan/ingest.js --force <page files in order>`. That skips this one check and no other
 7. On Mondays also refresh the NBA schedule with `node scan/fetch-sched.js` in the project folder. If it says the schedule was not saved, leave the old file and mention it
 8. Deploy from the project folder on Windows
    ```
