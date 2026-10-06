@@ -133,6 +133,8 @@ select, input[type="search"] { background: var(--panel); border: 1px solid var(-
 .cats { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 10px; }
 .catrow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 84px; align-items: center; gap: 8px; font-size: 13px; }
 .catrow .cn { font-family: var(--mono); font-size: 12px; }
+.catrow.live { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.catrow.live .chip { white-space: nowrap; }
 .catrow .cn.tgt { color: var(--accent); font-weight: 700; }
 .bar { position: relative; height: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
 .bar .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--muted); opacity: .5; }
@@ -300,7 +302,6 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
       <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
       <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
       <button class="tab" role="tab" id="tabMoves" aria-selected="false" type="button">Pickups and trades</button>
-      <a class="tab" id="tabJosh" href="josh-teams.html" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center">Josh by team</a>
     </div>
   </div>
 
@@ -319,7 +320,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
         <ul class="bt" id="beforeTurn"></ul>
       </div>
       <div class="panel">
-        <h2>Your 9 cats now <span>vs an average team</span></h2>
+        <h2>Your 9 cats now <span id="catsNote">vs an average team</span></h2>
         <div class="wins" id="winsBig">0<small>of 9 winning, need 5</small></div>
         <div class="cats" id="cats"></div>
       </div>
@@ -1145,6 +1146,7 @@ function render(){
     const tgt = eff!=='balanced' && b.t.includes(x.c);
     return '<div class="catrow"><span class="cn'+(tgt?' tgt':'')+'">'+CATS[x.c]+'</span><div class="bar"><div class="mid"></div><div class="fill" style="left:'+left+'%;width:'+width+'%;background:'+col+'"></div></div>'+chip+'</div>';
   }).join('');
+  catsLive();
   const projChip=(pr)=> pr>=0.6?'good':pr>=0.4?'warn':'bad';
   const projWord=(pr,c)=> pr>=0.6?(c<2?'Bonus':'Win'):pr>=0.4?'Swing':'Give up';
   let st='';
@@ -1567,6 +1569,27 @@ $('copy').onclick=()=>{
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>{ btn.textContent='Copy blocked'; setTimeout(()=>btn.textContent='Copy list',1500); });
 };
 const TABS=['board','teams','plan','moves'];
+/* With the real league on the board, the nine cat panel shows the same numbers as the Pickups and trades tab, built from the latest Yahoo scan.
+   Winning means you win that cat 60 percent of the time or more in an average week, losing means under 45 percent, and the rest are toss ups.
+   In a mock draft the panel stays a draft tool that compares your picks with an average team */
+let CATLIVE=null, CATASK=false;
+function catsLive(){
+  const note=$('catsNote'); if(!note) return;
+  const on=scanOn() && window.NCWMoves && typeof NCWMoves.cats==='function';
+  if(!on){ note.textContent='vs an average team'; return; }
+  if(!CATLIVE){ if(!CATASK){ CATASK=true; try{ NCWMoves.cats(x=>{ CATLIVE=x||false; if(x) render(); }); }catch(e){ CATLIVE=false; } } return; }
+  const ord=n=>['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'][n-1]||(n+'th');
+  const wins=CATLIVE.rows.filter(r=>r.p>=0.6).length;
+  note.textContent='from the Yahoo scan, same numbers as Pickups and trades';
+  $('vWins').textContent=wins;
+  $('winsBig').innerHTML=wins+'<small>of 9 winning in an average week, need 5. '+CATLIVE.hit+' of '+CATLIVE.of+' plan cats on target</small>';
+  $('cats').innerHTML=CATLIVE.rows.map(r=>{
+    const pct=Math.max(-1,Math.min(1,(r.p-0.5)/0.3)), left=pct>=0?50:50+pct*50, width=Math.abs(pct)*50;
+    const st=r.p>=0.6?'win':r.p<0.45?'lose':'toss', col=st==='win'?'var(--good)':st==='lose'?'var(--bad)':'var(--warn)';
+    const chip='<span class="chip '+(st==='win'?'good':st==='lose'?'bad':'warn')+'">'+(st==='win'?'Winning':st==='lose'?'Losing':'Toss up')+', '+Math.round(100*r.p)+'%, '+ord(r.rank)+'</span>';
+    return '<div class="catrow live"><span class="cn" title="'+esc(r.role)+'">'+esc(r.name)+'</span><div class="bar"><div class="mid"></div><div class="fill" style="left:'+left+'%;width:'+width+'%;background:'+col+'"></div></div>'+chip+'</div>';
+  }).join('');
+}
 function hashFor(t){ const want=t==='board'?'':'#'+t; if(location.hash===want) return; try{ history.replaceState(null,'',want||location.pathname+location.search); }catch(e){} }
 function setTab(t){ if(!TABS.includes(t)) t='board'; const early=t==='moves' && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
 $('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan'); $('tabMoves').onclick=()=>setTab('moves');
@@ -1575,7 +1598,7 @@ if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='
 window.addEventListener('hashchange',()=>{ const t=location.hash.slice(1)||'board'; if(TABS.includes(t) && t!==S.tab) setTab(t); });
 window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab};
 const WANT_MOVES=S.tab==='moves';
-window.NCWBoot=()=>{ if(WANT_MOVES) setTab('moves'); };
+window.NCWBoot=()=>{ if(WANT_MOVES) setTab('moves'); render(); };
 setTab(S.tab||'board');
 render();
 yInit();

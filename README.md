@@ -11,12 +11,70 @@ Live site at https://ninecatwarroom.vercel.app
 * index.html is the full website that runs on Vercel. It also works if you just open it in a browser.
 * draft-room.html is the draft board alone in the format used for the Claude artifact. It does not have the Pickups and trades tab.
 * moves.js is the Pickups and trades tab.
-* josh-teams.html is the Josh by team page, a plain page with no data files behind it.
+* josh-teams.html is the Josh by team page, a plain page with no data files behind it. Since version 13 no tab links to it. The page is still there by its address.
 * data holds the numbers the tab reads. josh_cats.json holds Josh Lloyd's category calls. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
-* scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule and README.md is the step by step procedure.
+* scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule, fetch-news.js writes the injury news file, fetch-ages.js writes the player ages file and README.md is the step by step procedure.
+* Three small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 12 (branch main), Oct 6 2026
+## Version 13 (branch main), Oct 6 2026
+
+Built after Vikas read the version 12 numbers and asked for trades that follow a plan and look fair to the other manager. Three parts shipped together.
+
+**The season plan**
+* Every cat has a role. Locks are 3PM, STL and TO. The build pool is PTS, REB and AST, and any two of them finish the plan. FT% is a bonus cat and counts 65 percent. FG% is low and counts half. BLK is the punt
+* A lock holds while you win it 60 percent of the time and are favored against at least 7 of the 9 other teams. Anything above that floor is room a trade may spend
+* The punt is frozen at today's chance, so no move is paid for adding blocks or blamed for losing them
+* A new Season plan panel shows each cat's role, win chance, league rank, how many teams you are favored against and its room, plus a Plan check that says when something has drifted
+* Routes to five. Each pair from the build pool is a route. The panel shows where each route stands, its best fair trade or pair of trades, what it can reach and its best pickup. The leading route is the one that ends closest to 60 percent in both cats
+* Once two build cats are on target that pair is guarded like the locks
+
+**Trades**
+* Your gain is the change in your chance to win five or more cats in an average week, counted the way the plan counts cats. The card also shows the real nine cat number
+* Stays on plan. No guarded cat goes under its floor and the trade builds a route or at least leaves the build cats alone
+* Pivots. A trade that gives up one guarded cat, or leans on a cat the plan counts low. It shows only when it beats the best trade that stays on plan by 2 points or more. Make this my plan saves the new plan on that device and ranks everything again. A full rebuild shows only when the plan week is under 50 percent or two locks are at risk
+* Looks fair replaces the old Yahoo value check and the yes percent. How they see a player blends what he really produced 40 percent, this league's draft spot 30, Josh's rank 20 and Yahoo's rank 10. Production is this season first, then last season, then the season before marked down. Age 32 or more and a season under 50 games are marked down too, and the card says why. The draft spot fades as games are played
+* The value curve never reaches zero and the gap is measured against at least 40 points of value, so two bench players can not read as a blowout. That was the fault behind the Jaquez and VanVleet offer, which no longer passes
+* An offer must look even or better to them. If they give the best player it must look at least 2 percent in their favor, and 10 percent when he is the best by a wide margin. Nothing asks that the trade helps their team. Their real change is shown to you only, and a trade that looks fair and makes them worse is tagged Steal
+* Easy sell, Fair ask or Hard sell. A hard sell is marked down by half in the order and a fair ask by 15 percent
+* Each card has How to sell it, What they will say, the next offer if they say no, and a short message to copy. Every talking point comes from real stat lines, league ranks or the draft. A point that is not true for that deal is left out
+* The one cat rule and the smaller trades box are gone. The plan replaces them
+* Trade scoring runs in background workers, one for each core up to four, so the page stays free and the list arrives sooner. Without workers the same code runs on the page with pauses. Both give the same list
+
+**Pickups**
+* A hold is still 40 percent this week and 60 percent rest of season, and a stream is still this week alone
+* The rest of season part now follows the plan. The week part uses the real scoreboard against that week's opponent, every cat included
+* Each card says This week only or Helps the season, and names the build cats it lifts when the season really gets better with him
+
+**News and ages in the daily scan**
+* scan/fetch-news.js reads ESPN's injury feed and writes data/news.json with facts only. The scanning chat adds one line tags in its own words. ESPN's own sentences never go into the project
+* A player ESPN lists as Out with a return date still ahead is counted as out until that date, and the games he is expected to play are packed into the days after it. Nothing else in the news moves a number
+* scan/fetch-ages.js writes data/ages.json on Mondays
+* News shows on pickup and trade cards, in the talking points, in the Plan check and in the scan summary
+
+**Draft board**
+* With the real league on the board, Your 9 cats now shows the same numbers as the Pickups and trades tab. Winning is 60 percent or more, losing is under 45 percent, the rest are toss ups. In a mock draft it stays a draft tool
+* The Josh by team tab is hidden
+
+**Numbers on the Oct 6 scan**
+* Plan cats on target 3 of 5. Plan week 62 percent
+* 9,813 fair offers scored and 860 kept. 14 listed on plan. No pivot beats the plan
+* Top trade on plan is Jamal Murray and Josh Hart for Donovan Mitchell and Reed Sheppard, gain 4.5
+* The average week reads 62 percent, up from 61, because return dates from the news now count for players on other teams
+
+**Known limits**
+* Every in season state was made up for testing. No real games exist yet
+* How they see a player is a model of other managers, not a fact. It will be wrong for some managers
+* ESPN return dates for long injuries are rough, and the numbers lean on them
+* Tested in Chromium only. No real phone and no Safari
+
+## How to fall back to version 12
+
+* The v18 branch holds the site exactly as it was before version 13
+* `git checkout v18 -- index.html draft-room.html josh-teams.html moves.js scan data/josh_cats.json README.md` then deploy
+* data/news.json, data/ages.json and data/plan.json can stay. Version 12 does not read them
+
+## Version 12 (branch v18), Oct 6 2026
 
 Fixes for the bugs found in the independent audit of Oct 5. The full list with evidence is in audit_report_2026_10_05.md in the fantasy notes folder.
 
