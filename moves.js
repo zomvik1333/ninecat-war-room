@@ -260,7 +260,8 @@ function build(scan){
   const ctx={scan,U:{},ros:{},avail:[],teams:{},notes:[]};
   const P=(D.players&&D.players.p)||{};
   const mk=id=>{ if(ctx.U[id]) return ctx.U[id]; const a=P[id]||['Player '+id,'','',null]; const p={id,name:a[0],team:a[1],pos:String(a[2]||'').split(',').filter(Boolean),pre:a[3],own:null,slot:'',status:'',fa:''}; ctx.U[id]=p; return p; };
-  (scan.teams||[]).forEach(t=>{ ctx.teams[t.id]=t; });
+  // wins, losses and ties are read as numbers, so a record saved as text can never turn the win counts into nonsense
+  (scan.teams||[]).forEach(t=>{ if(t && t.id!=null) ctx.teams[t.id]=Object.assign({},t,{w:+t.w||0,l:+t.l||0,t:+t.t||0}); });
   Object.keys(scan.rosters||{}).forEach(tid=>{ ctx.ros[tid]=scan.rosters[tid].map(e=>{ const p=mk(e[0]); p.own=tid; p.slot=e[1]||'BN'; p.status=e[2]||''; return p; }); if(!ctx.teams[tid]) ctx.teams[tid]={id:tid,name:(D.league&&D.league.teams[tid]&&D.league.teams[tid].name)||('Team '+tid),w:0,l:0,t:0}; });
   Object.keys((D.league&&D.league.teams)||{}).forEach(t=>{ if(!ctx.ros[t]){ ctx.ros[t]=[]; if(!ctx.teams[t]) ctx.teams[t]={id:t,name:D.league.teams[t].name,w:0,l:0,t:0}; } });
   Object.keys(scan.avail||{}).forEach(id=>{ const p=mk(id); if(p.own) return; p.fa=scan.avail[id][0]||'F'; p.status=scan.avail[id][1]||''; ctx.avail.push(p); });
@@ -545,9 +546,9 @@ function race(ctx){
   // the records in the scan stop at the week the scan was taken in. A week that has ended since then is in no record yet, so it is played out here too
   // Each team's wins, losses and ties add up to the weeks already in the records, so the first week still to play is read from the records themselves.
   // That holds when the scan is a day old on a Monday and when Yahoo has named the new week but not yet closed the old one
-  const recW=tids.length?Math.min.apply(null,tids.map(t=>{ const x=ctx.teams[t]||{}; return Math.round((+x.w||0)+(+x.l||0)+(+x.t||0)); })):0;
-  // Records that run ahead of the calendar would mean they are not one win a week, so in that case the week named in the scan is used as before
-  const w0=recW<=ctx.wk.n?recW+1:((ctx.scan.week && ctx.scan.week<ctx.wk.n)?ctx.scan.week:ctx.wk.n);
+  const recs=tids.map(t=>{ const x=ctx.teams[t]||{}; return Math.round((x.w||0)+(x.l||0)+(x.t||0)); }), recW=recs.length?recs[0]:0, recOk=recs.every(n=>n===recW) && recW<=ctx.wk.n;
+  // Records that run ahead of the calendar, or that differ from team to team, are not a clean one win a week count, so in that case the week named in the scan is used as before
+  const w0=recOk?recW+1:((ctx.scan.week && ctx.scan.week<ctx.wk.n)?ctx.scan.week:ctx.wk.n);
   const games=[]; L.weeks.filter(w=>w.n>=w0 && w.n<=(L.lastRegularWeek||18)).forEach(w=>w.games.forEach(g=>{ if(P[g[0]]&&P[g[1]]) games.push(g); }));
   const top4={}, wins={}; tids.forEach(t=>{ top4[t]=0; wins[t]=0; });
   // once the regular season is over the standings are final, so Yahoo's own place decides the first four
@@ -607,7 +608,7 @@ function pickupWhy(ctx,pk,r){
   else if(pk.ilMove) s2+='Move '+pk.ilMove.name+' to IL first, he is tagged '+statusWord(pk.ilMove.status)+', then no drop is needed. ';
   if(r.wd) s2+='He is on waivers until '+nice(r.wd)+'. A claim sends you to the back of the waiver line, you are number '+((ctx.teams[ME]||{}).waiver||'?')+' now.';
   else if(r.waiver) s2+='He is on waivers. A claim sends you to the back of the waiver line.';
-  else s2+='He is a free agent, so he costs no waiver spot. '+(pk.adds<=0?'You have no adds left for that week, so Yahoo will not take the add.':pk.adds===1?'It would use your last add for that week.':(pk.week && pk.week.n!==ctx.wk.n && !ctx.noAdds && ctx.now.date>=ctx.wk.start)?'Added before week '+ctx.wk.n+' ends, it uses one of your '+ctx.addsNow+' adds left for week '+ctx.wk.n+'. Added after that, it uses one of the '+pk.adds+' for week '+pk.week.n+'.':'It uses one of your '+pk.adds+' adds left for that week.');
+  else s2+='He is a free agent, so he costs no waiver spot. '+(pk.adds<=0?'You have no adds left for that week, so Yahoo will not take the add.':pk.adds===1?'It would use your last add for that week.':(pk.week && pk.week.n!==ctx.wk.n && !ctx.noAdds && ctx.now.date>=ctx.wk.start)?'Added before week '+ctx.wk.n+' ends, it uses '+(ctx.addsNow===1?'your last add':'one of your '+ctx.addsNow+' adds left')+' for week '+ctx.wk.n+'. Added after that, it uses one of the '+pk.adds+' for week '+pk.week.n+'.':'It uses one of your '+pk.adds+' adds left for that week.');
   if(r.bal.mult>1) s2+=' He also helps your position balance at '+listWords(r.bal.good)+'.'; else if(r.bal.mult<1){ const w=[]; if(r.bal.crowd.length) w.push('he can only play '+listWords(r.bal.crowd)+', where you are already crowded'); if(r.bal.thin.length) w.push('the drop leaves you thin at '+listWords(r.bal.thin)); s2+=' For position balance, '+w.join(' and ')+', so his score is trimmed a little.'; }
   a.push(s2);
   let s3=basisWords([p]); if(r.josh>0 && p.b) s3+=' Josh has him at '+p.b.josh+', well above his Yahoo rank of '+(yrank(p)||'none')+'.'; if(r.josh<0 && p.b) s3+=' Josh has him at '+p.b.josh+', below his Yahoo rank of '+(yrank(p)||'none')+'.';
@@ -840,7 +841,7 @@ async function load(){
     x=>obj(x)&&full(x.games)&&Object.keys(x.games).some(t=>Array.isArray(x.games[t])&&x.games[t].length>0),
     x=>obj(x)&&full(x.p), x=>obj(x)&&full(x.p),
     x=>obj(x)&&typeof x.at==='string'&&isFinite(Date.parse(x.at))&&obj(x.rosters)&&Array.isArray(x.rosters[ME])&&x.rosters[ME].length>0&&Object.keys(x.rosters).every(t=>Array.isArray(x.rosters[t])),
-    ()=>true, x=>obj(x)&&obj(x.p)];
+    ()=>true, x=>obj(x)&&full(x.p)];
   D.miss=files.filter((f,i)=>!okShape[i](a[i]));
   if(D.miss.length){ D.loading=false; D.loaded=false; render(); return; }
   D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=(a[5]&&a[5].rosters)?a[5]:a[4]; D.jc=a[6]; loadJC();
@@ -852,7 +853,7 @@ function summary(){
   if(!CTX || !PK || !TR) return ERR?'error, '+ERR:'not ready';
   const c=CTX, me=RACE.rows.find(r=>r.tid===ME), o=[];
   o.push('scan '+c.scan.at+', week '+c.wk.n+' vs '+((c.teams[c.opp]||{}).name||'none'));
-  if(WK) o.push('week win chance '+pc(WK.win)+' percent, leading '+WK.fav+' of 9 cats, cat chances '+WK.probs.map((p,i)=>CATS[i]+' '+pc(p)).join(', ')); else o.push('no matchup found for this week');
+  if(WK) o.push('week win chance '+pc(WK.win)+' percent, '+(c.act?'leading ':'favored in ')+WK.fav+' of 9 cats, cat chances '+WK.probs.map((p,i)=>CATS[i]+' '+pc(p)).join(', ')); else o.push('no matchup found for this week');
   o.push('average week '+pc(c.base[ME].week)+' percent, rank '+me.pos+' of 10, top four chance '+pc(me.top4)+' percent, record '+(me.rec.w||0)+' wins '+(me.rec.l||0)+' losses');
   o.push('adds left for week '+c.wk.n+' '+c.addsNow+(PK.week && PK.week.n!==c.wk.n?', pickups below are scored for week '+PK.week.n+' which has '+PK.adds+' adds left':', pickups below are scored for week '+c.wk.n)+', waiver spot '+((c.teams[ME]||{}).waiver||'unknown')+(PK.ilMove&&!PK.free?', IL move open for '+PK.ilMove.name:'')+(PK.free?', open roster spots '+PK.free:''));
   PK.list.slice(0,4).forEach((r,i)=>o.push('pickup '+(i+1)+', need '+r.need+', '+r.p.name+(r.drop?', drop '+r.drop.name:', no drop')+', '+r.tag+', '+(r.wd?'waivers until '+nice(r.wd):r.waiver?'on waivers':'free agent')));
