@@ -90,7 +90,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 
 ## The season plan file
 * data/plan.json holds the season plan for every device. It is a list of nine roles in the order FG%, FT%, 3PM, PTS, REB, AST, STL, BLK, TO. The roles are lock, build, bonus, low, punt and swing
-* The scan never changes this file by itself. Change it only when Vikas says in chat that a pivot is now his plan, then deploy
+* The scan never changes this file by itself. Change it only when Vikas says in chat that a pivot is now his plan, then deploy. Set made to the day of the change as well as the roles
 * A plan he picks on the site with Make this my plan is saved on that device only, until he asks for it to be saved here
 
 ## News and ages files
