@@ -17,7 +17,22 @@ Live site at https://ninecatwarroom.vercel.app
 * Three small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 13 (branch main), Oct 6 2026
+## Version 14 (branch main), Oct 6 2026
+
+A layout change to the Pickups and trades tab. No number on the page changes.
+
+* Trade cards. What it does for you, Stats it helps and costs and Why it matters for your team are now one section named What it does for you. It has a short summary and then one line per cat that moves 1.5 points or more, with the change, the before and after and what it means under the plan
+* Trade cards. How it looks to them and How to sell it are now one section. The long note on how the value blend works is left off the card, since the top of the Trades panel says it once
+* Pickups scored under 50 and marked skip are hidden. A box under the list shows them
+* The My players table is hidden. A box in its place shows it
+* Both boxes are remembered on the device
+
+## How to fall back to version 13
+
+* The v19 branch holds the site exactly as it was before version 14
+* `git checkout v19 -- moves.js README.md` then deploy
+
+## Version 13 (branch v19), Oct 6 2026
 
 Built after Vikas read the version 12 numbers and asked for trades that follow a plan and look fair to the other manager. Three parts shipped together.
 
