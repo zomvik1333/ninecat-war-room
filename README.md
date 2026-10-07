@@ -13,24 +13,62 @@ Live site at https://ninecatwarroom.vercel.app
 * moves.js is the Pickups and trades tab.
 * josh-teams.html is the Josh by team page, a plain page with no data files behind it. Since version 13 no tab links to it. The page is still there by its address.
 * data holds the numbers the tab reads. josh_cats.json holds Josh Lloyd's category calls. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
-* scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule, fetch-news.js writes the injury news file, fetch-ages.js writes the player ages file and README.md is the step by step procedure.
-* Three small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages. The tab still works if any of them is missing.
+* scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule, fetch-news.js writes the injury news file, fetch-ages.js writes the player ages file, josh-update.js writes Josh's newest ranks and README.md is the step by step procedure.
+* Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 14 (branch main), Oct 6 2026
+## Version 14 (branch main), Oct 7 2026
 
-A layout change to the Pickups and trades tab. No number on the page changes.
+Built after Vikas read the version 13 trades and found two faults. Some offers handed over far more value than they brought back, and one offer the tab called fair would have been laughed at. Four parts.
 
+**How a player looks to other managers**
+* Five ranks are blended. This season's production, last season's, this league's draft spot, Josh's rank and Yahoo's rank
+* Before a player has played it is draft 45 percent, Josh 25, last season 20 and Yahoo 10
+* By his 41st game it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10. It moves a little with every game he plays
+* It goes by each player's own games. A player who has missed most of the year still leans on the draft and last season
+* Games missed count. Each season is ranked by value above a replacement player times the share of games played. This season is measured against his team's games so far, last season against 72 games, and an older season counts as 6 games in 10
+* An older season still marks a player down 15 percent in rank and an age of 32 or more by 8 percent
+* This fixed the fault where 38 good games made Kevin Porter Jr. read like a top 20 player
+
+**Which trades are offered**
+* An offer has to look even or better to them, 2 percent short at most. If they give the best player it must lean 2 percent their way, and 10 percent when he is better by a quarter or more
+* An offer never hands them more than 15 percent extra value, 10 if you give the best player and 5 if he is clearly the best. Version 13 allowed 45
+* When you give the clearly best player the offer may lean up to 8 percent your way
+* The order no longer rewards paying over the odds. A fair ask is marked down 10 percent and a hard sell by half. Each point of value you hand over beyond an even deal takes 0.03 off the score, and each point you get back adds it
+* A weaker version of a deal with the same team is not listed. Weaker means you give at least as much, get no more and gain no more
+* Trades that gain under 1 point are hidden behind a box under the list
+* A bigger opening ask. Where one exists the card says Start higher and names it, with the listed deal as the fallback. It is one of two things. An offer with the same main player each way that looks up to 12 percent short of fair and gains you more. Or the listed deal plus one more low tier player from their side, with your least useful player dropped to make room, scored in full with both lineups set again
+* A bigger ask may take one guarded cat up to 3 points under its floor. It then has to gain a full point more than the listed deal, and the card says what it costs
+
+**Josh's ranks during the season**
+* data/josh_live.json holds the newest Josh rank for each player he has moved since the draft. scan/josh-update.js writes it from a hand written list kept in the notes folder
+* The board reads it, calibrates again and every number on the tab follows. A player taken out of the file goes back to his draft day rank
+* A player who is not on the board keeps his rank from this file for how he looks to other managers
+* Cards and the summary name each move with its date and a one line reason in our own words. Josh's sentences never go into the project
+* His category calls are not changed by this file. They fade by themselves as real games replace last season's numbers
+* The steps are in scan/README.md under Josh updates
+
+**Layout**
 * Trade cards. What it does for you, Stats it helps and costs and Why it matters for your team are now one section named What it does for you. It has a short summary and then one line per cat that moves 1.5 points or more, with the change, the before and after and what it means under the plan
 * Trade cards. How it looks to them and How to sell it are now one section. The long note on how the value blend works is left off the card, since the top of the Trades panel says it once
 * Pickups scored under 50 and marked skip are hidden. A box under the list shows them
 * The My players table is hidden. A box in its place shows it
-* Both boxes are remembered on the device
+* All three boxes are remembered on the device
+
+**What was checked**
+* See the audit log in the notes folder for the test list and the independent check
+
+**Known limits**
+* The weights are a model of how other managers think. They will be wrong for some managers
+* Every in season state was made up for testing. No real games exist yet, so the slide from draft to this season's numbers has only been tested on made up games
+* A bigger ask with three players coming back assumes they fill their open spot with a streamer
+* Tested in Chromium only. No real phone and no Safari
 
 ## How to fall back to version 13
 
 * The v19 branch holds the site exactly as it was before version 14
-* `git checkout v19 -- moves.js README.md` then deploy
+* `git checkout v19 -- index.html moves.js scan README.md` then deploy
+* data/josh_live.json can stay. Version 13 does not read it
 
 ## Version 13 (branch v19), Oct 6 2026
 

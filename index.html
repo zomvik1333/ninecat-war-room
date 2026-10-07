@@ -1596,7 +1596,15 @@ $('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('tea
 if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves';
 // the address follows the tab, and a changed address or the back button switches the tab
 window.addEventListener('hashchange',()=>{ const t=location.hash.slice(1)||'board'; if(TABS.includes(t) && t!==S.tab) setTab(t); });
-window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab};
+// Josh's ranks can move during the season without a code change. data/josh_live.json holds the newest rank for each player he has spoken about since the draft.
+// Every apply starts again from the ranks built into this page, so a player taken out of that file goes back to his draft day rank. The board is then calibrated again
+function applyJosh(map){ let n=0;
+  PLAYERS.forEach(p=>{ if(p.stub) return; if(!p.jb) p.jb=[p.josh,p.jnote,p.jest,p.jw];
+    p.josh=p.jb[0]; p.jnote=p.jb[1]; p.jest=p.jb[2]; p.jw=p.jb[3]; p.jlive=null;
+    const u=map?map[nkey(p.name)]:null;
+    if(u && Number.isInteger(u.rank) && u.rank>=1 && u.rank<=400){ p.jlive={rank:u.rank,was:p.jb[0]||null}; p.josh=u.rank; p.jw=u.soft?0.4:0.7; p.jest=false; if(typeof u.note==='string' && u.note) p.jnote=u.note; n++; } });
+  calibrate(); render(); return n; }
+window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab,applyJosh};
 const WANT_MOVES=S.tab==='moves';
 window.NCWBoot=()=>{ if(WANT_MOVES) setTab('moves'); render(); };
 setTab(S.tab||'board');
