@@ -19,7 +19,7 @@ Live site at https://ninecatwarroom.vercel.app
 
 ## Version 15 (branch main), Oct 7 2026
 
-Built after Vikas tried the version 14 trades on a real manager. Bench swaps he would have been laughed at for were tagged easy, and his best trade was tagged easy while the other manager pushed back on it. No trade changed in how good it is for you. Two parts.
+Built after Vikas tried the version 14 trades on a real manager. Bench swaps he would have been laughed at for were tagged easy, and his best trade was tagged easy while the other manager pushed back on it. No trade changed in how good it is for you. He also asked that injury tags weigh on pickups, less so for better players. Three parts.
 
 **How a late pick looks to other managers**
 * A pick after 80 is one manager's reach, not the league's view, so the draft counts less there and Josh's rank and Yahoo's rank count more
@@ -39,6 +39,14 @@ Built after Vikas tried the version 14 trades on a real manager. Bench swaps he 
 * For your eyes only on the card gives the reason, but only when these rules are what took the tag down from easy. A deal that was never easy for other reasons says nothing
 * Their change is judged to one decimal, the way the card shows it, so a card never says 5 points under an easy sell chip
 * The tag still does not ask that a trade helps them. It only stops calling a deal easy when a manager who checks would see what it costs him
+
+**Pickups and injury tags**
+* A tag counts twice. First in the games. Each game counts 96 percent with no tag, 90 for probable, 75 for a game time call or day to day, 60 for questionable or any tag the page does not know, 25 for doubtful and nothing for out. Version 14 counted a game time call the same as questionable
+* Then the score itself is cut, for the risk that an add is wasted while he sits. A one week stream loses 10 percent for a game time call, 25 for questionable and 60 for doubtful. A keep loses half of that
+* The better the player, the smaller that cut. Inside the top 60 of the blended rank it is nothing, from 140 on it is all of it, and it slides one rank at a time between. The games are not scaled, since a questionable star misses the same share of games as anyone else
+* A player who is out can now be listed, but only as a keep, only when the news gives a return date, and only when he scores 50 or more. His score is the rest of season lift alone, counted from the day he is due back with the player he would replace dropped. With an IL spot open the card says to stash him there and nothing is dropped now. Without one the drop costs its games this week
+* Two labels replace This week only and Helps the season. Stream for games when the week alone moves 2 points or more, Keep long term when your season gets better with him by 0.3 or more. A card can carry both. If neither is true the label follows whichever reading scored higher
+* The first chip no longer says Stream for games. It names the cat he helps most, or Covers an injury, Stash for upside, Stash on IL or Out for now
 
 ## How to fall back to version 14
 
