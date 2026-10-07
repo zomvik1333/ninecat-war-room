@@ -326,7 +326,13 @@ function planTable(ctx,pl){ const v=ctx.view0, rows=[];
    Josh Lloyd's rank and a small part Yahoo's own rank. Before a player has played, the draft counts 45, Josh 25, last season 20 and Yahoo 10.
    By his 41st game it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10, moving a little with every game he plays. It goes by his own games,
    so a player who has missed most of the year still leans on the draft and last season. Games missed count against both seasons */
-const SEENW=s=>({cur:0.40*s,draft:0.45-0.30*s,josh:0.25-0.05*s,last:0.20-0.05*s,yahoo:0.10});
+// Players drafted in the first 80 picks. Before games the draft leads. Josh and the draft meet at 26.25 percent each at the half way mark, about 20 games, and from there the draft keeps falling to 15
+const SEENW=s=>{ const h=s<=0.5, t=h?s/0.5:(s-0.5)/0.5, mix=(a,b)=>a+(b-a)*t; return {cur:0.40*s,draft:h?mix(0.45,0.2625):mix(0.2625,0.15),josh:h?mix(0.25,0.2625):mix(0.2625,0.20),last:0.20-0.05*s,yahoo:0.10}; };
+// Players drafted at pick 100 or later, and players nobody drafted. A late pick is one manager's reach, not the league's view, so the draft counts 20 and Josh's rank leads. It ends on the same mid season split
+const SEENWL=s=>({cur:0.40*s,draft:0.20-0.05*s,josh:0.40-0.20*s,last:0.20-0.05*s,yahoo:0.20-0.10*s});
+// Picks 81 to 99 get a mix of the two, a little more of the late pick weights with each pick, so two players drafted one spot apart are never valued by different rules
+const LATE0=80, LATE1=100;
+const seenW=(s,pick)=>{ const L=pick?Math.min(1,Math.max(0,(pick-LATE0)/(LATE1-LATE0))):1, a=SEENW(s), b=SEENWL(s), o={}; for(const k in a) o[k]=a[k]+(b[k]-a[k])*L; return o; };
 function realOf(p,scan){ const pr=priorOf(p.name), b=p.b, st=b?B.STATS[b.name]:null, s=scan.stats&&scan.stats[p.id], gp=s?(s[1]||0):0;
   let cur=null; if(s && gp>=1){ cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); }
   let prev=null, pb=''; if(pr && pr[0]>=20){ prev=lineOfPrior(pr); pb='last'; } else if(st && st.z && !st.rookie){ prev=lineFromZ(st.z,pr?pr[1]:28); pb='older'; } else if(pr){ prev=lineOfPrior(pr); pb='short'; }
@@ -353,7 +359,7 @@ function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
     have.forEach(p=>{ p.tv=p[vk]>R?R+(p[vk]-R)*p[ak]:p[vk]; }); have.sort((a,b)=>b.tv-a.tv||(a.id<b.id?-1:1)).forEach((p,i)=>{ p[rk]=i+1; }); };
   rankBy('lv0','avL','lastRank'); rankBy('cv0','avC','curRank');
   const wy=clamp(ctx.avgGP/25,0,0.7);
-  all.forEach(p=>{ const k=B.nkey(p.name), b=p.b, parts=[], sg=clamp(p.rl.gp/41,0,1), W=SEENW(sg); p.seenS=sg;
+  all.forEach(p=>{ const k=B.nkey(p.name), b=p.b, parts=[], sg=clamp(p.rl.gp/41,0,1), W=seenW(sg,pickOf[k]); p.seenS=sg;
     if(p.curRank && W.cur>0) parts.push([W.cur,Math.min(260,p.curRank*p.seenMultC)]);
     if(p.lastRank) parts.push([W.last,Math.min(260,p.lastRank*p.seenMult)]);
     const pick=pickOf[k]; parts.push(pick?[W.draft,pick]:[W.draft/2,165]);
@@ -375,7 +381,7 @@ function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
    It never hands them more than 15 percent extra value, 10 if you give the best player and 5 if he is clearly the best, so you do not sell low.
    When you give the clearly best player the offer may lean up to 8 percent your way, because the side that gets the star usually feels it won.
    An offer that falls just short of looking fair is kept apart as an opening ask. It is never listed by itself */
-const FAIRLOW=0.98, ASKROOM=0.12;
+const FAIRLOW=0.98, ASKROOM=0.12, BENCHV=20;
 function fairOf(give,get){ const A=dw(give.map(p=>p.mv)), Bv=dw(get.map(p=>p.mv)), look=1+(A-Bv)/Math.max(Bv,40);
   const bg=Math.max.apply(null,give.map(p=>p.mv)), br=Math.max.apply(null,get.map(p=>p.mv)), best=br>bg*1.25?2:br>bg*1.02?1:0, mine=bg>br*1.25?2:bg>br*1.02?1:0;
   const need=best===2?1.10:best===1?1.02:mine===2?0.92:FAIRLOW, cap=mine===2?1.05:mine===1?1.10:1.15, ok=look>=need && look<=cap;
@@ -692,7 +698,18 @@ function trades(ctx,done,live){
     t.bal=balance(ctx,t.give,t.get);
     // how hard the sell is. It starts from how the deal looks to them, gets easier if you give the clearly best player, then gets harder if they give the best player, if you ask for a player they prize,
     // if it does nothing for a cat they are short in, or if they would have to drop someone. Two weak cats helped makes it easier
-    const look=t.fair.look; let lv=look>=1.06?2:look>=0.99?1:0; if(t.fair.mine===2) lv++; if(t.fair.best===2) lv--; if(top) lv--; if(!t.weakHelp.length) lv--; if(t.cut) lv--; if(t.weakHelp.length>=2 && look>=1.02) lv++;
+    const look=t.fair.look; let lv=look>=1.06?2:look>=0.99?1:0; if(t.fair.mine===2) lv++; if(t.fair.best===2) lv--; if(top) lv--; if(!t.weakHelp.length) lv--; if(t.cut) lv--;
+    // helping two cats they are short in only makes the sell easier when the deal does not leave their team clearly worse
+    if(t.weakHelp.length>=2 && look>=1.02 && t.oGain>-2) lv++;
+    // three things hold the tag at a fair ask at best. They are caps, not steps down, so they never stack and push a decent deal to a hard sell.
+    // Player for player. When the best player on each side is within 15 percent and they clearly lose the second pair, a manager feels he lost the deal whatever the totals say.
+    // Damage. A deal that costs their team 5 points or more is noticed by any manager who checks his cats.
+    // Bench swaps. When every player in the deal is bench level the value scale can not tell them apart well, and managers go by their own read
+    const gs=t.give.slice().sort((a,b)=>b.mv-a.mv), rs=t.get.slice().sort((a,b)=>b.mv-a.mv); t.sellWhy=[];
+    if(gs.length>=2 && rs.length>=2 && Math.max(gs[0].mv,rs[0].mv)<=1.15*Math.min(gs[0].mv,rs[0].mv) && rs[1].mv>=1.4*gs[1].mv && rs[1].mv-gs[1].mv>=5) t.sellWhy.push('player for player they lose '+rs[1].name+' for '+gs[1].name);
+    if(t.oGain<=-5) t.sellWhy.push('the deal costs their team 5 points or more');
+    if(t.give.concat(t.get).every(p=>p.mv<=BENCHV)) t.sellWhy.push('every player in it is bench level, where managers trust their own read');
+    if(t.sellWhy.length && lv>1) lv=1;
     t.sell=lv>=2?'easy':lv>=1?'fair':'hard'; t.acc=t.sell==='easy'?0.75:t.sell==='fair'?0.5:0.3;
     t.steal=t.oGain<=-0.5;
     // listed by your gain. A hard sell is marked down by half so it sits lower, a fair ask by 10 percent. Position balance moves the score 5 to 8 percent.
@@ -938,8 +955,9 @@ function tradeForYou(ctx,t){
 /* the blend behind how a player looks, in words, at the league's average games played */
 function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(clamp((ctx.avgGP||0)/41,0,1)), W={}, n=x=>x;
   { const ks=Object.keys(W0); let left=100; ks.forEach(k=>{ W[k]=Math.round(100*W0[k]); left-=W[k]; }); const big=ks.slice().sort((a,b)=>W0[b]-W0[a])[0]; W[big]+=left; }
-  if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10. Once games start, this season\'s numbers take a growing share with every game a player plays, up to 40 percent by his 41st game. Games missed count against him.';
-  return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'. It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10. Games missed count against him.'; }
+  const late=' A player drafted after pick 80 leans less on the draft and more on Josh and Yahoo, fully so from pick 100, because a late pick is one manager\'s reach and not the league\'s view.';
+  if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10.'+late+' From pick 100 on it is Josh 40 and 20 each for the draft, last season and Yahoo. Once games start, this season\'s numbers take a growing share with every game a player plays, up to 40 percent by his 41st game. Games missed count against him.';
+  return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'.'+late+' It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10 for everyone. Games missed count against him.'; }
 /* how the offer looks from their side, and by Josh's ranks from mine */
 function tradeFair(ctx,t){
   const f=t.fair, jr=p=>{ const r=(p.b&&p.b.josh)||p.jr; return p.name+(r?' ('+r+')':' (no Josh rank)'); };
@@ -997,10 +1015,10 @@ function sellKit(ctx,t){
   let openS=opn?'Start higher. Offer '+nm(opn.give)+' for '+nm(opn.get)+' first. It gains you '+r1(opn.myGain)+' points and '+lean(opn.fair)+'. If they say no, come back to this deal.':'';
   if(t.plus && (!opn || t.plus.gain>=opn.myGain)) openS='Start higher. Ask for '+t.plus.x.name+' as well, so it is '+nm(t.give)+' for '+nm(t.get.concat([t.plus.x]))+'. You would drop '+t.plus.d.name+' to make room. It gains you '+r1(t.plus.gain)+' points and '+lean(t.plus.fair)+'.'+(t.plus.soft>=0?' It takes '+CATWORD[t.plus.soft]+' to '+(100*t.plus.per).toFixed(1)+' percent'+(t.plus.fav<FAVMIN?' and favored against '+t.plus.fav+' of 9 teams':'')+', a little under what your plan asks of a guarded cat. Only go this far if you accept that.':'')+' If they say no, come back to this deal.';
   const altS=alt?'If they say no, try '+nm(alt.give)+' for '+nm(alt.get)+' next. It looks better to them and still gains you '+r1(alt.myGain)+' points.':'If they say no, there is no cheap sweetener that keeps this good for you. Let it go.';
-  const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.';
+  const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.'+(t.sell!=='easy' && t.sellWhy && t.sellWhy.length?' It is not marked an easy sell because '+listWords(t.sellWhy)+'.':'');
   let msg='Trade idea. I send you '+nm(t.give)+' for '+nm(t.get)+'.'; if(pts[0] && t.weakHelp.length) msg+=' '+pts[0]; if(spareS) msg+=' '+spareS;
   msg+=' Let me know what you think.';
-  return {pts:oneDot(pts),push:oneDot([push])[0],alt:oneDot([altS])[0],open:oneDot([openS])[0],eyes,msg:oneDot([msg])[0]};
+  return {pts:oneDot(pts),push:oneDot([push])[0],alt:oneDot([altS])[0],open:oneDot([openS])[0],eyes:oneDot([eyes])[0],msg:oneDot([msg])[0]};
 }
 function pitchText(ctx,t){ return sellKit(ctx,t).msg; }
 
@@ -1286,5 +1304,5 @@ function cats(cb){
   if(D.loaded) go(); else if(D.miss && D.miss.length) cb(null); else { LITE=true; load().then(()=>{ if(D.loaded) go(); else cb(null); },()=>cb(null)); }
 }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,SEENW,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
+window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,SEENW,SEENWL,seenW,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
 })();
