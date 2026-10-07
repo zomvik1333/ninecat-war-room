@@ -36,7 +36,8 @@ Built after Vikas tried the version 14 trades on a real manager. Bench swaps he 
 * Player for player. When the best player on each side is within 15 percent and their second player is worth at least 40 percent and 5 points more than yours, a manager feels he lost the deal whatever the totals say
 * Damage. A deal that costs their team 5 points or more
 * Bench swaps. Every player in the deal is worth 20 or less on the value scale, where the scale can not tell players apart well and managers go by their own read
-* For your eyes only on the card names the reason whenever one of the three applies
+* For your eyes only on the card gives the reason, but only when these rules are what took the tag down from easy. A deal that was never easy for other reasons says nothing
+* Their change is judged to one decimal, the way the card shows it, so a card never says 5 points under an easy sell chip
 * The tag still does not ask that a trade helps them. It only stops calling a deal easy when a manager who checks would see what it costs him
 
 ## How to fall back to version 14
