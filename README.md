@@ -55,6 +55,7 @@ Built after Vikas read the version 13 trades and found two faults. Some offers h
 * Pickups scored under 50 and marked skip are hidden. A box under the list shows them
 * The My players table is hidden. A box in its place shows it
 * All three boxes are remembered on the device
+* The board panel Your 9 cats now shows the scan numbers on every device. In version 13 a board saved during the draft, or a mock left on the board, kept the old draft tool numbers there, which rate your average player against an average top 140 player and know nothing of the other nine teams
 
 **What was checked**
 * See the audit log in the notes folder for the test list and the independent check

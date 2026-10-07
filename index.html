@@ -1575,7 +1575,9 @@ const TABS=['board','teams','plan','moves'];
 let CATLIVE=null, CATASK=false;
 function catsLive(){
   const note=$('catsNote'); if(!note) return;
-  const on=scanOn() && window.NCWMoves && typeof NCWMoves.cats==='function';
+  // the scan numbers show whenever the tab has them, whatever is saved on the board. The season is on, so this panel is about the real team.
+  // A board saved during the draft, or a mock left on the board, used to keep the old draft tool numbers here
+  const on=!!(window.NCWMoves && typeof NCWMoves.cats==='function');
   if(!on){ note.textContent='vs an average team'; return; }
   if(!CATLIVE){ if(!CATASK){ CATASK=true; try{ NCWMoves.cats(x=>{ CATLIVE=x||false; if(x) render(); }); }catch(e){ CATLIVE=false; } } return; }
   const ord=n=>['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'][n-1]||(n+'th');
