@@ -700,16 +700,20 @@ function trades(ctx,done,live){
     // if it does nothing for a cat they are short in, or if they would have to drop someone. Two weak cats helped makes it easier
     const look=t.fair.look; let lv=look>=1.06?2:look>=0.99?1:0; if(t.fair.mine===2) lv++; if(t.fair.best===2) lv--; if(top) lv--; if(!t.weakHelp.length) lv--; if(t.cut) lv--;
     // helping two cats they are short in only makes the sell easier when the deal does not leave their team clearly worse
-    if(t.weakHelp.length>=2 && look>=1.02 && t.oGain>-2) lv++;
+    // their change is judged the way the card shows it, to one decimal, so a card never says 5 points under an easy sell chip
+    const og=Math.round(10*t.oGain)/10, bonus=t.weakHelp.length>=2 && look>=1.02, was=lv+(bonus?1:0);
+    if(bonus && og>-2) lv++;
     // three things hold the tag at a fair ask at best. They are caps, not steps down, so they never stack and push a decent deal to a hard sell.
     // Player for player. When the best player on each side is within 15 percent and they clearly lose the second pair, a manager feels he lost the deal whatever the totals say.
     // Damage. A deal that costs their team 5 points or more is noticed by any manager who checks his cats.
     // Bench swaps. When every player in the deal is bench level the value scale can not tell them apart well, and managers go by their own read
     const gs=t.give.slice().sort((a,b)=>b.mv-a.mv), rs=t.get.slice().sort((a,b)=>b.mv-a.mv); t.sellWhy=[];
     if(gs.length>=2 && rs.length>=2 && Math.max(gs[0].mv,rs[0].mv)<=1.15*Math.min(gs[0].mv,rs[0].mv) && rs[1].mv>=1.4*gs[1].mv && rs[1].mv-gs[1].mv>=5) t.sellWhy.push('player for player they lose '+rs[1].name+' for '+gs[1].name);
-    if(t.oGain<=-5) t.sellWhy.push('the deal costs their team 5 points or more');
+    if(og<=-5) t.sellWhy.push('the deal costs their team 5 points or more');
     if(t.give.concat(t.get).every(p=>p.mv<=BENCHV)) t.sellWhy.push('every player in it is bench level, where managers trust their own read');
     if(t.sellWhy.length && lv>1) lv=1;
+    // the card only gives a reason when these rules are what took the tag down from easy. A deal that was never easy for other reasons says nothing here
+    if(!(was>=2 && lv<2)) t.sellWhy=[]; else if(!t.sellWhy.length) t.sellWhy.push('it leaves their team 2 points or more worse');
     t.sell=lv>=2?'easy':lv>=1?'fair':'hard'; t.acc=t.sell==='easy'?0.75:t.sell==='fair'?0.5:0.3;
     t.steal=t.oGain<=-0.5;
     // listed by your gain. A hard sell is marked down by half so it sits lower, a fair ask by 10 percent. Position balance moves the score 5 to 8 percent.
@@ -954,8 +958,9 @@ function tradeForYou(ctx,t){
 }
 /* the blend behind how a player looks, in words, at the league's average games played */
 function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(clamp((ctx.avgGP||0)/41,0,1)), W={}, n=x=>x;
-  { const ks=Object.keys(W0); let left=100; ks.forEach(k=>{ W[k]=Math.round(100*W0[k]); left-=W[k]; }); const big=ks.slice().sort((a,b)=>W0[b]-W0[a])[0]; W[big]+=left; }
-  const late=' A player drafted after pick 80 leans less on the draft and more on Josh and Yahoo, fully so from pick 100, because a late pick is one manager\'s reach and not the league\'s view.';
+  // whole percents that add to 100. Each share is rounded down and the points left over go to the shares that were closest to the next whole number
+  { const ks=Object.keys(W0); let left=100; ks.forEach(k=>{ W[k]=Math.floor(100*W0[k]+1e-9); left-=W[k]; }); ks.slice().sort((a,b)=>(100*W0[b]-W[b])-(100*W0[a]-W[a])).slice(0,left).forEach(k=>{ W[k]++; }); }
+  const late=' A player drafted after pick 80, or not drafted at all, leans less on the draft and more on Josh and Yahoo, fully so from pick 100, because a late pick is one manager\'s reach and not the league\'s view.';
   if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10.'+late+' From pick 100 on it is Josh 40 and 20 each for the draft, last season and Yahoo. Once games start, this season\'s numbers take a growing share with every game a player plays, up to 40 percent by his 41st game. Games missed count against him.';
   return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'.'+late+' It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10 for everyone. Games missed count against him.'; }
 /* how the offer looks from their side, and by Josh's ranks from mine */
@@ -1015,7 +1020,7 @@ function sellKit(ctx,t){
   let openS=opn?'Start higher. Offer '+nm(opn.give)+' for '+nm(opn.get)+' first. It gains you '+r1(opn.myGain)+' points and '+lean(opn.fair)+'. If they say no, come back to this deal.':'';
   if(t.plus && (!opn || t.plus.gain>=opn.myGain)) openS='Start higher. Ask for '+t.plus.x.name+' as well, so it is '+nm(t.give)+' for '+nm(t.get.concat([t.plus.x]))+'. You would drop '+t.plus.d.name+' to make room. It gains you '+r1(t.plus.gain)+' points and '+lean(t.plus.fair)+'.'+(t.plus.soft>=0?' It takes '+CATWORD[t.plus.soft]+' to '+(100*t.plus.per).toFixed(1)+' percent'+(t.plus.fav<FAVMIN?' and favored against '+t.plus.fav+' of 9 teams':'')+', a little under what your plan asks of a guarded cat. Only go this far if you accept that.':'')+' If they say no, come back to this deal.';
   const altS=alt?'If they say no, try '+nm(alt.give)+' for '+nm(alt.get)+' next. It looks better to them and still gains you '+r1(alt.myGain)+' points.':'If they say no, there is no cheap sweetener that keeps this good for you. Let it go.';
-  const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.'+(t.sell!=='easy' && t.sellWhy && t.sellWhy.length?' It is not marked an easy sell because '+listWords(t.sellWhy)+'.':'');
+  const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.'+(t.sell!=='easy' && t.sellWhy && t.sellWhy.length?' On value alone this would be an easy sell. It is held back because '+listWords(t.sellWhy)+'.':'');
   let msg='Trade idea. I send you '+nm(t.give)+' for '+nm(t.get)+'.'; if(pts[0] && t.weakHelp.length) msg+=' '+pts[0]; if(spareS) msg+=' '+spareS;
   msg+=' Let me know what you think.';
   return {pts:oneDot(pts),push:oneDot([push])[0],alt:oneDot([altS])[0],open:oneDot([openS])[0],eyes:oneDot([eyes])[0],msg:oneDot([msg])[0]};
