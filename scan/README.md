@@ -130,7 +130,7 @@ This is a job of its own, not part of the daily scan. Run it whenever Vikas past
 5. Deploy the same way the scan does, then open the live site and read `NCWMoves.summary()`. The josh updates line names the count and the newest date
 6. Tell Vikas in a few bullets who moved and why, and what it did to his top trades and pickups
 * The file changes ranks only. Josh's category calls in data/josh_cats.json stay as they were on draft day and fade by themselves as real games are played
-* A rank moves the board, the stat lines, pickups and trades together. A stat line stays put when one of his minutes calls already holds it. It counts 25 percent of how a player looks to other managers before he has played and 20 percent by his 41st game
+* A rank moves the board, the stat lines, pickups and trades together. A stat line stays put when one of his minutes calls already holds it. Before a player has played it counts 25 percent of how he looks to other managers for a pick in the first 80 and 40 percent for a pick from 100 on, and 20 percent for everyone by his 41st game
 
 ## One time and occasional jobs
 * League schedule. Run the scanner with `NCWSCAN.run({mode:'sched'})` and ingest it the same way. It rewrites data/league.json

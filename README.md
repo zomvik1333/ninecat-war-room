@@ -17,7 +17,35 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 14 (branch main), Oct 7 2026
+## Version 15 (branch main), Oct 7 2026
+
+Built after Vikas tried the version 14 trades on a real manager. Bench swaps he would have been laughed at for were tagged easy, and his best trade was tagged easy while the other manager pushed back on it. No trade changed in how good it is for you. Two parts.
+
+**How a late pick looks to other managers**
+* A pick after 80 is one manager's reach, not the league's view, so the draft counts less there and Josh's rank and Yahoo's rank count more
+* Picks 80 and earlier, before a player has played, are as before. Draft 45 percent, Josh 25, last season 20 and Yahoo 10
+* Picks 100 and later, and players nobody drafted, are Josh 40 and 20 each for the draft, last season and Yahoo
+* Picks 81 to 99 get a mix of the two, a little more of the late pick weights with each pick, so two players drafted one spot apart are never valued by different rules
+* Both groups slide with each player's own games and end on the same split at his 41st game. This season 40, Josh 20, draft 15, last season 15 and Yahoo 10
+* For picks 80 and earlier Josh and the draft now meet half way, at about 20 games, with 26.25 percent each. In version 14 the draft was still at 30 there and Josh at 22.5
+* Last season was not given more weight for late picks. It is the number that flatters a player whose role shrank, which is what made Kevin Porter Jr. and Reed Sheppard read as good as CJ McCollum and Fred VanVleet
+
+**The easy sell tag**
+* Helping two cats they are short in still makes a sell easier, but only when the deal does not leave their team 2 points or more worse
+* Three things now hold a tag at fair ask at best. They are caps, not steps down, so they never stack and push a decent deal to a hard sell
+* Player for player. When the best player on each side is within 15 percent and their second player is worth at least 40 percent and 5 points more than yours, a manager feels he lost the deal whatever the totals say
+* Damage. A deal that costs their team 5 points or more
+* Bench swaps. Every player in the deal is worth 20 or less on the value scale, where the scale can not tell players apart well and managers go by their own read
+* For your eyes only on the card names the reason whenever one of the three applies
+* The tag still does not ask that a trade helps them. It only stops calling a deal easy when a manager who checks would see what it costs him
+
+## How to fall back to version 14
+
+* The v20 branch holds the site exactly as it was before version 15
+* `git checkout v20 -- index.html moves.js scan README.md` then deploy
+* The data files are the same in both versions
+
+## Version 14 (branch v20), Oct 7 2026
 
 Built after Vikas read the version 13 trades and found two faults. Some offers handed over far more value than they brought back, and one offer the tab called fair would have been laughed at. Four parts.
 
