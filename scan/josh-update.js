@@ -26,7 +26,7 @@ const stop=m=>{ console.log(m); process.exit(1); };
 const nkey = str => String(str||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/-/g,' ').replace(/\b(jr|sr|ii|iii|iv)\b/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
 // known spelling differences. The first of each pair is how the board spells it, the same pairs as BALIAS in moves.js
 const PAIRS=[['nic claxton','nicolas claxton'],['alex sarr','alexandre sarr'],['bub carrington','carlton carrington'],['herb jones','herbert jones'],['cam johnson','cameron johnson'],['bones hyland','nahshon hyland'],['gui santos','guilherme santos']];
-const TOBOARD={}; PAIRS.forEach(p=>{ TOBOARD[p[1]]=p[0]; });
+const TOBOARD=Object.create(null); PAIRS.forEach(p=>{ TOBOARD[p[1]]=p[0]; });
 const isDay=s=>typeof s==='string' && /^\d{4}-\d\d-\d\d$/.test(s) && !isNaN(Date.parse(s+'T00:00:00Z')) && new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 const etDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const daysOld=(day,today)=>Math.round((Date.parse(today+'T00:00:00Z')-Date.parse(day+'T00:00:00Z'))/864e5);
@@ -54,7 +54,7 @@ let JOSH=null; try{ const h=fs.readFileSync(path.join(ROOT,'index.html'),'utf8')
 if(!JOSH || typeof JOSH!=='object' || Object.keys(JOSH).length<50) stop('josh NOT saved. The Josh list in index.html could not be read. Nothing written.');
 let P=null; try{ P=readJson(path.join(DATA,'players.json')).p; }catch(e){}
 if(!P || typeof P!=='object' || !Object.keys(P).length) stop('josh NOT saved. The file data/players.json could not be read. Nothing written.');
-const base={}, known={}; Object.keys(JOSH).forEach(n=>{ const k=nkey(n), r=Array.isArray(JOSH[n])?JOSH[n][0]:null; if(k){ known[k]=n; if(Number.isInteger(r)) base[k]=r; } });
+const base=Object.create(null), known=Object.create(null); Object.keys(JOSH).forEach(n=>{ const k=nkey(n), r=Array.isArray(JOSH[n])?JOSH[n][0]:null; if(k){ known[k]=n; if(Number.isInteger(r)) base[k]=r; } });
 Object.keys(P).forEach(i=>{ if(!Array.isArray(P[i])) return; const k=nkey(P[i][0]); if(k && !known[k] && !known[TOBOARD[k]]) known[k]=P[i][0]; });
 const keyOf=name=>{ const k=nkey(name); return known[k]?k:(TOBOARD[k] && known[TOBOARD[k]])?TOBOARD[k]:null; };
 const near=name=>{ const w=nkey(name).split(' '), last=w[w.length-1], first=w[0]; return Object.keys(known).filter(k=>{ const a=k.split(' '); return a[a.length-1]===last || (a[0]===first && first.length>3); }).slice(0,5).map(k=>known[k]); };
@@ -84,13 +84,14 @@ U.forEach((u,i)=>{ const at='Entry '+(i+1); if(!u || typeof u!=='object' || Arra
     if(note.length>NOTE_MAX){ bad.push(at+', '+who+', the note is longer than '+NOTE_MAX+' characters.'); return; }
     if(/[‐-―]| - |:/.test(note)){ bad.push(at+', '+who+', the note has a dash or a colon. The site uses neither.'); return; }
     if(/["“”]/.test(note)){ bad.push(at+', '+who+', the note has quote marks. Write it in your own words with no quotes.'); return; }
+    if(/[<>]/.test(note)){ bad.push(at+', '+who+', the note has an angle bracket. Plain words only.'); return; }
     if(copied(note)){ bad.push(at+', '+who+', the note repeats '+RUN+' words in a row from a transcript. Write it in your own words.'); return; } }
-  if(u.show!==undefined){ if(typeof u.show!=='string'){ bad.push(at+', '+who+', the show name must be text.'); return; } show=u.show.replace(/\s+/g,' ').trim(); if(show.length>SHOW_MAX || /[‐-―]|:/.test(show)){ bad.push(at+', '+who+', the show name must be '+SHOW_MAX+' characters or less with no dash and no colon.'); return; } }
+  if(u.show!==undefined){ if(typeof u.show!=='string'){ bad.push(at+', '+who+', the show name must be text.'); return; } show=u.show.replace(/\s+/g,' ').trim(); if(show.length>SHOW_MAX || /[‐-―]|:|[<>"]/.test(show)){ bad.push(at+', '+who+', the show name must be '+SHOW_MAX+' characters or less with no dash, colon, quote mark or angle bracket.'); return; } }
   rows.push({i,k,who:known[k],at:u.at,rank:u.rank,move:u.move,clear:u.clear===true,note,show,soft:u.soft===true}); });
 
 // read in date order, then file order, so a move is applied to the rank that stood before it
 rows.sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:a.i-b.i);
-const live={};
+const live=Object.create(null);
 rows.forEach(r=>{ const cur=live[r.k], was=cur?cur.rank:(base[r.k]||null);
   if(r.clear){ delete live[r.k]; return; }
   let rank=r.rank;
@@ -100,7 +101,7 @@ if(bad.length){ bad.forEach(x=>console.log(x)); stop('josh NOT saved. '+bad.leng
 
 const keys=Object.keys(live).sort(), out={made:new Date().toISOString().replace(/\.\d+Z$/,'Z'),src:'Josh Lloyd shows, read by hand',n:keys.length,p:{}}; keys.forEach(k=>{ out.p[k]=live[k]; });
 let old=null; try{ old=readJson(path.join(OUT,'josh_live.json')); }catch(e){}
-const oldP=(old && old.p && typeof old.p==='object')?old.p:{};
+const oldP=Object.create(null); if(old && old.p && typeof old.p==='object' && !Array.isArray(old.p)) Object.keys(old.p).forEach(k=>{ if(old.p[k] && typeof old.p[k]==='object') oldP[k]=old.p[k]; });
 const changed=keys.filter(k=>!oldP[k] || oldP[k].rank!==live[k].rank || oldP[k].at!==live[k].at || (oldP[k].note||'')!==(live[k].note||'')), gone=Object.keys(oldP).filter(k=>!live[k]);
 keys.forEach(k=>{ const e=live[k]; if(changed.indexOf(k)>=0) console.log((e.n+'                         ').slice(0,26)+' '+(e.was?String(e.was):'none')+' to '+e.rank+(e.base && e.base!==e.was?', draft day '+e.base:'')+', '+e.at+(e.show?', '+e.show:'')); });
 gone.forEach(k=>console.log((String(oldP[k].n||k)+'                         ').slice(0,26)+' back to his draft day rank'));

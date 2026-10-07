@@ -31,7 +31,7 @@ const D={};
 let ST={marks:[],small:false,at:'',plan:null,planMade:'',pin:'',lead:'',showSkip:false,showMine:false};
 // a saved state that is damaged is cleaned on load, so one bad entry can never break the tab
 const okMark=m=>!!m && typeof m==='object' && ((m.type==='add' && typeof m.add==='string' && m.add!=='') || (m.type==='trade' && m.withTeam!=null && Array.isArray(m.give) && Array.isArray(m.get)));
-try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=!!j.small; ST.at=typeof j.at==='string'?j.at:''; ST.plan=Array.isArray(j.plan)?j.plan:null; ST.planMade=typeof j.planMade==='string'?j.planMade:''; ST.pin=typeof j.pin==='string'?j.pin:''; ST.lead=typeof j.lead==='string'?j.lead:''; ST.showSkip=j.showSkip===true; ST.showMine=j.showMine===true; } }catch(e){}
+try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=j.small===true; ST.at=typeof j.at==='string'?j.at:''; ST.plan=Array.isArray(j.plan)?j.plan:null; ST.planMade=typeof j.planMade==='string'?j.planMade:''; ST.pin=typeof j.pin==='string'?j.pin:''; ST.lead=typeof j.lead==='string'?j.lead:''; ST.showSkip=j.showSkip===true; ST.showMine=j.showMine===true; } }catch(e){}
 const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} };
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -91,11 +91,12 @@ function loadJL(){ Object.keys(JLI).forEach(k=>delete JLI[k]); const j=D.jl&&D.j
     const str=(x,m)=>typeof x==='string' && x.trim()?x.trim().slice(0,m):'', int=x=>Number.isInteger(x) && x>=1 && x<=400?x:null;
     JLI[B.nkey(typeof r.n==='string' && r.n?r.n:k)]={rank:r.rank,was:int(r.was),base:int(r.base),at:typeof r.at==='string' && /^\d{4}-\d{2}-\d{2}$/.test(r.at) && !isNaN(Date.parse(r.at+'T12:00:00Z'))?r.at:'',show:str(r.show,60),note:str(r.note,200).replace(/\.+$/,''),soft:r.soft===true}; });
   // the board spells a few names its own way, so each entry is handed over under both spellings
-  if(!INW && typeof B.applyJosh==='function'){ const m={}; Object.keys(JLI).forEach(k=>{ m[k]=JLI[k]; if(BALIAS[k]) m[BALIAS[k]]=JLI[k]; }); try{ B.applyJosh(m); }catch(e){} } }
-const jlOf=name=>{ const k=B.nkey(name); return JLI[k]||JLI[BALIAS[k]]||JLI[PALIAS[k]]||null; };
+  if(!INW && typeof B.applyJosh==='function'){ const m=Object.create(null); Object.keys(JLI).forEach(k=>{ m[k]=JLI[k]; if(typeof BALIAS[k]==='string') m[BALIAS[k]]=JLI[k]; }); try{ B.applyJosh(m); }catch(e){} } }
+const jlOf=name=>aliasIn(JLI,B.nkey(name));
 // one line on a player Josh has moved since the draft
 const joshMove=p=>{ const u=p.jl; if(!u) return ''; const from=u.was||u.base; return 'Josh '+(from && from!==u.rank?'moved '+p.name+' from '+from+' to '+u.rank:'has '+p.name+' at '+u.rank)+(u.at?' on '+nice(u.at):'')+(u.note?'. '+u.note:'')+'.'; };
-const jcOf=name=>{ const k=B.nkey(name); return JCI[k]||JCI[BALIAS[k]]||JCI[PALIAS[k]]||null; };
+const aliasIn=(T,k)=>{ const has=x=>typeof x==='string' && Object.prototype.hasOwnProperty.call(T,x); return has(k)?T[k]:has(BALIAS[k])?T[BALIAS[k]]:has(PALIAS[k])?T[PALIAS[k]]:null; };
+const jcOf=name=>aliasIn(JCI,B.nkey(name));
 /* ref is last season's own line, given only when l is a blend of two seasons. A call is written as a change to last season.
    On a blended line it goes only as far as it takes to reach the number the call points at, so a fluke the blend already took out is not taken out twice.
    It never moves a cat further than the call itself would, and never the other way from what the call says */
@@ -330,9 +331,12 @@ function realOf(p,scan){ const pr=priorOf(p.name), b=p.b, st=b?B.STATS[b.name]:n
   let cur=null; if(s && gp>=1){ cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); }
   let prev=null, pb=''; if(pr && pr[0]>=20){ prev=lineOfPrior(pr); pb='last'; } else if(st && st.z && !st.rookie){ prev=lineFromZ(st.z,pr?pr[1]:28); pb='older'; } else if(pr){ prev=lineOfPrior(pr); pb='short'; }
   return {cur,gp,prev,pb,lastG:pr?pr[0]:null}; }
-function seenValues(ctx){ const all=Object.values(ctx.U), tg={};
-  // games each NBA team has played so far, read as the most any of its players has played
-  all.forEach(p=>{ const s=ctx.scan.stats&&ctx.scan.stats[p.id], g=s?(s[1]||0):0; if(g>(tg[p.team]||0)) tg[p.team]=g; });
+function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
+  // games each NBA team has played so far. The NBA schedule up to the day before the scan is the count. A player traded in with more games than that can not stretch it.
+  // Only when the schedule has nothing for a team is the most any of its players has played used
+  const sday=(()=>{ const t=Date.parse(ctx.scan.at); return isFinite(t)?etParts(new Date(t)).date:''; })();
+  all.forEach(p=>{ const s=ctx.scan.stats&&ctx.scan.stats[p.id], g=s?(s[1]||0):0; if(g>(most[p.team]||0)) most[p.team]=g; });
+  Object.keys(most).forEach(t=>{ const sc=D.sched&&D.sched.games&&Array.isArray(D.sched.games[t])?D.sched.games[t]:null, n=sc&&sday?sc.filter(d=>d<sday).length:0; tg[t]=n>0?n:most[t]; });
   all.forEach(p=>{ const r=p.rl=realOf(p,ctx.scan);
     p.cv0=r.cur?valOf(r.cur):null; p.lv0=r.prev?valOf(r.prev):null;
     // the share of games he played. This season against his team's games so far, last season against 72, and a season before that counts as 6 games in 10
@@ -718,7 +722,7 @@ function trades(ctx,done,live){
     const gk=t=>t.o+'|'+t.get.map(p=>p.id).sort().join('+');
     res.list=pick(planAll.filter(t=>!beaten(t)),14,gk);
     // the trade behind the pivot you adopted leads the list, even when its sell is hard or it costs a build cat
-    const pinT=env.pin?out.find(t=>t.kind==='plan' && pinKey(t.o,t.give,t.get)===env.pin):null; if(pinT){ pinT.pinned=true; res.list=[pinT].concat(res.list.filter(t=>t!==pinT)).slice(0,14); }
+    const pinT=env.pin?out.find(t=>t.kind==='plan' && !t.ask && pinKey(t.o,t.give,t.get)===env.pin):null; if(pinT){ pinT.pinned=true; res.list=[pinT].concat(res.list.filter(t=>t!==pinT)).slice(0,14); }
     // a pivot has to beat the best trade that stays on plan by 2 points or more, or it is not worth changing course for
     res.pivots=pick(pivAll.filter(t=>t.myGain>=bestPlan+2),6,t=>t.broke.join('+')+'|'+(t.target==null?'':t.target)+'|'+gk(t));
     res.bestPlan=bestPlan;
@@ -750,9 +754,11 @@ function trades(ctx,done,live){
     const canGo=p=>{ const k=B.nkey(p.name); return !!p.proj && !isIL(p) && !NEVER.has(k) && !(HOLD[k] && env.today<HOLD[k]); };
     res.list.forEach(t=>{ t.plus=null; if(t.kind!=='plan' || t.give.length!==t.get.length) return;
       const gi=new Set(t.give.map(p=>p.id)), ge=new Set(t.get.map(p=>p.id));
-      const d=ctx.ros[ME].filter(p=>!gi.has(p.id) && canGo(p)).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0))[0]; if(!d) return;
-      const myC=ctx.ros[ME].filter(isC).length-t.give.filter(isC).length+t.get.filter(isC).length-(isC(d)?1:0), thC=ctx.ros[t.o].filter(isC).length-t.get.filter(isC).length+t.give.filter(isC).length;
+      const drops=ctx.ros[ME].filter(p=>!gi.has(p.id) && canGo(p)).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0)); if(!drops.length) return;
+      const myC0=ctx.ros[ME].filter(isC).length-t.give.filter(isC).length+t.get.filter(isC).length, thC=ctx.ros[t.o].filter(isC).length-t.get.filter(isC).length+t.give.filter(isC).length;
       ctx.ros[t.o].filter(p=>p.proj && !ge.has(p.id) && p.mv<=20).sort((a,b)=>b.mv-a.mv).slice(0,8).forEach(x=>{
+        // the player you drop is your least useful one that other managers do not value above the player you ask for, or above 10 points of value
+        const d=drops.find(p=>p.mv<=Math.max(10,x.mv)); if(!d) return; const myC=myC0-(isC(d)?1:0);
         if(myC+(isC(x)?1:0)<3 || thC-(isC(x)?1:0)<2) return;
         const get=t.get.concat([x]), f=fairOf(t.give,get); if(f.look<f.need-ASKROOM || f.look>f.cap) return;
         const Tm=scaleT(seasonTotals(ctx,ME,t.give.concat([d]),get),1/ctx.tweeks), To=scaleT(seasonTotals(ctx,t.o,get,t.give),1/ctx.tweeks); TK.forEach(q=>To[q]+=ctx.stream[q]);
@@ -930,15 +936,16 @@ function tradeForYou(ctx,t){
   return {head:oneDot([s])[0],rows:tc.up.map(row).concat(tc.dn.map(row))};
 }
 /* the blend behind how a player looks, in words, at the league's average games played */
-function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W=SEENW(clamp((ctx.avgGP||0)/41,0,1)), n=x=>Math.round(100*x);
+function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(clamp((ctx.avgGP||0)/41,0,1)), W={}, n=x=>x;
+  { const ks=Object.keys(W0); let left=100; ks.forEach(k=>{ W[k]=Math.round(100*W0[k]); left-=W[k]; }); const big=ks.slice().sort((a,b)=>W0[b]-W0[a])[0]; W[big]+=left; }
   if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10. Once games start, this season\'s numbers take a growing share with every game a player plays, up to 40 percent by his 41st game. Games missed count against him.';
   return 'How a player looks to them is a blend of ranks. For a player with '+g+' games, about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'. It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10. Games missed count against him.'; }
 /* how the offer looks from their side, and by Josh's ranks from mine */
 function tradeFair(ctx,t){
-  const f=t.fair, jr=p=>p.name+(p.b&&p.b.josh?' ('+p.b.josh+')':' (no Josh rank)');
+  const f=t.fair, jr=p=>{ const r=(p.b&&p.b.josh)||p.jr; return p.name+(r?' ('+r+')':' (no Josh rank)'); };
   let s='On the value scale other managers see, where the best player in the league is about 100, they get '+r0(f.A)+' and give '+r0(f.B)+'. ';
   s+=f.look>=1.12?'That looks like a clear win for them.':f.look>=1.02?'That looks a little in their favor.':f.look>=0.98?'That looks even.':'That looks a touch light for them.';
-  s+=f.best===2?' They give the best player in the deal by a wide margin, so the offer has to pay for that.':f.best===1?' They give the best player in the deal.':' You give the best player in the deal.';
+  s+=f.best===2?' They give the best player in the deal by a wide margin, so the offer has to pay for that.':f.best===1?' They give the best player in the deal.':f.mine>=1?' You give the best player in the deal.':' The best player on each side is worth about the same.';
   const md=t.give.concat(t.get).filter(p=>p.seenWhy&&p.seenWhy.length).map(p=>p.name+' is marked down because '+listWords(p.seenWhy)); if(md.length) s+=' '+md.join('. ')+'.';
   s+=' By Josh\'s overall ranks you give '+listWords(t.give.map(jr))+' and get '+listWords(t.get.map(jr))+'. '+(t.jside==='win'?'By his ranks you get the better side of it.':'By his ranks it is about even.');
   return s;
@@ -993,7 +1000,7 @@ function sellKit(ctx,t){
   const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.';
   let msg='Trade idea. I send you '+nm(t.give)+' for '+nm(t.get)+'.'; if(pts[0] && t.weakHelp.length) msg+=' '+pts[0]; if(spareS) msg+=' '+spareS;
   msg+=' Let me know what you think.';
-  return {pts,push,alt:altS,open:openS,eyes,msg:oneDot([msg])[0]};
+  return {pts:oneDot(pts),push:oneDot([push])[0],alt:oneDot([altS])[0],open:oneDot([openS])[0],eyes,msg:oneDot([msg])[0]};
 }
 function pitchText(ctx,t){ return sellKit(ctx,t).msg; }
 

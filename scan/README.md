@@ -118,7 +118,7 @@ This is a job of its own, not part of the daily scan. Run it whenever Vikas past
    * Give move when he only says up or down. A negative number is up the board. As a guide, a small move is 8 places, a clear move is 15 and a big one is 30. Never move a player past where Josh's own words put him
    * Add "soft":true for a passing remark with no real case behind it
    * Use "clear":true to send a player back to his draft day rank
-   * The note is one line of 200 characters or less in your own words, with no dash, no colon and no quote marks. Never copy Josh's sentences
+   * The note is one line of 200 characters or less in your own words, with no dash between words, no colon, no double quote marks and no angle brackets. A hyphen inside a name is fine. Never copy Josh's sentences
    * Only add a player when Josh said something that changes where he stands. A show that repeats his old view needs no entry
 4. Run the script in the project folder
    ```
@@ -130,7 +130,7 @@ This is a job of its own, not part of the daily scan. Run it whenever Vikas past
 5. Deploy the same way the scan does, then open the live site and read `NCWMoves.summary()`. The josh updates line names the count and the newest date
 6. Tell Vikas in a few bullets who moved and why, and what it did to his top trades and pickups
 * The file changes ranks only. Josh's category calls in data/josh_cats.json stay as they were on draft day and fade by themselves as real games are played
-* A rank moves the board, the stat lines, pickups and trades together. It counts 25 percent of how a player looks to other managers before he has played and 20 percent by his 41st game
+* A rank moves the board, the stat lines, pickups and trades together. A stat line stays put when one of his minutes calls already holds it. It counts 25 percent of how a player looks to other managers before he has played and 20 percent by his 41st game
 
 ## One time and occasional jobs
 * League schedule. Run the scanner with `NCWSCAN.run({mode:'sched'})` and ingest it the same way. It rewrites data/league.json

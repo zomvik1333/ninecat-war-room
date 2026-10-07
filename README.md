@@ -26,7 +26,7 @@ Built after Vikas read the version 13 trades and found two faults. Some offers h
 * Before a player has played it is draft 45 percent, Josh 25, last season 20 and Yahoo 10
 * By his 41st game it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10. It moves a little with every game he plays
 * It goes by each player's own games. A player who has missed most of the year still leans on the draft and last season
-* Games missed count. Each season is ranked by value above a replacement player times the share of games played. This season is measured against his team's games so far, last season against 72 games, and an older season counts as 6 games in 10
+* Games missed count. Each season is ranked by value above a replacement player times the share of games played. This season is measured against his team's games so far, counted from the NBA schedule, last season against 72 games, and an older season counts as 6 games in 10
 * An older season still marks a player down 15 percent in rank and an age of 32 or more by 8 percent
 * This fixed the fault where 38 good games made Kevin Porter Jr. read like a top 20 player
 
@@ -35,16 +35,17 @@ Built after Vikas read the version 13 trades and found two faults. Some offers h
 * An offer never hands them more than 15 percent extra value, 10 if you give the best player and 5 if he is clearly the best. Version 13 allowed 45
 * When you give the clearly best player the offer may lean up to 8 percent your way
 * The order no longer rewards paying over the odds. A fair ask is marked down 10 percent and a hard sell by half. Each point of value you hand over beyond an even deal takes 0.03 off the score, and each point you get back adds it
-* A weaker version of a deal with the same team is not listed. Weaker means you give at least as much, get no more and gain no more
+* A weaker version of a deal with the same team is not listed. Weaker means you give at least as much, get no more and gain no more, give or take 0.05 of a point
 * Trades that gain under 1 point are hidden behind a box under the list
 * A bigger opening ask. Where one exists the card says Start higher and names it, with the listed deal as the fallback. It is one of two things. An offer with the same main player each way that looks up to 12 percent short of fair and gains you more. Or the listed deal plus one more low tier player from their side, with your least useful player dropped to make room, scored in full with both lineups set again
 * A bigger ask may take one guarded cat up to 3 points under its floor. It then has to gain a full point more than the listed deal, and the card says what it costs
+* The player you drop for a bigger ask is your least useful one that other managers do not value above the player you ask for, or above 10 points of value
 
 **Josh's ranks during the season**
 * data/josh_live.json holds the newest Josh rank for each player he has moved since the draft. scan/josh-update.js writes it from a hand written list kept in the notes folder
-* The board reads it, calibrates again and every number on the tab follows. A player taken out of the file goes back to his draft day rank
-* A player who is not on the board keeps his rank from this file for how he looks to other managers
-* Cards and the summary name each move with its date and a one line reason in our own words. Josh's sentences never go into the project
+* The board reads it, calibrates again and the numbers on the tab follow. A player taken out of the file goes back to his draft day rank. A stat line stays put when a minutes call from Josh already holds it
+* A player who is not on the board keeps his rank from this file for how he looks to other managers and for the check that you do not lose a deal by Josh's ranks. His stat line does not move
+* Cards name each move with its date and a one line reason in our own words. The summary names the moves on your roster. Josh's sentences never go into the project
 * His category calls are not changed by this file. They fade by themselves as real games replace last season's numbers
 * The steps are in scan/README.md under Josh updates
 
