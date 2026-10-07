@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Nine Cat War Room, injury news. Run on a computer with open internet access.
+   Needs Node 18 or later.
    Use. node scan/fetch-news.js [--out <dir>] [--from <file>] [--raw <file>] [--tags <file>] [--today YYYY-MM-DD]
    It rewrites data/news.json from the ESPN injuries feed with one request.
    --out    the folder to write news.json to. Left off, it is the data folder of the project.
@@ -128,7 +129,9 @@ async function get(url){
   // step 2, read every item. Only the listed facts are copied into the news entry. The comment text goes into the raw items and nowhere else
   const p={}, meta={}, unmatched=new Set(), rawItems=[], odd={}, grams=new Set(); let items=0, nameless=0;
   const words=s=>String(s||'').toLowerCase().match(/[a-z0-9']+/g)||[];
-  const addGrams=s=>{ const w=words(s); for(let i=0;i+8<=w.length;i++) grams.add(w.slice(i,i+8).join(' ')); };
+  // a note may not repeat RUN words in a row from any ESPN comment
+  const RUN=5;
+  const addGrams=s=>{ const w=words(s); for(let i=0;i+RUN<=w.length;i++) grams.add(w.slice(i,i+RUN).join(' ')); };
   feed.injuries.forEach(t=>{
     if(!t || typeof t!=='object' || !Array.isArray(t.injuries)) return;
     t.injuries.forEach(it=>{
@@ -166,10 +169,15 @@ async function get(url){
   if(nameless) say.push('WARNING, '+nameless+' item'+(nameless>1?'s':'')+' in the feed had no player name and '+(nameless>1?'were':'was')+' skipped.');
 
   // step 3, the tags. A note that repeats ESPN's own words is refused, since comment text must never reach the data folder
-  if(!carried){
-    const copied=Object.keys(use).filter(id=>{ const w=words(use[id].note); for(let i=0;i+8<=w.length;i++) if(grams.has(w.slice(i,i+8).join(' '))) return true; return false; });
-    if(copied.length) stop('news NOT saved. The note for player id '+copied.join(' and ')+' repeats 8 or more words in a row from the ESPN comment text. Write it again in your own words. Nothing written.');
+  {
+    const copied=Object.keys(use).filter(id=>{ const w=words(use[id].note); for(let i=0;i+RUN<=w.length;i++) if(grams.has(w.slice(i,i+RUN).join(' '))) return true; return false; });
+    // a new tag that copies is refused. A tag carried over from the old news file is checked the same way against today's comments and is dropped if it copies
+    if(copied.length && !carried) stop('news NOT saved. The note for player id '+copied.join(' and ')+' repeats '+RUN+' or more words in a row from the ESPN comment text. Write it again in your own words. Nothing written.');
+    copied.forEach(id=>{ delete use[id]; say.push('WARNING, the old tag for player id '+id+' repeats '+RUN+' or more words in a row from the ESPN comment text and was left out.'); });
   }
+  // an empty feed on a live run would wipe every status and return date, so it is refused when the old file still holds several
+  if(!opt.from && !Object.keys(p).some(id=>p[id].st)){ let had=0; try{ const o=readJson(path.join(OUT,'news.json')); had=Object.keys((o&&o.p)||{}).filter(id=>o.p[id]&&o.p[id].st).length; }catch(e){}
+    if(had>=5) stop('news NOT saved. ESPN listed no player with a status, while the old news file has '+had+'. That looks like a fault in the feed. Nothing written.'); }
   Object.keys(use).forEach(id=>{ if(!p[id]) p[id]={n:String(P[id][0]),st:null,fs:null,part:null,ret:null,at:null,dir:null,note:null,tagAt:null,tagSrc:null}; Object.assign(p[id],use[id]); });
   if(oldTags) say.push(oldTags+' tag'+(oldTags>1?'s are':' is')+' older than '+FRESH+' days and '+(oldTags>1?'were':'was')+' left out');
 

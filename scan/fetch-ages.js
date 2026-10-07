@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Nine Cat War Room, player ages. Run on a computer with open internet access.
+   Needs Node 18 or later.
    Use. node scan/fetch-ages.js [--out <dir>] [--from <dir>]
    It rewrites data/ages.json from the ESPN team rosters, one request for the team list and then one per team.
    --out is the folder to write to. Left off, it is the data folder of the project.

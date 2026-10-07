@@ -28,10 +28,10 @@ const WP=[0.8,0.9,1,1,1,1,1,1,1];
 const KEY='ncw_moves_v1';
 const ME='11';
 const D={};
-let ST={marks:[],small:false,at:'',plan:null,lead:''};
+let ST={marks:[],small:false,at:'',plan:null,planMade:'',lead:''};
 // a saved state that is damaged is cleaned on load, so one bad entry can never break the tab
 const okMark=m=>!!m && typeof m==='object' && ((m.type==='add' && typeof m.add==='string' && m.add!=='') || (m.type==='trade' && m.withTeam!=null && Array.isArray(m.give) && Array.isArray(m.get)));
-try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=!!j.small; ST.at=typeof j.at==='string'?j.at:''; ST.plan=Array.isArray(j.plan)?j.plan:null; ST.lead=typeof j.lead==='string'?j.lead:''; } }catch(e){}
+try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=!!j.small; ST.at=typeof j.at==='string'?j.at:''; ST.plan=Array.isArray(j.plan)?j.plan:null; ST.planMade=typeof j.planMade==='string'?j.planMade:''; ST.lead=typeof j.lead==='string'?j.lead:''; } }catch(e){}
 const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} };
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -267,9 +267,14 @@ const ROLEWORD={lock:'Lock',build:'Build',bonus:'Bonus',low:'Low',punt:'Punt',sw
 // a lock holds when you win it 60 percent of the time on average and are favored in it against at least 7 of the 9 other teams. A build cat is on target at 60 percent
 const FLOOR=0.60, FAVMIN=7, TARGET=0.60;
 const okPlan=a=>Array.isArray(a) && a.length===9 && a.every(r=>ROLES.indexOf(r)>=0) && a.filter(r=>r==='lock').length<=5 && a.some(r=>r==='lock'||r==='build');
-function mkPlan(roles){ const pl={roles:roles.slice(),lock:[],build:[],bonus:[],low:[],punt:[],swing:[]}; roles.forEach((r,c)=>pl[r].push(c)); pl.w=roles.map(r=>ROLEW[r]); pl.wp=roles.map(r=>r==='bonus'||r==='low'?1:ROLEW[r]); pl.need=Math.max(0,5-pl.lock.length); pl.start=roles.every((r,c)=>r===PLAN0[c]); return pl; }
+function mkPlan(roles){ const pl={roles:roles.slice(),lock:[],build:[],bonus:[],low:[],punt:[],swing:[]}; roles.forEach((r,c)=>pl[r].push(c)); pl.w=roles.map(r=>ROLEW[r]); pl.wp=roles.map(r=>r==='bonus'||r==='low'?1:ROLEW[r]);
+  // you need five cats. The locks count first and the build pool has to supply the rest, as far as it can
+  pl.need=Math.min(pl.build.length,Math.max(0,5-pl.lock.length)); pl.shy=Math.max(0,5-pl.lock.length-pl.build.length); pl.start=roles.every((r,c)=>r===PLAN0[c]); return pl; }
 // the plan you chose on this device comes first, then the plan saved for every device in data/plan.json, then the starting plan
-function planOf(){ return mkPlan(okPlan(ST.plan)?ST.plan:(D.plan && okPlan(D.plan.roles))?D.plan.roles:PLAN0); }
+function planOf(){ const file=(D.plan && okPlan(D.plan.roles))?D.plan:null, made=file?String(file.made||''):'';
+  // a plan picked on this device is kept only while the plan saved for every device is the one it was picked over. A newer saved plan wins
+  if(!INW && ST.plan!=null && (!okPlan(ST.plan) || (D.loaded && (ST.planMade||'')!==made))){ ST.plan=null; ST.planMade=''; save(); }
+  return mkPlan(okPlan(ST.plan)?ST.plan:file?file.roles:PLAN0); }
 // a punt cat stays at today's chance against that team. Every other cat is pulled toward a coin flip by its weight. piv counts bonus and low cats in full, which is how a pivot toward one of them is judged
 const planPr=(pr,base,pl,piv)=>{ const w=piv?pl.wp:pl.w, o=new Array(9); for(let c=0;c<9;c++) o[c]=pl.roles[c]==='punt'?base[c]:0.5+w[c]*(pr[c]-0.5); return o; };
 /* my chances against every other team with weekly totals T. over swaps in new totals for a team that changed. Returns the nine chances against each team, the weighted average for each cat,
@@ -327,7 +332,9 @@ function seenValues(ctx){ const all=Object.values(ctx.U);
     // the curve never reaches zero, so two bench players can not read as a blowout
     let v=(100*Math.exp(-(Math.max(1,p.seenRank)-1)/45)+3)*(LEGEND.has(k)?1.15:1)*(pts>=25?1.10:pts>=20?1.05:1);
     if(p.v14!=null && p.g14>=3) v*=1+clamp((p.v14-p.val)/40,-0.08,0.08);
-    if(isOut(p) || p.ret) v*=0.75; else if(p.status && !/^P$/i.test(p.status)) v*=0.96;
+    // a return date costs value by the share of the rest of the season it takes away, from nothing for a date before opening night to three quarters for a player who is done for the year
+    const miss=(p.ret && ctx.tdays && ctx.tdays.length)?ctx.tdays.filter(d=>d<p.ret).length/ctx.tdays.length:0;
+    if(miss>0) v*=1-0.75*miss; else if(isOut(p)) v*=0.75; else if(p.status && !/^P$/i.test(p.status)) v*=0.96;
     p.mv=v; });
 }
 /* does an offer look fair to them. A is what they get, B is what they give, both on the value above. Small deals are judged by the gap, not the ratio,
@@ -338,6 +345,11 @@ function fairOf(give,get){ const A=dw(give.map(p=>p.mv)), Bv=dw(get.map(p=>p.mv)
   return {A,B:Bv,look,best,need,ok:look>=need && look<=1.45}; }
 
 
+/* a news entry is only trusted field by field. Anything that is not the right kind of value is dropped, so a damaged news file can never break a card or move a number */
+const isDay=x=>typeof x==='string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && !isNaN(Date.parse(x+'T12:00:00Z'));
+function cleanNews(nw){ if(!nw || typeof nw!=='object' || Array.isArray(nw)) return null; const str=(x,m)=>typeof x==='string' && x.trim()?x.trim().slice(0,m):null;
+  const o={st:nw.st==='Out'||nw.st==='Day-To-Day'?nw.st:null,part:str(nw.part,40),ret:isDay(nw.ret)?nw.ret:null,at:isDay(nw.at)?nw.at:null,dir:nw.dir==='good'||nw.dir==='bad'||nw.dir==='neutral'?nw.dir:null,note:str(nw.note,200),tagAt:isDay(nw.tagAt)?nw.tagAt:null,tagSrc:str(nw.tagSrc,30)};
+  return (o.st || o.note)?o:null; }
 /* build the league from a scan */
 function build(scan){
   const ctx={scan,U:{},ros:{},avail:[],teams:{},notes:[]};
@@ -345,8 +357,8 @@ function build(scan){
   const today0=etParts(nowDate()).date, NW=(D.news&&D.news.p)||{}, AG=(D.ages&&D.ages.p)||{};
   const mk=id=>{ if(ctx.U[id]) return ctx.U[id]; const a=P[id]||['Player '+id,'','',null]; const p={id,name:a[0],team:a[1],pos:String(a[2]||'').split(',').filter(Boolean),pre:a[3],own:null,slot:'',status:'',fa:''};
     // news and age are optional extras. A player ESPN lists as out with a return date still ahead is counted as out until that date
-    const nw=NW[id]; p.news=(nw && typeof nw==='object')?nw:null; p.ret=(p.news && p.news.st==='Out' && /^\d{4}-\d{2}-\d{2}$/.test(p.news.ret||'') && p.news.ret>today0)?p.news.ret:null;
-    const ag=AG[B.nkey(p.name)]; p.age=(Array.isArray(ag) && ag[0]>0)?ag[0]:null;
+    p.news=cleanNews(NW[id]); p.ret=(p.news && p.news.st==='Out' && p.news.ret && p.news.ret>today0)?p.news.ret:null;
+    const ag=AG[B.nkey(p.name)]; p.age=(Array.isArray(ag) && Number.isInteger(ag[0]) && ag[0]>=15 && ag[0]<=60)?ag[0]:null;
     ctx.U[id]=p; return p; };
   // wins, losses and ties are read as numbers, so a record saved as text can never turn the win counts into nonsense
   (scan.teams||[]).forEach(t=>{ if(t && t.id!=null) ctx.teams[t.id]=Object.assign({},t,{w:+t.w||0,l:+t.l||0,t:+t.t||0}); });
@@ -367,12 +379,13 @@ function build(scan){
   ctx.avgGP=gn?gsum/gn:0;
   let ws=0, wn=0; Object.keys(ctx.ros).forEach(t=>ctx.ros[t].forEach(p=>{ if(p.proj){ ws+=p.w; wn++; } }));
   ctx.wbar=wn?ws/wn:0; ctx.u=0.06+0.07*(1-ctx.wbar); ctx.up=0.006+0.008*(1-ctx.wbar);
-  seenValues(ctx); Object.values(ctx.U).forEach(p=>{ p.jv=vj(p,ctx); });
+
   // waiver level in this league, the average of the free agents ranked 3rd to 10th right now
   const fas=ctx.avail.filter(p=>p.proj&&!isOut(p)).sort((a,b)=>b.val-a.val).slice(2,10); const rl=zeroT(); if(fas.length>=4) fas.forEach(p=>addT(rl,p.proj,1/fas.length)); else addT(rl,REPL_LINE,1);
   ctx.repl=rl; ctx.fillR={rho:0.8,line:rl}; ctx.fillW={rho:0.5,line:rl};
   Object.values(ctx.U).forEach(p=>{ if(p.proj) p.eff=effLine(p,pROS(p),ctx.fillR); });
   timeline(ctx);
+  seenValues(ctx); Object.values(ctx.U).forEach(p=>{ p.jv=vj(p,ctx); });
   Object.values(ctx.U).forEach(p=>{ p.avRet=0; if(p.ret && ctx.tdays.length){ const nd=ctx.tdays.length, na=ctx.tdays.filter(d=>d>=p.ret).length; if(na>0 && na<nd) p.avRet=clamp(p.av*nd/na,p.av,0.9); } });
   typical(ctx);
   return ctx;
@@ -594,11 +607,12 @@ function* scoreOffers(ctx,pl,env,opps){
         const v=viewOf(prs), dme=v.per.map((x,c)=>100*(x-per0[c]));
         const broke=guard.filter(c=>hit(c,v.per[c],v.fav[c]));
         // On plan means no guarded cat breaks and the trade builds toward a route or at least leaves the build cats alone.
-        // A pivot gives up one guarded cat, or leans on a cat the plan counts low. More than one broken cat is a rebuild and only shows at a critical moment
+        // A pivot gives up one guarded cat, or leans on a cat the plan counts low. More than one broken cat is a rebuild and only shows at a critical moment.
+        // The two numbers above only decide what is kept. A pivot's real gain is worked out later, under the exact plan it would turn into
         let kind=null;
         if(!broke.length){ if(planGain>=0.3 && shapeOk(dme)) kind='plan'; else if(pivGain>=0.3 && pivGain>planGain+0.5) kind='pivot'; }
-        else if(broke.length===1){ if(pivGain>=0.3) kind='pivot'; }
-        else if(pivGain>=0.3 && pt.critical) kind='rebuild';
+        else if(broke.length===1) kind='pivot';
+        else if(pt.critical) kind='rebuild';
         if(!kind) continue;
         out.push({o,k:k++,give,get,fair,ratio:fair.look,planGain,pivGain,myGain:kind==='plan'?planGain:pivGain,weekN:v.weekN,per:v.per,fav:v.fav,dme,broke,kind,cut,credit,two,Tm,To});
       }
@@ -606,7 +620,9 @@ function* scoreOffers(ctx,pl,env,opps){
   }
   return {out,seen};
 }
+let LIVEW=[];
 function trades(ctx,done,live){
+  LIVEW.forEach(x=>{ try{ x.terminate(); }catch(e){} }); LIVEW=[];
   const pl=planOf(), env=tradeEnv(ctx,pl), {pt,routes,per0,basePlan,guard,hit}=env;
   const res={list:[],pivots:[],routes:[],alt:[],count:0,kept:0,hidden:0,pass:0,base:ctx.base[ME],plan:pl,pt,how:''}; const L=D.league;
   if(L.tradeDeadline && env.today>L.tradeDeadline){ res.note='The trade deadline has passed.'; done(res); return; }
@@ -614,6 +630,8 @@ function trades(ctx,done,live){
   const W={}; Object.keys(ctx.ros).forEach(t=>W[t]=oppWeights(ctx,t));
   env.spotV=spotValue(ctx,pl,env);
   let out=[], seen=0;
+  // the plan a pivot would turn into, with its own starting point and its own value for an open roster spot. Worked out once for each new plan
+  const npc={}; const newPlan=roles=>{ const k=roles.join(','); if(!npc[k]){ const np=mkPlan(roles), base=planWeekOf(ctx,env.v0.prs,np,false); npc[k]={pl:np,base,spot:spotValue(ctx,np,{today:env.today,basePlan:base})}; } return npc[k]; };
   // the full picture for an offer that passed, from the totals already worked out for it
   const exact=t=>{
     const o=t.o, typ=Object.assign({},ctx.typ); typ[ME]=t.Tm; typ[o]=t.To; const so=strength(ctx,o,typ);
@@ -626,7 +644,9 @@ function trades(ctx,done,live){
     t.built=pl.build.filter(c=>t.dme[c]>=2).sort((a,b)=>t.dme[b]-t.dme[a]); t.spent=guard.filter(c=>t.dme[c]<=-1.5).sort((a,b)=>t.dme[a]-t.dme[b]);
     t.routes=routes.filter(R=>fitsRoute(R,t.dme));
     if(t.kind!=='plan'){ // the plan this trade would turn into. The cat that breaks becomes a swing cat. A low or bonus cat that jumps becomes a build cat
-      const nr=pl.roles.slice(); t.broke.forEach(c=>{ nr[c]='swing'; }); let bc=-1, bv=5; for(let c=0;c<9;c++) if((pl.roles[c]==='bonus'||pl.roles[c]==='low') && t.dme[c]>=bv){ bv=t.dme[c]; bc=c; } if(bc>=0) nr[bc]='build'; t.newRoles=nr; t.target=bc; }
+      const nr=pl.roles.slice(); t.broke.forEach(c=>{ nr[c]='swing'; }); let bc=-1, bv=5; for(let c=0;c<9;c++) if((pl.roles[c]==='bonus'||pl.roles[c]==='low') && t.dme[c]>=bv){ bv=t.dme[c]; bc=c; } if(bc>=0) nr[bc]='build'; t.newRoles=nr; t.target=bc;
+      // the gain shown for a pivot is the gain under that new plan, the same number you would see after tapping Make this my plan
+      const np=newPlan(nr), ov={}; ov[o]=t.To; t.myGain=100*(planWeekOf(ctx,myView(ctx,t.Tm,ov).prs,np.pl,false)-np.base)-(t.two?np.spot:0); }
   };
   const score=t=>{
     const top=t.get.some(p=>(pickOf[B.nkey(p.name)]||99)<=20 || LEGEND.has(B.nkey(p.name))); t.top=top;
@@ -651,8 +671,8 @@ function trades(ctx,done,live){
   const finish=()=>{
     out.sort((a,b)=>opps.indexOf(a.o)-opps.indexOf(b.o)||a.k-b.k);
     out.forEach(t=>{ exact(t); score(t); });
-    const ok=t=>t.jside!=='lose', byScore=(a,b)=>b.score-a.score||b.myGain-a.myGain;
-    const planAll=out.filter(t=>t.kind==='plan' && ok(t)).sort(byScore), pivAll=out.filter(t=>t.kind!=='plan' && ok(t)).sort(byScore);
+    const ok=t=>t.jside!=='lose', byScore=(a,b)=>b.score-a.score||b.myGain-a.myGain, byGain=(a,b)=>b.myGain-a.myGain;
+    const planAll=out.filter(t=>t.kind==='plan' && ok(t)).sort(byScore), pivAll=out.filter(t=>t.kind!=='plan' && ok(t) && t.myGain>=0.3).sort(byScore);
     const bestPlan=planAll.reduce((m,t)=>Math.max(m,t.myGain),0);
     const pick=(list,max,key)=>{ const s2={}, shape={}, o=[]; for(const t of list){ const k=key(t); if(s2[k]) continue; const sk=t.give.length+'for'+t.get.length; if((shape[sk]||0)>=6) continue; s2[k]=1; shape[sk]=(shape[sk]||0)+1; o.push(t); if(o.length>=max) break; } return o; };
     const gk=t=>t.o+'|'+t.get.map(p=>p.id).sort().join('+');
@@ -661,13 +681,17 @@ function trades(ctx,done,live){
     res.pivots=pick(pivAll.filter(t=>t.myGain>=bestPlan+2),6,t=>t.broke.join('+')+'|'+(t.target==null?'':t.target)+'|'+gk(t));
     res.bestPlan=bestPlan;
     // the routes. For each one, the best trade that stays on plan, the best two trades with two teams scored together, and failing that the best pivot that would open it.
-    // progress is how far the route's cats move toward the target, with nothing counted past 65 percent, so a trade is picked for what it does for that route and not for gains elsewhere
-    const cap=x=>Math.min(x,TARGET+0.05), prog=(R,per)=>R.reduce((s,c)=>s+cap(per[c])-cap(per0[c]),0), short=(R,per)=>R.reduce((s,c)=>s+Math.max(0,TARGET-per[c]),0);
-    res.routes=routes.map(R=>{ const byProg=(x,y)=>prog(R,y.per)-prog(R,x.per)||y.myGain-x.myGain;
+    // A trade is picked for a route by how close it leaves that route's cats to the target, not by gains elsewhere. short is the points still missing, added over the route's cats.
+    // It is compared in whole points, so trades that leave a route equally close, or both on target, are split by the bigger gain
+    const short=(R,per)=>R.reduce((s,c)=>s+Math.max(0,TARGET-per[c]),0);
+    res.routes=routes.map(R=>{ const pp=per=>-Math.round(100*short(R,per)), byProg=(x,y)=>pp(y.per)-pp(x.per)||y.myGain-x.myGain;
       const a=planAll.filter(t=>fitsRoute(R,t.dme)).sort(byProg), b=pivAll.filter(t=>fitsRoute(R,t.dme)).sort(byProg);
-      const best=a[0]||null; let pair=null; const top=pick(a,6,gk);
-      for(let i=0;i<top.length;i++) for(let j=i+1;j<top.length;j++){ if(top[i].o===top[j].o) continue; const x=both(top[i],top[j]); if(x && x.gain>=0.3 && fitsRoute(R,x.per.map((p,c)=>100*(p-per0[c]))) && (!pair || prog(R,x.per)>prog(R,pair.per))) pair=x; }
-      if(pair && best && prog(R,pair.per)<prog(R,best.per)+0.01) pair=null;
+      const best=a[0]||null; let pair=null;
+      // pairs are tried among the trades that leave this route closest to the target and the ones that gain the most, up to 28 in all
+      const top=pick(a,14,gk); pick(a.slice().sort(byGain),14,gk).forEach(t=>{ if(top.indexOf(t)<0) top.push(t); });
+      for(let i=0;i<top.length;i++) for(let j=i+1;j<top.length;j++){ if(top[i].o===top[j].o) continue; const x=both(top[i],top[j]); if(x && x.gain>=0.3 && fitsRoute(R,x.per.map((p,c)=>100*(p-per0[c]))) && (!pair || pp(x.per)>pp(pair.per) || (pp(x.per)===pp(pair.per) && x.gain>pair.gain))) pair=x; }
+      // two trades are shown only when they get the route further than the best single trade, or just as far for a clearly bigger gain
+      if(pair && best && !(pp(pair.per)>pp(best.per) || (pp(pair.per)===pp(best.per) && pair.gain>best.myGain+0.3))) pair=null;
       const via=!best && b.length?b[0]:null, g=pair?pair.gain:best?best.myGain:null, perA=pair?pair.per:best?best.per:via?via.per:null;
       return {R,now:R.map(c=>per0[c]),sum:R.reduce((s,c)=>s+per0[c],0),best,pair,via,gain:g,reach:perA?R.map(c=>perA[c]):null,week:g!=null?basePlan+g/100:null,n:a.length,short:short(R,(best||pair)?perA:per0)}; });
     // the leading route is the one that ends closest to the target after its best fair trade or pair of trades. Routes within one point of each other count as tied, and a tie goes to the bigger gain
@@ -695,7 +719,7 @@ function trades(ctx,done,live){
     const ws=[]; let left=0, dead=false;
     const stop=()=>{ ws.forEach(x=>{ try{ x.terminate(); }catch(e){} }); };
     const fail=()=>{ if(dead) return; dead=true; stop(); out=[]; seen=0; onPage(); };
-    try{ parts.filter(a=>a.length).forEach(part=>{ const wk=new Worker(SELF_SRC); ws.push(wk); left++;
+    try{ parts.filter(a=>a.length).forEach(part=>{ const wk=new Worker(SELF_SRC); ws.push(wk); LIVEW.push(wk); left++;
         wk.onmessage=e=>{ if(dead) return; if(live && !live()){ dead=true; stop(); return; } const m=e.data; if(!m || m.err || !Array.isArray(m.out)){ fail(); return; }
           seen+=m.seen; for(const t of m.out){ t.give=t.give.map(id=>ctx.U[id]); t.get=t.get.map(id=>ctx.U[id]); t.cut=t.cut?ctx.U[t.cut]:null; if(t.give.some(x=>!x) || t.get.some(x=>!x)){ fail(); return; } out.push(t); }
           if(--left===0){ dead=true; stop(); res.how='workers '+ws.length; finish(); } };
@@ -816,11 +840,12 @@ function tradeWhy(ctx,t){
     if(t.spent.length) s1+=' It spends '+listWords(t.spent.map(go))+', which stays above the floor of '+pc(FLOOR)+'.';
     const nr=routeSets(pl).length; if(t.routes.length && t.routes.length===nr && nr>1) s1+=' It moves you along every route.'; else if(t.routes.length) s1+=' It moves you along the '+listWords(t.routes.map(routeName).map(x=>x+' route'))+'.'; else if(!t.built.length) s1+=' It does not build a route. It firms up the rest of the plan.'; }
   else { const b=t.broke, up=t.dme.map((v,c)=>[v,c]).filter(x=>x[0]>=2 && b.indexOf(x[1])<0 && pl.roles[x[1]]!=='punt').sort((x,y)=>y[0]-x[0]).slice(0,3).map(x=>x[1]);
-    const cap1=x=>x.charAt(0).toUpperCase()+x.slice(1), under=c=>cap1(CATWORD[c])+' goes from '+pc(per[c])+' to '+pc(t.per[c])+' percent and you would be favored against '+t.fav[c]+' of 9 teams, which is under its floor.';
+    const cap1=x=>x.charAt(0).toUpperCase()+x.slice(1), near=x=>Math.abs(x-FLOOR)<0.01?(100*x).toFixed(1):String(pc(x));
+    const under=c=>cap1(CATWORD[c])+' goes from '+pc(per[c])+' to '+near(t.per[c])+' percent and you would be favored against '+t.fav[c]+' of 9 teams. '+(t.per[c]<FLOOR?'That is under the floor of '+pc(FLOOR)+' percent.':'That is fewer than the '+FAVMIN+' teams a lock needs.');
     s1+=b.length?'This is a pivot. You give up '+listWords(b.map(c=>CATWORD[c]))+' as a guarded cat. '+b.map(under).join(' '):'This is a pivot toward a cat your plan counts low. No lock is given up.';
     if(up.length) s1+=' In return you gain '+listWords(up.map(go))+'.';
     if(t.target>=0) s1+=' '+CATWORD[t.target].charAt(0).toUpperCase()+CATWORD[t.target].slice(1)+' would become a build cat.';
-    s1+=' Counted the way the new plan would count, the gain is '+r1(t.myGain)+' points, against '+r1(TR.bestPlan||0)+' for the best trade that stays on plan.'; }
+    s1+=' Scored under the plan it would turn into, the gain is '+r1(t.myGain)+' points, against '+r1(TR.bestPlan||0)+' for the best trade that stays on your plan today.'; }
   s1+=' On the real nine cat scoreboard your average week goes from '+pc(ctx.view0.weekN)+' to '+pc(t.after)+' percent.';
   if(t.bal.mult>1) s1+=' It helps your position balance at '+listWords(t.bal.good)+'.'; else if(t.bal.mult<1) s1+=' It hurts your position balance at '+listWords(t.bal.bad)+'.';
   if(t.two) s1+=' It also opens a roster spot. These numbers assume you fill that spot with a good streamer every week, so the gain is smaller if you leave it empty or fill it poorly.';
@@ -830,20 +855,20 @@ function tradeWhy(ctx,t){
   const nw=t.get.concat(t.give).map(p=>{ const x=newsLine(p); return x?p.name+'. '+x:''; }).filter(Boolean).join(' ');
   return {does:oneDot([s1])[0],basis:basisWords(t.give.concat(t.get)),risk:oneDot([risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.'])[0],josh:((js?js+' ':'')+tg).trim(),news:nw};
 }
-/* why the cats a trade moves matter for my team. A swing cat sits between 42 and 58 percent, where a few points decide the week */
+/* why the cats a trade moves matter for my team. A close cat sits between 42 and 58 percent, where a few points decide the week. Swing is kept for the plan role */
 function tradeMatter(ctx,t){
   const per=ctx.view0.per, aft=c=>t.per[c], st=x=>x<0.42?0:x<=0.58?1:2, tc=tradeCats(t), a=[], pl=TR.plan;
   const cap=c=>CATWORD[c].charAt(0).toUpperCase()+CATWORD[c].slice(1);
   let sw=0;
   tc.up.slice(0,3).forEach(c=>{ const b=per[c], n=aft(c), go='from '+pc(b)+' to '+pc(n)+' percent';
     if(pl.roles[c]==='punt') a.push(cap(c)+' goes '+go+', but it is your punt, so the plan gives no credit for it.');
-    else if(st(b)===1) a.push(cap(c)+(sw++?' is also a swing cat.':' is a swing cat for you, so this is where the trade pays most.')+' Your chance to win it goes '+go+'.');
+    else if(st(b)===1) a.push(cap(c)+(sw++?' is also a close cat.':' is a close cat for you, so this is where the trade pays most.')+' Your chance to win it goes '+go+'.');
     else if(st(b)===0) a.push(cap(c)+' is a cat you usually lose. Your chance to win it goes '+go+(n>0.5?', which makes you the favorite.':n>=0.42?', which turns it into a real fight.':', so you are still the underdog there.'));
     else a.push(cap(c)+' is already a strength and goes '+go+', so it adds less.'); });
   tc.dn.slice(0,3).forEach(c=>{ const b=per[c], n=aft(c), go='from '+pc(b)+' to '+pc(n)+' percent';
     if(pl.roles[c]==='punt') a.push('It costs '+CATWORD[c]+', '+go+'. That is your punt, so the plan does not count the loss.');
     else if(st(n)===2) a.push('You can afford the hit in '+CATWORD[c]+', where you stay a clear favorite, '+go+'.');
-    else if(st(n)===1) a.push('Watch '+CATWORD[c]+'. It '+(st(b)===2?'becomes':'stays')+' a swing cat, '+go+'.');
+    else if(st(n)===1) a.push('Watch '+CATWORD[c]+'. It '+(st(b)===2?'becomes':'stays')+' a close cat, '+go+'.');
     else if(st(b)===0) a.push('You were already losing '+CATWORD[c]+', so the drop '+go+' costs little.');
     else a.push('The real cost is '+CATWORD[c]+', which falls '+go+' and becomes a cat you usually lose.'); });
   const fb=per.filter(x=>x>0.5).length, fa=t.per.filter(x=>x>0.5).length;
@@ -863,13 +888,14 @@ function tradeFair(ctx,t){
   return s;
 }
 /* talking points. Every number comes from real stat lines, league ranks or the draft, never from a guess. A point that is not true for this deal is simply left out */
-const rline=p=>{ const r=p.rl; if(!r) return null; if(r.cur && r.gp>=10) return {l:r.cur,b:0}; if(r.prev) return {l:r.prev,b:r.pb==='last'?1:2}; return null; };
+// only a real stat line counts here. This season after 10 games, or a last season of 20 games or more. A line rebuilt from an older season or a blend is not a real line, so no stat sentence is written from it
+const rline=p=>{ const r=p.rl; if(!r) return null; if(r.cur && r.gp>=10) return {l:r.cur,b:0}; if(r.prev && r.pb==='last') return {l:r.prev,b:1}; return null; };
 const f1=x=>(Math.round(x*10)/10).toFixed(1);
 function sellKit(ctx,t){
   const o=t.o, G0=t.give.map(rline), R0=t.get.map(rline), real=G0.every(Boolean) && R0.every(Boolean), pts=[], used=new Set();
   const sum=ls=>{ const T={}; TK.forEach(k=>T[k]=ls.reduce((a,x)=>a+x.l[k],0)); return T; };
   const G=real?sum(G0):null, R=real?sum(R0):null, bs=real?new Set(G0.concat(R0).map(x=>x.b)):null;
-  const when=!real?'':bs.size===1?(bs.has(0)?'this season':bs.has(1)?'last season':'in their last full seasons'):'by their most recent seasons';
+  const when=!real?'':bs.size===1?(bs.has(0)?'this season':'last season'):'in the most recent season for each', goBy=!real?'':bs.size===1?'Going by '+(bs.has(0)?'this':'last')+' season\'s numbers':'Going by the most recent season for each player';
   const gN=listWords(t.give.map(p=>p.name)), rN=t.get.length>1?'the '+(t.get.length===2?'two':'players')+' you send':t.get[0].name, n=t.give.length;
   const stat=c=>{ if(!real) return '';
     if(c<2){ const m=c===0?['fgm','fga']:['ftm','fta']; if(!(G[m[1]]>0 && R[m[1]]>0)) return ''; const g=100*G[m[0]]/G[m[1]], r=100*R[m[0]]/R[m[1]]; if(g<r+0.5) return ''; return gN+' shot '+f1(g)+' percent '+(c===0?'from the field ':'at the line ')+when+', against '+f1(r)+' for '+rN+'.'; }
@@ -884,14 +910,14 @@ function sellKit(ctx,t){
   // 3. the draft
   const pk=p=>pickOf[B.nkey(p.name)]||null, gp=t.give.map(p=>[pk(p),p]).filter(x=>x[0]).sort((a,b)=>a[0]-b[0])[0], rp=t.get.map(p=>[pk(p),p]).filter(x=>x[0]).sort((a,b)=>a[0]-b[0])[0];
   if(gp && rp && gp[0]<rp[0]) pts.push('In our draft '+gp[1].name+' went at pick '+gp[0]+', ahead of '+rp[1].name+' at pick '+rp[0]+'.');
-  else if(gp && !rp) pts.push(gp[1].name+' was drafted in our league at pick '+gp[0]+'. '+(t.get.length>1?'Neither player':'The player')+' you send was drafted.');
+  else if(gp && !rp) pts.push(gp[1].name+' was drafted in our league at pick '+gp[0]+'. '+(t.get.length>1?'Neither player you send was drafted.':'The player you send was not drafted.'));
   // 4. plain box score edges that have not been used yet
-  if(real){ const e=[]; [3,4,5,2,6,7].forEach(c=>{ if(used.has(c)) return; const k=CK[c-2]; if(G[k]>R[k]*1.05) e.push([G[k]/Math.max(0.1,R[k]),CATWORD[c]+', '+f1(G[k])+' to '+f1(R[k])]); });
-    e.sort((a,b)=>b[0]-a[0]); if(e.length) pts.push('Going '+(when==='this season'||when==='last season'?'by '+when+'\'s numbers':when)+', the side you get is ahead in '+e.slice(0,2).map(x=>x[1]).join(', and in ')+' a game.'); }
+  if(real && t.give.length===t.get.length){ const e=[]; [3,4,5,2,6,7].forEach(c=>{ if(used.has(c)) return; const k=CK[c-2]; if(G[k]>R[k]*1.05) e.push([G[k]/Math.max(0.1,R[k]),CATWORD[c]+', '+f1(G[k])+' to '+f1(R[k])]); });
+    e.sort((a,b)=>b[0]-a[0]); if(e.length) pts.push(goBy+', the side you get is ahead in '+e.slice(0,2).map(x=>x[1]).join(', and in ')+' a game.'); }
   // 5. true facts about the players they would send
-  const rk=[]; t.get.forEach(p=>{ if(p.news && p.news.st==='Out') rk.push('ESPN lists '+p.name+' as out'+(p.news.ret?' until around '+niceLong(p.news.ret):'')); else if(p.status) rk.push(p.name+' is tagged '+statusWord(p.status)); if(p.age>=32) rk.push(p.name+' is '+p.age); if(p.rl && p.rl.pb==='last' && p.rl.lastG<60 && !(p.rl.gp>=10)) rk.push(p.name+' played '+p.rl.lastG+' games last season'); });
+  const rk=[]; t.get.forEach(p=>{ const f=[]; if(p.news && p.news.st==='Out') f.push('is listed as out by ESPN'+(p.news.ret?' until around '+niceLong(p.news.ret):'')); else if(p.status) f.push('is tagged '+statusWord(p.status)); if(p.age>=32) f.push('is '+p.age); if(p.rl && p.rl.pb==='last' && p.rl.lastG<60 && !(p.rl.gp>=10)) f.push('played '+p.rl.lastG+' games last season'); if(f.length) rk.push(p.name+' '+listWords(f)); });
   if(rk.length) pts.push(listWords(rk.slice(0,3))+', so that risk moves off your team.');
-  if(t.give.length>t.get.length) pts.push('You get two players for one.');
+  if(t.give.length>t.get.length) pts.push('You get two players for one'+(t.cut?', and would drop '+t.cut.name+' to make room':'')+'.');
   // what they will say back
   let push; const worst=t.dop.map((v,c)=>[v,c]).sort((a,b)=>a[0]-b[0])[0];
   if(t.fair.best>=1){ const bp=t.get.slice().sort((a,b)=>b.mv-a.mv)[0]; push='They will say '+bp.name+' is the best player in the deal. He is, so sell fit and depth, not star power.'; }
@@ -899,7 +925,7 @@ function sellKit(ctx,t){
   else push='Expect little pushback. The deal looks even or better from their side and costs them no cat by 2 points or more.';
   // the next offer if they say no. Same team, shares a player you get, looks better to them, still good for you
   const ids=new Set(t.get.map(p=>p.id)); let alt=null;
-  (TR.alt||[]).forEach(u=>{ if(u===t || u.o!==o || u.kind!==t.kind || u.fair.look<t.fair.look+0.05 || !u.get.some(p=>ids.has(p.id))) return; if(u.give.map(p=>p.id).sort().join()===t.give.map(p=>p.id).sort().join()) return; if(!alt || u.myGain>alt.myGain) alt=u; });
+  (TR.alt||[]).forEach(u=>{ if(u===t || u.o!==o || u.kind!==t.kind || u.fair.look<t.fair.look+0.05 || !u.get.some(p=>ids.has(p.id))) return; if(u.give.length!==t.give.length || u.get.length!==t.get.length || u.fair.B>t.fair.B*1.5+5) return; if(u.give.map(p=>p.id).sort().join()===t.give.map(p=>p.id).sort().join()) return; if(!alt || u.myGain>alt.myGain) alt=u; });
   const nm=a=>listWords(a.map(p=>p.name));
   const altS=alt?'If they say no, try '+nm(alt.give)+' for '+nm(alt.get)+' next. It looks better to them and still gains you '+r1(alt.myGain)+' points.':'If they say no, there is no cheap sweetener that keeps this good for you. Let it go.';
   const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.';
@@ -966,7 +992,7 @@ function goalLine(ctx,wk,pk){
   const lead=ctx.act?'lead':'are favored in';
   let s=wk.fav>=5?'You '+lead+' '+wk.fav+' of 9 cats against '+esc((ctx.teams[ctx.opp]||{}).name||'')+'. '+(ctx.act?'Hold the lead':'Keep it that way')+' and protect the close ones.':'You '+lead+' only '+wk.fav+' of 9 cats, so you need '+need+' more. Keep adding and trading until this reads 5 or more.';
   const close=wk.probs.map((p,c)=>[Math.abs(p-0.5),c,p]).filter(x=>x[0]<=0.08).sort((a,b)=>a[0]-b[0]).slice(0,3).map(x=>CATS[x[1]]);
-  if(close.length) s+=close.length===1?' The swing cat is '+close[0]+'.':' The swing cats are '+listWords(close)+'.';
+  if(close.length) s+=close.length===1?' The close cat is '+close[0]+'.':' The close cats are '+listWords(close)+'.';
   if(top) s+=(ctx.noAdds?' You have no adds left this week. Best pickup for week '+pk.week.n+' is ':' Best pickup now is ')+esc(top.p.name)+' at '+top.need+'.';
   return s;
 }
@@ -1006,37 +1032,45 @@ function planCheck(ctx,pl,pt,pk){
   pt.risk.forEach(r=>{ let s=CATS[r.c]+' is a lock that has slipped under its floor. You win it '+pc(r.p)+' percent of the time and are favored against '+r.fav+' of 9 teams.';
     const fx=TR&&TR.list?TR.list.filter(t=>t.dme[r.c]>=2).sort((x,y)=>y.dme[r.c]-x.dme[r.c])[0]:null, fp=pk&&pk.list?pk.list.filter(x=>x.ds && x.ds[r.c]>=1).sort((x,y)=>y.ds[r.c]-x.ds[r.c])[0]:null;
     if(fx) s+=' The best trade fix below is '+fx.get.map(p=>p.name).join(' and ')+' for '+fx.give.map(p=>p.name).join(' and ')+'.'; if(fp) s+=' The best pickup fix is '+fp.p.name+'.'; if(!fx && !fp) s+=' Nothing on the lists fixes it today.'; a.push(s); });
+  const fixDots=x=>oneDot([x])[0];
   ctx.ros[ME].forEach(p=>{ if(p.ret) a.push(p.name+' is listed as out until around '+niceLong(p.ret)+' by ESPN, so every number here counts him as out until then.'); else if(p.news && p.news.note && p.news.dir==='bad') a.push(p.name+'. '+String(p.news.note).replace(/\.+$/,'')+'.'); });
   if(pt.set) a.push('Enough build cats are on target, so they are now guarded like locks and the last build cat is free to swing.');
   if(pt.critical) a.push('The plan is in trouble. '+(pt.week<0.5?'Your plan week is down to '+pc(pt.week)+' percent. ':'')+(pt.risk.length>=2?pt.risk.length+' locks are at risk. ':'')+'A full rebuild may show under Pivots.');
   if(TR && TR.lead && ST.lead && ST.lead!==TR.lead.join(',')){ const old=ST.lead.split(',').map(Number).filter(c=>c>=0&&c<9); if(old.length) a.push('The leading route changed since you last looked. It was '+routeName(old)+' and is now '+routeName(TR.lead)+'.'); }
-  return a;
+  return a.map(fixDots);
 }
 function planPanel(ctx,pk){
   const pl=planOf(), pt=planTable(ctx,pl), order=['lock','build','bonus','low','swing','punt'];
   let h='<div class="panel"><h2>Season plan <span>checked after every Yahoo scan</span></h2>';
-  h+='<p class="small">You win a week with 5 of 9 cats. The plan is three locks plus any two of the build cats. A lock holds while you win it '+pc(FLOOR)+' percent of the time and are favored against at least '+FAVMIN+' of the 9 other teams. Room is how many points a lock sits above that floor, which is what a trade may spend. A build cat is on target at '+pc(TARGET)+' percent. The punt is frozen, so no move is paid for adding it or blamed for losing it. FT% counts 65 percent and FG% counts half. Nothing here changes the plan by itself. You change it with a pivot below.</p>';
+  const cl=a=>listWords(a.map(c=>CATS[c])), nw=n=>['no','one','two','three','four','five'][n]||String(n);
+  let ex='You win a week with 5 of 9 cats. The plan is '+nw(pl.lock.length)+' lock'+(pl.lock.length===1?'':'s')+(pl.need?' plus '+(pl.need>=pl.build.length?(pl.build.length===1?'the build cat':'all '+nw(pl.build.length)+' build cats'):'any '+nw(pl.need)+' of the '+nw(pl.build.length)+' build cats'):'')+'.';
+  if(pl.shy) ex+=' That is '+(pl.lock.length+pl.need)+' plan cats, so '+nw(pl.shy)+' more has to come from a swing or bonus cat.';
+  ex+=' A lock holds while you win it '+pc(FLOOR)+' percent of the time and are favored against at least '+FAVMIN+' of the 9 other teams. Room is how many points a lock sits above that floor, which is what a trade may spend. A build cat is on target at '+pc(TARGET)+' percent.';
+  if(pl.punt.length) ex+=' '+cl(pl.punt)+(pl.punt.length===1?' is the punt. It is':' are the punts. They are')+' frozen, so no move is paid for adding there or blamed for losing there.';
+  if(pl.bonus.length) ex+=' '+cl(pl.bonus)+(pl.bonus.length===1?' is a bonus cat and counts':' are bonus cats and count')+' 65 percent.'; if(pl.low.length) ex+=' '+cl(pl.low)+(pl.low.length===1?' is a low cat and counts':' are low cats and count')+' half.'; if(pl.swing.length) ex+=' '+cl(pl.swing)+(pl.swing.length===1?' is a swing cat. It counts':' are swing cats. They count')+' in full but no trade is asked to protect or build '+(pl.swing.length===1?'it':'them')+'.';
+  ex+=' Nothing here changes the plan by itself. You change it with a pivot below.';
+  h+='<p class="small">'+ex+'</p>';
   h+='<div class="mvbig">'+pt.hit+' of '+pt.of+'<small>plan cats at '+pc(TARGET)+' percent or better. Plan week '+pc(pt.week)+' percent, real nine cat week '+pc(pt.weekN)+' percent</small></div>';
   h+='<div class="mvtbl"><table><thead><tr><th>Cat</th><th>Role</th><th class="num">Win chance</th><th class="num">League rank</th><th class="num">Favored vs</th><th class="num">Room</th><th>Status</th></tr></thead><tbody>';
   pt.rows.slice().sort((a,b)=>order.indexOf(a.role)-order.indexOf(b.role)||b.p-a.p).forEach(r=>{ const cls=r.role==='lock'?(r.st==='Holding'?'good':'bad'):r.role==='build'?(r.st==='On target'?'good':r.st==='Close'?'warn':'bad'):'muted';
     h+='<tr><td><b>'+CATS[r.c]+'</b></td><td>'+ROLEWORD[r.role]+'</td><td class="num">'+pc(r.p)+'%</td><td class="num">'+ordW(r.rank)+'</td><td class="num">'+r.fav+' of 9</td><td class="num">'+(r.room==null?'':r.room>=0?r0(r.room)+' pts':'under by '+r0(-r.room))+'</td><td><span class="chip '+cls+'">'+r.st+'</span></td></tr>'; });
   h+='</tbody></table></div>';
   // routes
-  h+='<h2 style="margin-top:14px">Routes to five <span>any '+pl.need+' of '+listWords(pl.build.map(c=>CATS[c]))+'</span></h2>';
+  h+='<h2 style="margin-top:14px">Routes to five <span>'+(pl.need && pl.build.length?(pl.need>=pl.build.length?'needs '+cl(pl.build):'any '+pl.need+' of '+cl(pl.build)):'no build cats')+'</span></h2>';
   if(!pl.need || !pl.build.length) h+='<p class="empty">This plan needs no build cats.</p>';
   else if(!TR) h+='<p class="empty">Scoring trades with all nine teams to rank the routes.</p>';
   else if(TR.note) h+='<p class="empty">'+esc(TR.note)+'</p>';
   else { h+='<div class="mvtbl"><table><thead><tr><th>Route</th><th>Now</th><th>Best fair trade</th><th>Can reach</th><th>Best pickup</th></tr></thead><tbody>';
     TR.routes.forEach(r=>{ const now=r.R.map((c,i)=>CATS[c]+' '+pc(r.now[i])).join(', '), nm=a=>a.map(p=>esc(p.name)).join(' and ');
       let bt, rc='';
-      if(r.pair){ bt='Two trades together. '+nm(r.pair.a.get)+' for '+nm(r.pair.a.give)+', and '+nm(r.pair.b.get)+' for '+nm(r.pair.b.give)+'. Gain '+r1(r.gain); }
-      else if(r.best){ bt=nm(r.best.get)+' for '+nm(r.best.give)+'. Gain '+r1(r.gain); }
-      else if(r.via){ bt='Needs a pivot'+(r.via.broke.length?' that gives up '+r.via.broke.map(c=>CATS[c]).join(' and '):'')+'. '+nm(r.via.get)+' for '+nm(r.via.give); }
+      if(r.pair){ bt='Two trades together. '+nm(r.pair.a.get)+' for '+nm(r.pair.a.give)+', and '+nm(r.pair.b.get)+' for '+nm(r.pair.b.give)+', gain '+r1(r.gain); }
+      else if(r.best){ bt=nm(r.best.get)+' for '+nm(r.best.give)+', gain '+r1(r.gain); }
+      else if(r.via){ bt='Needs a pivot'+(r.via.broke.length?' that gives up '+r.via.broke.map(c=>CATS[c]).join(' and '):'')+', '+nm(r.via.get)+' for '+nm(r.via.give); }
       else bt='No fair trade builds this today';
       if(r.reach) rc=r.R.map((c,i)=>CATS[c]+' '+pc(r.reach[i])).join(', ')+(r.week!=null?', plan week '+pc(r.week):'');
       const bp=pk&&pk.list?pk.list.filter(x=>x.ds && x.gR>=0.3 && pickFits(r.R,x.ds)).sort((x,y)=>r.R.reduce((s,c)=>s+y.ds[c]-x.ds[c],0))[0]:null;
       h+='<tr'+(r.lead?' class="mvme"':'')+'><td style="white-space:normal"><b>'+r.R.map(c=>CATS[c]).join(' and ')+'</b>'+(r.lead?' <span class="chip gem">Leading</span>':'')+'</td><td>'+now+'</td><td style="white-space:normal">'+bt+'</td><td style="white-space:normal">'+rc+'</td><td style="white-space:normal">'+(bp?esc(bp.p.name):'None today')+'</td></tr>'; });
-    h+='</tbody></table></div><p class="small">The leading route is the one a fair trade moves furthest today. You are not tied to it. Once '+pl.need+' build cats are on target that pair is guarded like your locks.</p>'; }
+    h+='</tbody></table></div><p class="small">The leading route is the one that ends closest to '+pc(TARGET)+' percent in its cats after its best fair trade. Routes within a point of each other are tied and the bigger gain wins. You are not tied to it. Once '+nw(pl.need)+' build cat'+(pl.need===1?' is':'s are')+' on target, '+(pl.need===1?'it is':'they are')+' guarded like your locks.</p>'; }
   const chk=planCheck(ctx,pl,pt,pk);
   h+='<h2 style="margin-top:14px">Plan check</h2>'+(chk.length?chk.map(x=>'<div class="switch">'+esc(x)+'</div>').join(''):'<p class="small">Nothing has drifted. The plan holds.</p>');
   if(!pl.start) h+='<div class="switch">You are on a changed plan. '+(okPlan(ST.plan)?'It is saved on this device only. Tell Claude in the scan chat to save it for all devices.':'It is saved for all devices.')+(okPlan(ST.plan)?'<div><button class="btn" id="mvplanreset" type="button">Back to the saved plan</button></div>':'')+'</div>';
@@ -1104,21 +1138,22 @@ function wire(){
   root.querySelectorAll('[data-trade]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-trade')); if(!t) return; ST.marks.push({type:'trade',withTeam:t.o,give:t.give.map(p=>p.id),get:t.get.map(p=>p.id),cut:t.cut?t.cut.id:null}); ST.at=D.scan.at; save(); compute(true); });
   root.querySelectorAll('[data-pitch]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-pitch')); if(!t) return; const txt=pitchText(CTXW,t); const ok=()=>{ b.textContent='Copied'; setTimeout(()=>{ b.textContent='Copy a message to send'; },1500); }; try{ navigator.clipboard.writeText(txt).then(ok,()=>{ b.textContent=txt; }); }catch(e){ b.textContent=txt; } });
   // a pivot becomes the plan only when you tap it. The trades and pickups are then ranked again under the new plan
-  root.querySelectorAll('[data-pivot]').forEach(b=>b.onclick=()=>{ const t=TR&&TR.pivots[+b.getAttribute('data-pivot')]; if(!t || !okPlan(t.newRoles)) return; ST.plan=t.newRoles.slice(); ST.lead=''; save(); compute(true); });
-  const pr0=$('mvplanreset'); if(pr0) pr0.onclick=()=>{ ST.plan=null; ST.lead=''; save(); compute(true); };
+  root.querySelectorAll('[data-pivot]').forEach(b=>b.onclick=()=>{ const t=TR&&TR.pivots[+b.getAttribute('data-pivot')]; if(!t || !okPlan(t.newRoles)) return; ST.plan=t.newRoles.slice(); ST.planMade=(D.plan && okPlan(D.plan.roles))?String(D.plan.made||''):''; ST.lead=''; save(); compute(true); });
+  const pr0=$('mvplanreset'); if(pr0) pr0.onclick=()=>{ ST.plan=null; ST.planMade=''; ST.lead=''; save(); compute(true); };
   const u=$('mvundo'); if(u) u.onclick=()=>{ ST.marks=[]; save(); compute(true); };
 }
 function compute(redoTrades){
   try{ ERR=''; computeInner(redoTrades); }
-  catch(e){ ERR=String(e&&e.message||e); const root=$('viewMoves'); if(root) root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">The numbers could not be built from the last scan. The next scan should fix it. Detail for the fixer, '+esc(ERR)+'</p></div>'; }
+  catch(e){ failed(e); }
 }
+function failed(e){ ERR=String(e&&e.message||e); const root=$('viewMoves'); if(root) root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">The numbers could not be built from the last scan. The next scan should fix it. Detail for the fixer, '+esc(ERR)+'</p></div>'; }
 function computeInner(redoTrades){
   if(!D.scan || !D.league || !D.sched){ render(); return; }
   if(ST.at!==D.scan.at && ST.marks.length){ ST.marks=[]; ST.at=D.scan.at; save(); }
   // a marked add must be a player the scan knows, so a damaged saved mark can never put a made up player on your roster or use up an add
   if(ST.marks.length){ const known=new Set(Object.keys(D.scan.avail||{})); Object.keys(D.scan.rosters||{}).forEach(t=>(D.scan.rosters[t]||[]).forEach(e=>known.add(String(e[0])))); const keep=ST.marks.filter(m=>m.type!=='add' || known.has(m.add)); if(keep.length!==ST.marks.length){ ST.marks=keep; save(); } }
   CTX=build(D.scan); WK=thisWeek(CTX); PK=pickups(CTX); RACE=race(CTX);
-  if(redoTrades || !TR){ TR=null; CTXW=build(D.week||D.scan); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ ERR=String(e&&e.message||e); } if(TR.lead){ const k=TR.lead.join(','); if(ST.lead!==k){ ST.lead=k; save(); } } },()=>run===TRUN); }
+  if(redoTrades || !TR){ TR=null; CTXW=build(D.week||D.scan); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ failed(e); return; } if(TR.lead){ const k=TR.lead.join(','); if(ST.lead!==k){ ST.lead=k; save(); } } },()=>run===TRUN); }
   else render();
 }
 async function load(){
@@ -1162,7 +1197,7 @@ function summary(){
     if(!TR.pivots.length) o.push('no pivot beats the plan');
     TR.pivots.slice(0,2).forEach((t,i)=>o.push('pivot '+(i+1)+', '+(t.broke.length?'gives up '+cl(t.broke):'leans on a low cat')+', with '+((CTXW.teams[t.o]||{}).name||'')+', give '+nm(t.give)+', get '+nm(t.get)+', gain '+r1(t.myGain)+' against '+r1(TR.bestPlan||0)+' on plan')); }
   const out=c.ros[ME].filter(p=>p.status).map(p=>p.name+' '+statusWord(p.status)); if(out.length) o.push('my injury tags, '+out.join(', '));
-  const nw=c.ros[ME].filter(p=>p.news && (p.news.st || p.news.note)).map(p=>p.name+(p.news.st==='Out'?' out'+(p.ret?' until '+p.ret:''):p.news.st?' day to day':'')+(p.news.note?' ('+(p.news.dir||'neutral')+') '+p.news.note:'')); if(nw.length) o.push('my news, '+nw.join(' ; ')); else if(D.news) o.push('no news items on my roster, news file made '+D.news.made); else o.push('no news file loaded');
+  const nw=c.ros[ME].filter(p=>p.news && (p.news.st || p.news.note)).map(p=>p.name+(p.news.st==='Out'?' out'+(p.ret?' until '+p.ret:''):p.news.st?' day to day':'')+(p.news.note?' ('+(p.news.dir||'neutral')+') '+p.news.note:'')); if(nw.length) o.push('my news, '+nw.join(' ; ')); else if(D.news) o.push('no news items on my roster, news file made '+(typeof D.news.made==='string'?D.news.made:'at an unknown time')); else o.push('no news file loaded');
   return o.join(' ~ ');
 }
 /* the nine cat picture for the draft board panel. It loads the data if needed, builds the numbers without scoring trades, and hands back one row for each cat */

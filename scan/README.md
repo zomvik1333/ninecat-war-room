@@ -49,9 +49,10 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
    ```
    * Run it once first so that news_raw.json holds today's news. The raw file is the only place ESPN's own words are kept, and it stays in the notes folder
    * If news_tags.json is not there yet, the script says so with a WARNING line and carries on. That is fine on the first day
-   * Read news_raw.json. Look up the players on Vikas's roster, the players in the trades the site lists and the top free agents
+   * Read news_raw.json. Look up the players on Vikas's roster, the players in the trades the live site lists right now and the top free agents
    * Also read the latest player news page at https://www.rotowire.com/basketball/news.php with the web fetch tool, for news that is not an injury, such as a new starting job or a cut in minutes. Only the players on his roster, in the listed trades and on the pickup list matter
    * For each of those players with news that matters, write a one line tag in your own words into news_tags.json. Never copy ESPN's or RotoWire's sentences, not even part of one
+   * A note may not repeat 5 words in a row from an ESPN comment. The script refuses a new tag that does and drops an old one
    * A tag looks like this. The key is the Yahoo player id from data/players.json, and the same id is in news_raw.json
      ```
      {"<player id>":{"dir":"bad","note":"<one line in your own words>","at":"2026-10-06","src":"ESPN"}}
@@ -94,6 +95,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 
 ## News and ages files
 * The scan may write data/news.json and data/ages.json, the same as the other files in the data folder
+* Both scripts need Node 18 or later
 * data/news.json comes from the ESPN injuries feed. It holds facts only. Those are the status, the body part, the return date, the date of the news and the hand written tags
 * data/ages.json comes from the ESPN team rosters. It holds each player's age, birth date and years in the NBA
 * News never changes a number on the site by itself. The one exception is a player ESPN lists as Out with a return date in the future. He is counted as out until that date
@@ -106,4 +108,4 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 
 ## One time and occasional jobs
 * League schedule. Run the scanner with `NCWSCAN.run({mode:'sched'})` and ingest it the same way. It rewrites data/league.json
-* If code changes are pulled from GitHub and git complains about the data files, run `git checkout -- data` first, pull, then run the daily scan again
+* If code changes are pulled from GitHub and git complains about the data files, run `git checkout -- data` first, pull, then run the daily scan again. Copy data/plan.json somewhere safe first if it was changed and not yet pushed, because that command puts it back to the pushed version
