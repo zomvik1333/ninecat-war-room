@@ -723,6 +723,11 @@ function trades(ctx,done,live){
     // the cats they are short in. A trade that helps one of those is easier to sell
     const weak=[]; for(let c=0;c<9;c++) if(ctx.base[o].per[c]<0.45 || ctx.rank[o][c]>=7) weak.push(c);
     t.weakHelp=weak.filter(c=>t.dop[c]>=1.5).sort((a,b)=>t.dop[b]-t.dop[a]);
+    // their week in each cat before and after, for the sell lines. Percent cats as a share, turnovers as a negative so up is always better
+    t.owk=[]; for(let c=0;c<9;c++) t.owk.push([catVal(ctx.typ[o],c),catVal(t.To,c)]);
+    // their roster shape before and after. Centers, guards and forwards
+    const shp=(f)=>{ const b=ctx.ros[o].filter(f).length; return [b,b-t.get.filter(f).length+t.give.filter(f).length-(t.cut&&f(t.cut)?1:0)]; };
+    t.oC=shp(isC); t.oGd=shp(p=>p.pos.some(x=>x==='PG'||x==='SG'||x==='G')); t.oFw=shp(p=>p.pos.some(x=>x==='SF'||x==='PF'||x==='F'));
     t.built=pl.build.filter(c=>t.dme[c]>=2).sort((a,b)=>t.dme[b]-t.dme[a]); t.spent=guard.filter(c=>t.dme[c]<=-1.5).sort((a,b)=>t.dme[a]-t.dme[b]);
     t.routes=routes.filter(R=>fitsRoute(R,t.dme));
     if(t.kind!=='plan'){ // the plan this trade would turn into. The cat that breaks becomes a swing cat. A low or bonus cat that jumps becomes a build cat
@@ -1010,14 +1015,16 @@ function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(clamp((ctx.a
   return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'.'+late+' It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10 for everyone. Games missed count against him.'; }
 /* how the offer looks from their side, and by Josh's ranks from mine */
 function tradeFair(ctx,t){
-  const f=t.fair, jr=p=>{ const r=(p.b&&p.b.josh)||p.jr; return p.name+(r?' ('+r+')':' (no Josh rank)'); };
+  const f=t.fair;
   let s='On the value scale other managers see, where the best player in the league is about 100, they get '+r0(f.A)+' and give '+r0(f.B)+'. ';
   s+=f.look>=1.12?'That looks like a clear win for them.':f.look>=1.02?'That looks a little in their favor.':f.look>=0.98?'That looks even.':'That looks a touch light for them.';
   s+=f.best===2?' They give the best player in the deal by a wide margin, so the offer has to pay for that.':f.best===1?' They give the best player in the deal.':f.mine>=1?' You give the best player in the deal.':' The best player on each side is worth about the same.';
   const md=t.give.concat(t.get).filter(p=>p.seenWhy&&p.seenWhy.length).map(p=>p.name+' is marked down because '+listWords(p.seenWhy)); if(md.length) s+=' '+md.join('. ')+'.';
-  s+=' By Josh\'s overall ranks you give '+listWords(t.give.map(jr))+' and get '+listWords(t.get.map(jr))+'. '+(t.jside==='win'?'By his ranks you get the better side of it.':'By his ranks it is about even.');
   return s;
 }
+/* by Josh's ranks, for your eyes only. A rank alone does not sell a trade, so it never goes in the pitch */
+function tradeJosh(t){ const jr=p=>{ const r=(p.b&&p.b.josh)||p.jr; return p.name+(r?' ('+r+')':' (no Josh rank)'); };
+  return 'By Josh\'s overall ranks you give '+listWords(t.give.map(jr))+' and get '+listWords(t.get.map(jr))+'. '+(t.jside==='win'?'By his ranks you get the better side of it.':'By his ranks it is about even.'); }
 /* talking points. Every number comes from real stat lines, league ranks or the draft, never from a guess. A point that is not true for this deal is simply left out */
 // only a real stat line counts here. This season after 10 games, or a last season of 20 games or more. A line rebuilt from an older season or a blend is not a real line, so no stat sentence is written from it
 const rline=p=>{ const r=p.rl; if(!r) return null; if(r.cur && r.gp>=10) return {l:r.cur,b:0}; if(r.prev && r.pb==='last') return {l:r.prev,b:1}; return null; };
@@ -1033,27 +1040,47 @@ function sellKit(ctx,t){
     const k=CK[c-2], g=G[k], r=R[k];
     if(c===8){ if(!(g<r*0.95)) return ''; return gN+' turned it over '+f1(g)+' times a game '+(n>1?'between them ':'')+when+', against '+f1(r)+' for '+rN+'.'; }
     if(!(g>r*1.05)) return ''; return gN+(c===2?' made ':' put up ')+f1(g)+' '+CATWORD[c]+' a game '+(n>1?'between them ':'')+when+', against '+f1(r)+' for '+rN+'.'; };
-  // 1. a cat they are short in that this deal lifts
-  t.weakHelp.slice(0,3).forEach(c=>{ const s=stat(c); pts.push('You are '+ordW(t.orank[c])+' of 10 in '+CATWORD[c]+'. '+(s||'By my numbers this deal lifts your chance to win that cat by '+r0(t.dop[c])+' points.')); used.add(c); });
-  // 2. what they give comes out of a surplus, and they stay near the top after the deal
-  const spare=[]; for(let c=0;c<9;c++) if(t.dop[c]<=-1.5 && t.orank[c]<=3 && t.orankA[c]<=3) spare.push(c);
-  let spareS=''; spare.sort((a,b)=>t.orank[a]-t.orank[b]).slice(0,2).forEach(c=>{ if(!spareS) spareS='You are '+ordW(t.orank[c])+' of 10 in '+CATWORD[c]+' and '+(t.orankA[c]===t.orank[c]?'still '+ordW(t.orankA[c]):ordW(t.orankA[c]))+' after the deal.'; pts.push('You are '+ordW(t.orank[c])+' of 10 in '+CATWORD[c]+' and '+(t.orankA[c]===t.orank[c]?'still '+ordW(t.orankA[c]):ordW(t.orankA[c]))+' after the deal, so what you send there is spare.'); used.add(c); });
-  // 3. the draft
-  const pk=p=>pickOf[B.nkey(p.name)]||null, gp=t.give.map(p=>[pk(p),p]).filter(x=>x[0]).sort((a,b)=>a[0]-b[0])[0], rp=t.get.map(p=>[pk(p),p]).filter(x=>x[0]).sort((a,b)=>a[0]-b[0])[0];
-  if(gp && rp && gp[0]<rp[0]) pts.push('In our draft '+gp[1].name+' went at pick '+gp[0]+', ahead of '+rp[1].name+' at pick '+rp[0]+'.');
-  else if(gp && !rp) pts.push(gp[1].name+' was drafted in our league at pick '+gp[0]+'. '+(t.get.length>1?'Neither player you send was drafted.':'The player you send was not drafted.'));
-  // 4. plain box score edges that have not been used yet
-  if(real && t.give.length===t.get.length){ const e=[]; [3,4,5,2,6,7].forEach(c=>{ if(used.has(c)) return; const k=CK[c-2]; if(G[k]>R[k]*1.05) e.push([G[k]/Math.max(0.1,R[k]),CATWORD[c]+', '+f1(G[k])+' to '+f1(R[k])]); });
-    e.sort((a,b)=>b[0]-a[0]); if(e.length) pts.push(goBy+', the side you get is ahead in '+e.slice(0,2).map(x=>x[1]).join(', and in ')+' a game.'); }
+  // the pitch is about their team. What they get, what their team is already good at, where their numbers go up and how the roster fits. No ranks of players
+  // 1. the stars they get, with their real numbers. A star is a player other managers value at 60 or more, about the top 25 in the league
+  const STAR=60, byMv=t.give.slice().sort((x,y)=>y.mv-x.mv), stars=byMv.filter(p=>p.mv>=STAR), star=byMv[0];
+  const lineOf=p=>{ const sl=rline(p); if(!sl) return ''; const l=sl.l, bits=[f1(l.pts)+' points',f1(l.reb)+' rebounds',f1(l.ast)+' assists'], ex=[];
+    if(l.tpm>=2.3) ex.push(f1(l.tpm)+' threes'); if(l.stl>=1.4) ex.push(f1(l.stl)+' steals'); if(l.blk>=1.4) ex.push(f1(l.blk)+' blocks');
+    return listWords(bits.concat(ex.slice(0,1)))+' a game '+(sl.b?'last season':'this season'); };
+  let starS='';
+  if(stars.length>=2){ starS='You get two stars, '+listWords(stars.map(p=>p.name))+'.'; stars.forEach(p=>{ const l=lineOf(p); if(l) starS+=' '+p.name+' put up '+l+'.'; }); }
+  else if(star && (t.fair.mine>=1 || t.fair.best<1)){ starS=t.fair.mine>=1?'You get the best player in the deal, '+star.name+'.':'You get '+star.name+'.'; const l=lineOf(star); if(l) starS+=' He put up '+l+'.'; else if(t.fair.mine<1) starS=''; }
+  else if(star && star.mv>=STAR){ starS='You get '+star.name+' back, a star in his own right.'; const l=lineOf(star); if(l) starS+=' He put up '+l+'.'; }
+  if(starS) pts.push(starS);
+  // 2. what their team is already good at, and that it stays good there. A cat they send from is spare
+  const strong=[]; for(let c=0;c<9;c++) if(t.orank[c]<=3 && t.orankA[c]<=3) strong.push(c); strong.sort((x,y)=>t.orank[x]-t.orank[y]);
+  const spare=strong.filter(c=>t.dop[c]<=-1.5);
+  const goodAt=c=>c===8?'keeping turnovers low':CATWORD[c];
+  let strongS=''; if(strong.length){ const ss=strong.slice(0,3); strongS='Your team is already good at '+listWords(ss.map(goodAt))+(ss.length>1?', top 3 in each,':', top 3 in the league,')+' and stays there after this deal.'+(spare.length?' What you send in '+listWords(spare.slice(0,2).map(c=>CATWORD[c]))+' is extra you can spare.':''); pts.push(strongS); }
+  // 3. where their numbers go up. Their place among the ten teams and the change in an average week
+  const amt=c=>{ const v=t.owk[c], b0=v[0], a0=v[1]; if(c<2){ const d=100*(a0-b0); return Math.abs(d)<0.1?'':', from '+f1(100*b0)+' to '+f1(100*a0)+' percent'; }
+    const d=a0-b0, n=Math.round(Math.abs(d)); if(n<1) return ''; return c===8?', about '+n+' fewer a week':', about '+n+' more a week'; };
+  const ups=[]; for(let c=0;c<9;c++){ const d=t.orank[c]-t.orankA[c]; if(d>=1 && t.dop[c]>=1) ups.push([d,c]); }
+  ups.sort((x,y)=>y[0]-x[0]||t.dop[y[1]]-t.dop[x[1]]);
+  const upS=ups.slice(0,3).map(x=>{ const c=x[1]; return 'Your '+CATWORD[c]+(c===8?' go down':c<2?' goes up':' go up')+'. You move from '+ordW(t.orank[c])+' to '+ordW(t.orankA[c])+' of 10'+amt(c)+'.'; });
+  upS.forEach(x=>pts.push(x));
+  if(!ups.length){ const lift=[]; for(let c=0;c<9;c++) if(t.dop[c]>=1.5) lift.push(c); if(lift.length) pts.push('It adds to your '+listWords(lift.slice(0,3).map(c=>CATWORD[c]))+', even if your place among the teams stays the same.'); }
+  // 4. how the roster fits. Centers first, since managers guard them, then a thin spot it fills
+  const cB=t.oC[0], cA=t.oC[1]; let cenS='';
+  if(t.get.some(isC)) cenS='You still have '+cA+' center'+(cA===1?'':'s')+' after this, so your big man spots stay covered.'; else if(cA>cB) cenS='You get a center back, so you go from '+cB+' to '+cA+'.';
+  if(cenS) pts.push(cenS);
+  const thin=[[t.oGd,'guards'],[t.oFw,'forwards']].filter(x=>x[0][0]<=4 && x[0][1]>x[0][0]);
+  if(thin.length) pts.push('It fills out your '+thin[0][1]+'. You go from '+thin[0][0][0]+' to '+thin[0][0][1]+'.');
   // 5. true facts about the players they would send
   const rk=[]; t.get.forEach(p=>{ const f=[]; if(p.news && p.news.st==='Out') f.push('is listed as out by ESPN'+(p.news.ret?' until around '+niceLong(p.news.ret):'')); else if(p.status) f.push('is tagged '+statusWord(p.status)); if(p.age>=32) f.push('is '+p.age); if(p.rl && p.rl.pb==='last' && p.rl.lastG<60 && !(p.rl.gp>=10)) f.push('played '+p.rl.lastG+' games last season'); if(f.length) rk.push(p.name+' '+listWords(f)); });
   if(rk.length) pts.push(listWords(rk.slice(0,3))+', so that risk moves off your team.');
   if(t.give.length>t.get.length) pts.push('You get two players for one'+(t.cut?', and would drop '+t.cut.name+' to make room':'')+'.');
   // what they will say back
   let push; const worst=t.dop.map((v,c)=>[v,c]).sort((a,b)=>a[0]-b[0])[0];
-  if(t.fair.best>=1){ const bp=t.get.slice().sort((a,b)=>b.mv-a.mv)[0]; push='They will say '+bp.name+' is the best player in the deal. He is, so sell fit and depth, not star power.'; }
+  const cenP=t.get.some(isC)?' If they balk at giving up a center, remind them they still have '+cA+' after this and point to where their numbers go up.':'';
+  if(t.fair.best>=1){ const bp=t.get.slice().sort((a,b)=>b.mv-a.mv)[0]; push='They will say '+bp.name+' is the best player in the deal. He is, '+(stars.length>=2?'but they get two stars back for him, so sell that and the fit.':'so sell fit and depth, not star power.'); }
   else if(worst[0]<=-2) push='They will point at '+CATWORD[worst[1]]+', where this costs them about '+r0(-worst[0])+' points of win chance. '+(t.orankA[worst[1]]<=3?'They are still '+ordW(t.orankA[worst[1]])+' of 10 there after the deal.':'That cost is real, so lead with what they gain.');
   else push='Expect little pushback. The deal looks even or better from their side and costs them no cat by 2 points or more.';
+  push+=cenP;
   // the next offer if they say no. Same team, shares a player you get, looks better to them, still good for you
   const ids=new Set(t.get.map(p=>p.id)); let alt=null;
   (TR.alt||[]).forEach(u=>{ if(u===t || u.o!==o || u.kind!==t.kind || u.fair.look<t.fair.look+0.05 || !u.get.some(p=>ids.has(p.id))) return; if(u.give.length!==t.give.length || u.get.length!==t.get.length || u.fair.B>t.fair.B*1.5+5 || u.fair.B<t.fair.B*0.6 || (t.kind!=='plan' && String(u.newRoles)!==String(t.newRoles))) return; if(u.give.map(p=>p.id).sort().join()===t.give.map(p=>p.id).sort().join()) return; if(!alt || u.myGain>alt.myGain) alt=u; });
@@ -1065,8 +1092,10 @@ function sellKit(ctx,t){
   let openS=opn?'Start higher. Offer '+nm(opn.give)+' for '+nm(opn.get)+' first. It gains you '+r1(opn.myGain)+' points and '+lean(opn.fair)+'. If they say no, come back to this deal.':'';
   if(t.plus && (!opn || t.plus.gain>=opn.myGain)) openS='Start higher. Ask for '+t.plus.x.name+' as well, so it is '+nm(t.give)+' for '+nm(t.get.concat([t.plus.x]))+'. You would drop '+t.plus.d.name+' to make room. It gains you '+r1(t.plus.gain)+' points and '+lean(t.plus.fair)+'.'+(t.plus.soft>=0?' It takes '+CATWORD[t.plus.soft]+' to '+(100*t.plus.per).toFixed(1)+' percent'+(t.plus.fav<FAVMIN?' and favored against '+t.plus.fav+' of 9 teams':'')+', a little under what your plan asks of a guarded cat. Only go this far if you accept that.':'')+' If they say no, come back to this deal.';
   const altS=alt?'If they say no, try '+nm(alt.give)+' for '+nm(alt.get)+' next. It looks better to them and still gains you '+r1(alt.myGain)+' points.':'If they say no, there is no cheap sweetener that keeps this good for you. Let it go.';
-  const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better.'+(t.sell!=='easy' && t.sellWhy && t.sellWhy.length?' On value alone this would be an easy sell. It is held back because '+listWords(t.sellWhy)+'.':'');
-  let msg='Trade idea. I send you '+nm(t.give)+' for '+nm(t.get)+'.'; if(pts[0] && t.weakHelp.length) msg+=' '+pts[0]; if(spareS) msg+=' '+spareS;
+  const eyes='By my numbers their average week moves '+(Math.abs(t.oGain)<0.15?'almost nowhere':(t.oGain>0?'up ':'down ')+Math.abs(r1(t.oGain))+' points')+'. '+(t.steal?'It looks fair and makes them worse, so it is a steal if they take it.':t.oGain>=0.3?'It helps them a little too, which makes it easier to defend.':'It is close to neutral for them.')+' Nothing on this page needs their team to get better. '+tradeJosh(t)+(t.sell!=='easy' && t.sellWhy && t.sellWhy.length?' On value alone this would be an easy sell. It is held back because '+listWords(t.sellWhy)+'.':'');
+  let msg='Trade idea. I send you '+nm(t.give)+' for '+nm(t.get)+'.'; if(starS) msg+=' '+starS;
+  if(upS.length) msg+=' It bumps your numbers. '+upS.slice(0,2).join(' '); else if(strongS) msg+=' '+strongS;
+  if(cenS && t.get.some(isC)) msg+=' '+cenS;
   msg+=' Let me know what you think.';
   return {pts:oneDot(pts),push:oneDot([push])[0],alt:oneDot([altS])[0],open:oneDot([openS])[0],eyes:oneDot([eyes])[0],msg:oneDot([msg])[0]};
 }
@@ -1231,10 +1260,11 @@ function tradeCard(cw,t,i,grp){
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(newsChip).join('')+'</span></span></summary>';
   h+='<div class="mvbody"><div><span class="lab">What it does for you</span><p>'+esc(fy.head)+'</p>'+(fy.rows.length?'<ul>'+fy.rows.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p class="small">Each line is the change in your chance to win that cat in an average week, in points. Cats that move less than 1.5 are left out.</p>':'<p>No single cat moves by 1.5 points or more. The gain comes from small lifts across several cats.</p>')+'</div>'
-    +'<div><span class="lab">How it looks to them and how to sell it</span><p>'+esc(tradeFair(cw,t))+'</p>'+(kit.open?'<p>'+esc(kit.open)+'</p>':'')+(kit.pts.length?'<ul>'+kit.pts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>No strong selling point is true for this deal, which is why it is marked a hard sell.</p>')+'</div>'
+    +'<p><span class="lab">How it looks to them</span>'+esc(tradeFair(cw,t))+'</p>'
+    +'<div><span class="lab">How to sell it</span>'+(kit.open?'<p>'+esc(kit.open)+'</p>':'')+(kit.pts.length?'<ul>'+kit.pts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>No strong selling point is true for this deal, which is why it is marked a hard sell.</p>')+'</div>'
     +'<p><span class="lab">What they will say</span>'+esc(kit.push)+' '+esc(kit.alt)+'</p>'
     +'<p><span class="lab">For your eyes only</span>'+esc(kit.eyes)+'</p>'
-    +'<p><span class="lab">What it is based on</span>'+esc(why.basis)+'</p>'+(why.josh?'<p><span class="lab">Josh on the cats</span>'+esc(why.josh)+'</p>':'')+(why.news?'<p><span class="lab">News</span>'+esc(why.news)+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why.risk)+'</p>'
+    +(why.josh?'<p><span class="lab">Josh on the cats</span>'+esc(why.josh)+'</p>':'')+(why.news?'<p><span class="lab">News</span>'+esc(why.news)+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why.risk)+'</p>'
     +'<div class="mvact"><button class="btn" type="button" data-trade="'+grp+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+grp+i+'">Copy a message to send</button>'+(t.kind!=='plan'?'<button class="btn" type="button" data-pivot="'+i+'">Make this my plan</button>':'')+'</div></div></details>';
   return h;
 }

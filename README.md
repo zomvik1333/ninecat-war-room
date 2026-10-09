@@ -17,7 +17,32 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 15 (branch main), Oct 7 2026
+## Version 16 (branch main), Oct 9 2026
+
+Built after Vikas tried the pitch on a real manager. Josh's ranks mean nothing to another manager, and most managers do not know their own stats well. The pitch now tells them what their team gets. No trade changed in how good it is for you or in which trades are found.
+
+**How to sell it**
+* The card now has How it looks to them, the value scale, and then How to sell it, the talking points
+* Stars first. A player other managers value at 60 or more, about the top 25, is a star. Two stars coming to them is said plainly, with each one's real stat line when one exists. One better player than any they give is the best player in the deal
+* What their team is already good at, top 3 among the ten, and that it stays there after the deal. A cat they send from is extra they can spare
+* Where their numbers go up. Their place among the ten teams before and after, and about how many more a week, or fewer turnovers, or the new percentage
+* How the roster fits. When they give a center, how many they still have. When they are thin at guard or forward, that it fills that spot
+* Risk that moves off their team, and two players for one, as before
+* The draft pick line and the box score line are gone. Josh's ranks moved to For your eyes only
+* What they will say adds a line on giving up a center, and when they give the best player for two stars, to sell the two stars
+* The message to send uses the same lines, stars, the first two bumps and the center line
+* What it is based on is gone from the trade cards. It stays on the pickup cards
+
+**Checked**
+* Trades are scored against all nine other teams. On the Oct 8 scan 5,532 fair offers were checked and every team had offers scored. A team can still show no card when nothing from it is good enough for you
+
+## How to fall back to version 15
+
+* The v21 branch holds the site exactly as it was before version 16
+* `git checkout v21 -- index.html moves.js scan README.md` then deploy
+* The data files are the same in both versions
+
+## Version 15 (branch v21), Oct 7 2026
 
 Built after Vikas tried the version 14 trades on a real manager. Bench swaps he would have been laughed at for were tagged easy, and his best trade was tagged easy while the other manager pushed back on it. No trade changed in how good it is for you. He also asked that injury tags weigh on pickups, less so for better players. Three parts.
 
