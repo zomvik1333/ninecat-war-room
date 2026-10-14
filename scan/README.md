@@ -5,7 +5,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 ## What the scan does
 * Reads the Ball Lovers league pages on Yahoo through Claude in Chrome on Vik's computer
 * Saves the result as data files in the project folder on that computer
-* Refreshes the injury news file from ESPN every day, and the player ages file on Mondays
+* Refreshes the injury news file and the team depth charts from ESPN every day, and the player ages file on Mondays
 * Deploys the project to Vercel so the Pickups and trades tab shows fresh numbers
 * It only reads Yahoo. It never adds, drops, trades or sets a lineup
 
@@ -63,21 +63,25 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
    * If it prints news NOT saved it gives the reason and nothing is written. For a bad tag it names the player id. Fix news_tags.json and run it again, at most three times
    * A line that starts with WARNING does not stop the save. Read it and pass it on in the report
    * If the news step still fails, the scan goes on. Leave the old news file as it is, carry on with the next step and say in the report that the news was not refreshed
-8. On Mondays also refresh the NBA schedule with `node scan/fetch-sched.js` in the project folder. If it says the schedule was not saved, leave the old file and mention it
+8. Refresh the depth charts in the project folder with `node scan/fetch-depth.js`. It reads ESPN's depth chart for all 30 teams, about ten seconds
+   * It prints depth saved when it worked. It also lists anyone who moved into or out of a starting five or up or down a bench since the last run. Pass those names on in the news line of the report when they are on his roster, in a listed trade or among the top pickups
+   * If it prints depth NOT saved, leave the old file and mention it. A chart more than 10 days old is ignored by the site, so one missed day changes nothing
+   * A line that starts with NOTE or WARNING does not stop the save. NOTE means a starter is someone the site does not track, which is normal
+9. On Mondays also refresh the NBA schedule with `node scan/fetch-sched.js` in the project folder. If it says the schedule was not saved, leave the old file and mention it
    * On Mondays also run `node scan/fetch-ages.js` in the project folder. It prints ages saved when it worked. If it prints ages NOT saved, leave the old file and mention it
-9. Check, then deploy from the project folder on Windows. First run `node scan/check-deploy.js` in the project folder. It must print deploy ok. If it prints deploy NOT ok, do not deploy. Report that the scan is saved but not live and give the reason it printed
+10. Check, then deploy from the project folder on Windows. First run `node scan/check-deploy.js` in the project folder. It must print deploy ok. If it prints deploy NOT ok, do not deploy. Report that the scan is saved but not live and give the reason it printed
    ```
    cmd /c "cd /d C:\Users\vikas\Projects\ninecat-war-room && vercel deploy --prod --yes"
    ```
    * If it prints Not authorized or any other error, run the same command one more time. On Oct 4 the first try failed that way and the second worked
-10. Check the live site. In the Chrome tab run
+11. Check the live site. In the Chrome tab run
    ```
    (await (await fetch('https://ninecatwarroom.vercel.app/data/scan.json',{cache:'no-store'})).json()).at
    ```
    It must match the time in the scan saved line
-11. Go to https://ninecatwarroom.vercel.app/#moves in the same tab, wait about ten seconds, and run `NCWMoves.summary()`. If it says not ready, wait and try again
-12. Close the tab you opened
-13. Report to Vik in a few short bullets
+12. Go to https://ninecatwarroom.vercel.app/#moves in the same tab, wait about ten seconds, and run `NCWMoves.summary()`. If it says not ready, wait and try again
+13. Close the tab you opened
+14. Report to Vik in a few short bullets
     * That the scan ran and what time Yahoo was read
     * Week win chance and cats led or favored
     * The season plan line from the summary. Plan cats on target, any lock at risk and the leading route
@@ -101,6 +105,9 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 * News never changes a number on the site by itself. The one exception is a player ESPN lists as Out with a return date in the future. He is counted as out until that date
 * ESPN's written comments never go into the data folder. They go only into news_raw.json in the notes folder. The script refuses to run if the raw file path is inside the project folder
 * When `--tags` is left off, the script keeps the tags that are still fresh in the old data/news.json, so a plain rerun never loses them
+* data/depth.json comes from ESPN's team depth charts. It holds facts only. Those are the Yahoo ids in the order ESPN lists them at each position and the day a player's spot last changed
+* The depth chart does change numbers. Each spot has a usual range of minutes, starter 24 to 38, first off the bench 15 to 30, next in line 8 to 22 and deeper 0 to 14. A line from last season outside that range moves toward it, at most 15 percent. Josh's minutes number wins where he gave one, an injured player is never marked down for it, and real minutes over the last two weeks beat it once games start
+* When a starter is out, the first healthy player behind him at that position who does not start elsewhere is counted with about half the minutes between the two, at most 30 percent more, until the starter's return date. With no return date it runs one week and the next scan looks again
 
 ## The scan text format, for reference
 * H is the header, T a team, R a roster, A available players, Q ranks and percent rostered, S a player's stats this season, M the live matchup score, G games remaining, X a transaction, P a player name, K a week of the league schedule, E the end line

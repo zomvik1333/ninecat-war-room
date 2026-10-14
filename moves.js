@@ -158,6 +158,13 @@ function project(p,scan){
       if(jc){ prior=applyJC(prior,jc,false); p.jcOn=true; }
     }
   } else if(pr){ prior=lineOfPrior(pr); if(jc){ prior=applyJC(prior,jc,pr[0]>=20); p.jcOn=true; p.jcMin=Math.abs(prior.mp/pr[1]-1)>=0.04; if(p.jcMin) mpPlain=pr[1]; } p.av=clamp(pr[0]/78,0.6,0.93); pb='last'; }
+  // the depth chart, see DBAND
+  p.dep=null; p.mpNoDepth=prior?prior.mp:null; const dp=depthOf(p.id); p.ds=dp?dp.s:null; p.dsWas=dp?dp.was:null; p.dsSince=dp?dp.since:null;
+  if(prior && dp && prior.mp>3 && !mpSoft && !(jc && jc.mp>0)){
+    const bd=DBAND[Math.min(dp.s,3)], m0=prior.mp; let r=clamp(clamp(m0,bd[0],bd[1])/m0,1-DCAP,1+DCAP);
+    if(r<1 && hurt(p)) r=1;
+    if(Math.abs(r-1)>=0.03){ let fv=Math.pow(r,0.9); const pf=p.f||1; if(fv>1 && pf>1) fv=Math.max(1,fv/pf); else if(fv<1 && pf<1) fv=Math.min(1,fv/pf);
+      if(Math.abs(fv-1)>=0.01){ prior=scaleLine(prior,fv); prior.mp=m0*r; p.dep={s:dp.s,from:m0,to:m0*r,f:fv}; } } }
   const s=scan.stats&&scan.stats[p.id]; let cur=null, gp=0; p.g14=null; p.m14=null; p.v14=null;
   if(s){ gp=s[1]||0; cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); p.g14=s[14]; p.m14=s[15]; p.v14=s[16]; }
   if(cur&&gp<1) cur=null;
@@ -195,7 +202,51 @@ const rankShare=r=>Math.min(1,Math.max(0,((r||RANK1)-RANK0)/(RANK1-RANK0)));
 // the share of each game the tag counts, in whole percent, for the words on the card
 const tagPct=p=>Math.round(100*(/^P$/i.test(p.status||'')?0.9:isDoubt(p)?0.25:isGTD(p)?0.75:0.6));
 // after his return date the games he is expected to play are packed into the days that are left, so the missed time is not counted twice
-const pROS=(p,day)=>outYet(p,day)?0:(p.avRet||p.av)*(isIL(p)&&isOut(p)?0.6:1);
+/* age. Players 33 and older are counted for a few percent fewer games over the rest of the season, for rest days, small injuries and late season shutdowns.
+   3 percent at the start of the season, growing to 8 percent by the playoff weeks, and half again as much at 36 and older.
+   Per game numbers are left alone, since last season's line already shows most of the slide, and this week's numbers are left alone too.
+   It is kept small because Josh's ranks and the injury history already carry some of this */
+const AGE0=33, AGE_OLD=36, AGEC0=0.03, AGEC1=0.08, AGR={};
+const ageRamp=day=>{ const d=day||etParts(nowDate()).date; if(AGR[d]!=null) return AGR[d]; const L=D.league; let r=0.5;
+  if(L && Array.isArray(L.weeks) && L.weeks.length){ const a=Date.parse(L.weeks[0].start+'T12:00:00Z'), po=L.weeks.find(w=>w.n>(L.lastRegularWeek||18)), b=Date.parse((po?po.start:L.weeks[L.weeks.length-1].start)+'T12:00:00Z');
+    r=clamp((Date.parse(d+'T12:00:00Z')-a)/Math.max(1,b-a),0,1); if(!isFinite(r)) r=0.5; }
+  return AGR[d]=r; };
+const ageCut=(p,day)=>!(p.age>=AGE0)?0:(AGEC0+(AGEC1-AGEC0)*ageRamp(day))*(p.age>=AGE_OLD?1.5:1);
+const pROS=(p,day)=>outYet(p,day)?0:(p.avRet||p.av)*(isIL(p)&&isOut(p)?0.6:1)*(1-ageCut(p,day));
+/* depth charts. ESPN's order at each position, read each morning into data/depth.json. Spot 0 is a starter, 1 is first off the bench at his best position.
+   Each spot has a usual range of minutes. A line from last season whose minutes sit outside that range moves toward it, at most 15 percent either way.
+   Josh's minutes number wins where he gave one, a player tagged out is never marked down for being moved down while he is hurt, and where the rank already
+   moved his volume the same way only the part beyond that counts, so one piece of news is never counted twice.
+   This only shapes the line from before the season. It fades as games come in, and real minutes over the last two weeks beat it outright.
+   A chart more than 10 days old is not used */
+const DBAND=[[24,38],[15,30],[8,22],[0,14]], DCAP=0.15, DFRESH=10, DFILL=1.3;
+let DP=null;
+const dPlus=(day,n)=>new Date(Date.parse(day+'T12:00:00Z')+n*864e5).toISOString().slice(0,10);
+function loadDepth(){ DP=null; const d=D.depth; if(!d || typeof d!=='object' || !d.p || typeof d.p!=='object' || !d.t || typeof d.t!=='object' || !isDay(d.day)) return;
+  const age=(Date.parse(etParts(nowDate()).date+'T12:00:00Z')-Date.parse(d.day+'T12:00:00Z'))/864e5; if(age>DFRESH || age<-2) return; DP=d; }
+const depthOf=id=>{ const a=DP && DP.p[id]; return Array.isArray(a) && Number.isInteger(a[1]) && a[1]>=0?{t:a[0],s:a[1],was:Number.isInteger(a[2])?a[2]:null,since:isDay(a[3])?a[3]:null}:null; };
+const hurt=p=>!!(p.ret || isOut(p) || isIL(p));
+// the line a player brings on one day. A backup who steps in for an injured starter brings his bigger line on the days before that starter is due back
+const lineOn=(p,day)=>(p.fill && day && day<p.fill.until)?p.fill.line:p.proj;
+/* the next man up. When a starter is out, the first healthy player behind him at that position who is not a starter somewhere else takes about half
+   of the minutes between the two of them, at most 30 percent more than his own, until the starter's return date. With no return date it runs one week
+   and the next morning's scan looks again. If the next man is someone the site does not track, the minutes go to him and nobody here moves.
+   A backup whose real minutes already show the jump is left alone */
+function depthFill(ctx){
+  Object.values(ctx.U).forEach(p=>{ p.fill=null; }); if(!DP) return;
+  const today=etParts(nowDate()).date;
+  Object.keys(DP.t).forEach(code=>{ const T=DP.t[code]; if(!Array.isArray(T)) return;
+    T.forEach(list=>{ if(!Array.isArray(list) || !list[0]) return; const sp=ctx.U[list[0]]; if(!sp || !sp.proj || sp.team!==code || !hurt(sp)) return;
+      const until=sp.ret || dPlus(today,7);
+      for(let i=1;i<list.length;i++){ const id=list[i]; if(!id) return; const q=ctx.U[id], dq=depthOf(id);
+        if(!q || !q.proj || q.team!==code) return;
+        if(dq && dq.s===0) continue;
+        if(hurt(q)) continue;
+        const m0=q.proj.mp, ms=sp.proj.mp; if(!(m0>3) || ms<=m0) return;
+        const want=m0+0.5*(ms-m0); if(q.m14!=null && q.g14>=3 && q.m14>=0.9*want) return;
+        const r=clamp(want/m0,1,DFILL); if(r<1.03) return;
+        if(!q.fill || q.fill.r<r){ const ln=scaleLine(q.proj,Math.pow(r,0.9)); ln.mp=m0*r; q.fill={line:ln,until,who:sp,r,from:m0}; }
+        return; } }); }); }
 
 /* daily lineup, best players first, each one placed if a legal slot can be found for him */
 const _own=new Int16Array(10), _seen=new Int32Array(10); let _stamp=0;
@@ -218,12 +269,12 @@ function dayAdd(T,ug,ps,w,repl,rho){
   _vd.fill(0); _vd[0]=1; let m=0;
   for(let i=0;i<ps.length;i++){ const p=ps[i]; if(!p._st) continue; const q=1-p._pr;
     if(q>1e-12){ for(let k=m+1;k>=1;k--) _vd[k]=_vd[k]*(1-q)+_vd[k-1]*q; _vd[0]*=(1-q); m++; }
-    addT(T,p.proj,p._pr*w); if(ug) ug.set(p.id,(ug.get(p.id)||0)+w); }
+    addT(T,p._ln||p.proj,p._pr*w); if(ug) ug.set(p.id,(ug.get(p.id)||0)+w); }
   T.s+=n*w;
   if(!m) return;
   // _vd[k] is the chance that k starting spots are open. Bench players take them in order when they are fit
   for(let i=0;i<ps.length;i++){ const p=ps[i]; if(p._st) continue; const open=1-_vd[0]; if(open<1e-9) break; const a=p._pr, c=a*open;
-    addT(T,p.proj,c*w); if(ug) ug.set(p.id,(ug.get(p.id)||0)+c*w);
+    addT(T,p._ln||p.proj,c*w); if(ug) ug.set(p.id,(ug.get(p.id)||0)+c*w);
     for(let k=1;k<=m;k++){ _vd[k-1]+=a*_vd[k]; _vd[k]*=(1-a); } }
   if(repl){ let left=0; for(let k=1;k<=m;k++) left+=k*_vd[k]; if(left>1e-9) addT(T,repl,left*rho*w); }
 }
@@ -233,7 +284,7 @@ function totalsOver(ros,days,prob,fill,dayW){
   for(const day of days){
     const w=dayW&&dayW[day]!=null?dayW[day]:1;
     const play=[];
-    for(const p of ros){ if(!p.proj || !playsOn(p.team,day)) continue; const pr=prob(p,day); if(pr<=0) continue; p._pr=pr; play.push(p); }
+    for(const p of ros){ if(!p.proj || !playsOn(p.team,day)) continue; const pr=prob(p,day); if(pr<=0) continue; p._pr=pr; p._ln=lineOn(p,day); play.push(p); }
     if(!play.length) continue;
     play.sort((a,b)=>b.val-a.val);
     dayAdd(T,ug,play,w,repl,rho);
@@ -254,12 +305,12 @@ function seasonTotals(ctx,tid,outs,ins){
   for(let d=0;d<nd;d++){
     let hit=false; for(let j=0;j<po.length;j++) if(po[j][d]){ hit=true; break; } if(!hit) for(let j=0;j<pi.length;j++) if(pi[j][d]){ hit=true; break; }
     const base=L[d];
-    if(!hit){ let c=C[d]; if(!c){ c=C[d]=zeroT(); for(let i=0;i<base.length;i++) base[i]._pr=pROS(base[i]); dayAdd(c,null,base,1,repl,rho); }
+    if(!hit){ let c=C[d]; if(!c){ c=C[d]=zeroT(); for(let i=0;i<base.length;i++){ base[i]._pr=pROS(base[i],ctx.tdays[d]); base[i]._ln=lineOn(base[i],ctx.tdays[d]); } dayAdd(c,null,base,1,repl,rho); }
       T.fgm+=c.fgm; T.fga+=c.fga; T.ftm+=c.ftm; T.fta+=c.fta; T.tpm+=c.tpm; T.pts+=c.pts; T.reb+=c.reb; T.ast+=c.ast; T.stl+=c.stl; T.blk+=c.blk; T.to+=c.to; T.g+=c.g; T.s+=c.s; continue; }
     const list=[]; let ii=0;
     for(let i=0;i<base.length;i++){ const p=base[i]; if(outs.indexOf(p)>=0) continue; while(ii<insS.length && insS[ii].val>p.val){ if(pi[ii][d]) list.push(insS[ii]); ii++; } list.push(p); }
     while(ii<insS.length){ if(pi[ii][d]) list.push(insS[ii]); ii++; }
-    for(let i=0;i<list.length;i++) list[i]._pr=pROS(list[i]);
+    for(let i=0;i<list.length;i++){ list[i]._pr=pROS(list[i],ctx.tdays[d]); list[i]._ln=lineOn(list[i],ctx.tdays[d]); }
     dayAdd(T,null,list,1,repl,rho);
   }
   return T;
@@ -441,6 +492,7 @@ function build(scan){
   timeline(ctx);
   seenValues(ctx); Object.values(ctx.U).forEach(p=>{ p.jv=vj(p,ctx); });
   Object.values(ctx.U).forEach(p=>{ p.avRet=0; if(p.ret && ctx.tdays.length){ const nd=ctx.tdays.length, na=ctx.tdays.filter(d=>d>=p.ret).length; if(na>0 && na<nd) p.avRet=clamp(p.av*nd/na,p.av,0.9); } });
+  depthFill(ctx);
   typical(ctx);
   return ctx;
 }
@@ -597,7 +649,7 @@ function pickups(ctx){
   const urgent=mine.filter(p=>prot.has(p.id) && (isOut(p)));
   for(const r of top){
     const p=r.p, b=p.b; let need=100*(1-Math.exp(-Math.max(0,r.g)/3.5)); const why=[];
-    if(p.role==='up'){ need+=6; why.push('minutes are up'); } else if((p.m14||0)>=28 || (p.gp<3 && p.prior && p.prior.mp>=28)){ need+=4; why.push('steady starter minutes'); }
+    if(p.role==='up'){ need+=6; why.push('minutes are up'); } else if((p.m14||0)>=28 || (p.gp<3 && p.mpNoDepth>=28)){ need+=4; why.push('steady starter minutes'); }
     if(p.v14!=null && p.g14>=3 && p.role!=='up' && p.v14-p.val>4){ need-=6; why.push('hot stretch without extra minutes'); }
     r.josh=0; if(b && b.josh){ const yr=p.cur||p.pre||200; if(yr-b.josh>=25){ need+=6; r.josh=1; } else if(b.josh-yr>=30){ need-=6; r.josh=-1; } }
     if(b && (b.upside||b.gem)) need+=3;
@@ -911,6 +963,13 @@ function basisWords(ps){
   if(k.has('older')) s+=' A player who missed last season uses his most recent full season.';
   return s;
 }
+// what the depth chart did to a player's numbers, in plain words. Empty when it changed nothing
+const spotWord=s=>s===0?'as a starter':s===1?'first off the bench':s===2?'third in line at his spot':'deep on the bench';
+function depthLine(p){ const a=[];
+  if(p.fill) a.push(p.name+' is next up behind '+p.fill.who.name+', who is out'+(p.fill.who.ret?' until about '+nice(p.fill.who.ret):' with no return date, so this runs for one week and is checked each morning')+'. Until then he is counted at about '+Math.round(p.fill.line.mp)+' minutes a game instead of '+Math.round(p.fill.from)+'.');
+  if(p.dep) a.push('ESPN\'s depth chart lists '+p.name+' '+spotWord(p.dep.s)+(p.dsWas!=null && p.dsWas!==p.dep.s && p.dsSince?' since '+nice(p.dsSince):'')+', so his minutes from last season move from about '+Math.round(p.dep.from)+' to '+Math.round(p.dep.to)+' until real games show his role.');
+  return a.join(' '); }
+const spotShort=p=>p.ds==null?'':p.ds===0?'NBA starter':p.ds<=2?'NBA bench':'NBA deep bench';
 const basisChip=p=>p.basis==='now'?'<span class="chip good">This season</span>':p.basis==='blend'?'<span class="chip">Blend, '+p.gp+' games</span>':p.basis==='est'?'<span class="chip warn">Preseason estimate</span>':p.basis==='older'?'<span class="chip warn">Older season</span>':p.basis==='last'?'<span class="chip muted">Last season</span>':'<span class="chip bad">No numbers</span>';
 const statusWord=s=>s==='O'||/^OUT$/i.test(s||'')?'out':/^(D|DOUBT|DOUBTFUL)$/i.test(s||'')?'doubtful':s==='IR'?'on injured reserve':s==='INJ'?'injured':s==='Q'?'questionable':s==='GTD'?'a game time call':s==='DTD'?'day to day':s==='P'?'probable':s==='NA'?'not active':s==='SUSP'?'suspended':s==='OFS'?'out for the season':s?'flagged':'';
 const catMoves=(dc,min)=>{ const up=[], dn=[]; dc.map((v,c)=>[v,c]).sort((a,b)=>Math.abs(b[0])-Math.abs(a[0])).forEach(x=>{ if(x[0]>=min) up.push(CATWORD[x[1]]); else if(x[0]<=-min) dn.push(CATWORD[x[1]]); }); return {up,dn}; };
@@ -950,9 +1009,9 @@ function pickupWhy(ctx,pk,r){
   else s2+='He is a free agent, so he costs no waiver spot. '+(pk.adds<=0?'You have no adds left for that week, so Yahoo will not take the add.':pk.adds===1?'It would use your last add for that week.':(pk.week && pk.week.n!==ctx.wk.n && !ctx.noAdds && ctx.now.date>=ctx.wk.start)?'Added before week '+ctx.wk.n+' ends, it uses '+(ctx.addsNow===1?'your last add':'one of your '+ctx.addsNow+' adds left')+' for week '+ctx.wk.n+'. Added after that, it uses one of the '+pk.adds+' for week '+pk.week.n+'.':'It uses one of your '+pk.adds+' adds left for that week.');
   if(r.bal.mult>1) s2+=' He also helps your position balance at '+listWords(r.bal.good)+'.'; else if(r.bal.mult<1){ const w=[]; if(r.bal.crowd.length) w.push('he can only play '+listWords(r.bal.crowd)+', where you are already crowded'); if(r.bal.thin.length) w.push('the drop leaves you thin at '+listWords(r.bal.thin)); s2+=' For position balance, '+w.join(' and ')+', so his score is trimmed a little.'; }
   a.push(s2);
-  let s3=basisWords([p]); if(r.josh>0 && p.b) s3+=' Josh has him at '+p.b.josh+', well above his Yahoo rank of '+(yrank(p)||'none')+'.'; if(r.josh<0 && p.b) s3+=' Josh has him at '+p.b.josh+', below his Yahoo rank of '+(yrank(p)||'none')+'.';
+  let s3=basisWords([p]); { const dl=depthLine(p); if(dl) s3+=' '+dl; } if(r.josh>0 && p.b) s3+=' Josh has him at '+p.b.josh+', well above his Yahoo rank of '+(yrank(p)||'none')+'.'; if(r.josh<0 && p.b) s3+=' Josh has him at '+p.b.josh+', below his Yahoo rank of '+(yrank(p)||'none')+'.';
   a.push(s3);
-  const risk=[]; if(p.status) risk.push('he is tagged '+statusWord(p.status)); if(r.why.includes('hot stretch without extra minutes')) risk.push('his last two weeks look hot but his minutes did not grow'); if(p.role==='down') risk.push('his minutes are down lately'); if(p.basis==='est') risk.push('he is a rookie with no NBA games'); if(r.sim>=4 && r.band!=='must') risk.push('several similar players are sitting there, so you can wait'); if(r.early) risk.push('his games are more than three days away, so a streaming add can wait until that week');
+  const risk=[]; if(p.status) risk.push('he is tagged '+statusWord(p.status)); if(r.why.includes('hot stretch without extra minutes')) risk.push('his last two weeks look hot but his minutes did not grow'); if(p.role==='down') risk.push('his minutes are down lately'); if(p.dep && p.dep.f<1) risk.push('the depth chart has him in a smaller role than last season'); if(p.fill && p.fill.who.ret) risk.push('part of his score comes from filling in until '+p.fill.who.name+' is back'); if(p.basis==='est') risk.push('he is a rookie with no NBA games'); if(r.sim>=4 && r.band!=='must') risk.push('several similar players are sitting there, so you can wait'); if(r.early) risk.push('his games are more than three days away, so a streaming add can wait until that week');
   a.push(risk.length?'Risk, '+listWords(risk)+'.':'Risk, nothing unusual. Check his news before you add.');
   { const js=jcSay(r.drop?[p,r.drop]:[p]), tg=jcTags(p), jm=(r.drop?[p,r.drop]:[p]).map(joshMove).filter(Boolean).join(' '); a.push(oneDot([((jm?jm+' ':'')+(js?js+' ':'')+(tg?'On '+p.name+', '+tg+'.':'')).trim()])[0]); }
   a.push(newsLine(p));
@@ -970,12 +1029,13 @@ function newsLine(p){ const n=p.news; if(!n) return ''; const a=[];
 const newsChip=p=>{ const n=p.news; if(!n) return ''; return n.st==='Out'?'<span class="chip bad">News, out</span>':n.dir==='bad'?'<span class="chip bad">News, bad</span>':n.dir==='good'?'<span class="chip good">News, good</span>':n.st?'<span class="chip warn">News, day to day</span>':n.note?'<span class="chip muted">News</span>':''; };
 /* what a trade does for me, in plan words */
 function tradeWhy(ctx,t){
-  const risk=[]; t.get.forEach(p=>{ if(p.status) risk.push(p.name+' is tagged '+statusWord(p.status)); if(p.b&&p.b.risk>=2) risk.push(p.name+' carries injury risk'); if(p.basis==='est') risk.push(p.name+' is a rookie estimate'); if(p.age>=33) risk.push(p.name+' is '+p.age); });
+  const risk=[]; t.get.forEach(p=>{ if(p.status) risk.push(p.name+' is tagged '+statusWord(p.status)); if(p.b&&p.b.risk>=2) risk.push(p.name+' carries injury risk'); if(p.basis==='est') risk.push(p.name+' is a rookie estimate'); if(p.age>=AGE0) risk.push(p.name+' is '+p.age+', so he is counted for a few percent fewer games, more by March'); if(p.dep && p.dep.f<1) risk.push(p.name+' sits lower on the depth chart than his minutes last season'); });
   if(t.top) risk.push('they drafted or prize what you are asking for, so expect a counter'); if(t.cut) risk.push('they would have to drop '+t.cut.name);
   const jm=t.give.concat(t.get).map(joshMove).filter(Boolean).join(' ');
   const js=jcSay(t.give.concat(t.get)), tg=t.get.map(p=>{ const x=jcTags(p); return x?'On '+p.name+', '+x+'.':''; }).filter(Boolean).join(' ');
   const nw=t.get.concat(t.give).map(p=>{ const x=newsLine(p); return x?p.name+'. '+x:''; }).filter(Boolean).join(' ');
-  return {basis:basisWords(t.give.concat(t.get)),risk:oneDot([risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.'])[0],josh:oneDot([((jm?jm+' ':'')+(js?js+' ':'')+tg).trim()])[0],news:nw};
+  const dw=t.give.concat(t.get).map(depthLine).filter(Boolean).join(' ');
+  return {basis:basisWords(t.give.concat(t.get))+(dw?' '+dw:''),risk:oneDot([risk.length?'Risk, '+listWords(risk)+'. Check the news before you send it.':'Risk, nothing unusual. Check the news before you send it.'])[0],josh:oneDot([((jm?jm+' ':'')+(js?js+' ':'')+tg).trim()])[0],news:nw};
 }
 /* what a trade does for me, all in one place. A short summary, then one line for each cat it moves by 1.5 points or more. Each line holds the change, the before and after,
    and what that means under the plan. A close cat sits between 42 and 58 percent, where a few points decide the week. Swing is kept for the plan role */
@@ -1298,10 +1358,10 @@ function teamPanel(ctx,wk){
   const mine=ctx.ros[ME].slice().sort((a,b)=>b.val-a.val);
   let h='<div class="panel"><label class="mvchk" style="margin-top:0"><input type="checkbox" id="mvshowmine"'+(ST.showMine?' checked':'')+'> Show my players, the per game numbers this page uses</label><div class="mvmine"><h2 style="margin-top:12px">My players <span>what the numbers above use, per game</span></h2><div class="mvtbl"><table><thead><tr><th>Player</th><th class="num">Wk G</th><th class="num">GP</th><th class="num">MIN</th><th class="num">FG%</th><th class="num">FT%</th><th class="num">3PM</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th><th>Based on</th></tr></thead><tbody>';
   mine.forEach(p=>{ const l=p.proj; const g=wk?(wk.me.ug.get(p.id)||0):0; const n=ctx.days.filter(d=>playsOn(p.team,d)).length;
-    h+='<tr><td class="mvnm" style="white-space:normal"><b>'+esc(p.name)+'</b> <span class="small">'+esc(p.team)+' '+esc(p.slot)+(p.status?', '+esc(statusWord(p.status)):'')+(p.role?', minutes '+p.role:'')+'</span>'+(jcCall(p)?'<div class="small mvjc">'+esc(jcCall(p))+'</div>':'')+(jcTags(p)?'<div class="small mvjc">'+esc(jcTags(p))+'</div>':'')+'</td><td class="num">'+r1(g)+' of '+n+'</td><td class="num">'+(p.gp||0)+'</td>';
+    h+='<tr><td class="mvnm" style="white-space:normal"><b>'+esc(p.name)+'</b> <span class="small">'+esc(p.team)+' '+esc(p.slot)+(p.status?', '+esc(statusWord(p.status)):'')+(p.role?', minutes '+p.role:'')+(spotShort(p)?', '+spotShort(p):'')+(p.fill?', filling in':'')+'</span>'+(jcCall(p)?'<div class="small mvjc">'+esc(jcCall(p))+'</div>':'')+(jcTags(p)?'<div class="small mvjc">'+esc(jcTags(p))+'</div>':'')+'</td><td class="num">'+r1(g)+' of '+n+'</td><td class="num">'+(p.gp||0)+'</td>';
     if(l) h+='<td class="num">'+r1(l.mp)+'</td><td class="num">'+(l.fga>0?(100*l.fgm/l.fga).toFixed(1):'')+'</td><td class="num">'+(l.fta>0?(100*l.ftm/l.fta).toFixed(1):'')+'</td><td class="num">'+r1(l.tpm)+'</td><td class="num">'+r1(l.pts)+'</td><td class="num">'+r1(l.reb)+'</td><td class="num">'+r1(l.ast)+'</td><td class="num">'+r1(l.stl)+'</td><td class="num">'+r1(l.blk)+'</td><td class="num">'+r1(l.to)+'</td>'; else h+='<td colspan="10" class="small">no numbers yet</td>';
     h+='<td>'+basisChip(p)+'</td></tr>'; });
-  h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. The best players are seated first, so a questionable player keeps his spot. A bench player shows the share of starts he is expected to pick up when a starter sits. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster.'+(hasJC()?' The line under a name is the category call Josh Lloyd made for that player. His rank sets how much the player is worth and how many games he gets. The call sets which cats that value sits in. A normal call moves a cat about 5 to 8 percent and a strong one about double. Where he gave real numbers the cat moves most of the way to them. FG% or FT% moves about a point, more where he gave numbers. A minutes call only lets the rank move the whole line as far as his minutes number.':'')+'</p></div></div>';
+  h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. The best players are seated first, so a questionable player keeps his spot. A bench player shows the share of starts he is expected to pick up when a starter sits. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster.'+(DP?' NBA starter, NBA bench or NBA deep bench is his spot on ESPN\'s depth chart from '+nice(DP.day)+'. Where that spot does not fit his minutes from last season, they move up to 15 percent toward the usual range for that spot, unless Josh gave a minutes number. Filling in means a starter ahead of him is out, so he is counted with more minutes until that starter is due back.':'')+' Players 33 and older are counted for 3 percent fewer games early in the season, rising to 8 percent by the playoff weeks, and half again as much at 36 and older. Their per game numbers are not changed.'+(hasJC()?' The line under a name is the category call Josh Lloyd made for that player. His rank sets how much the player is worth and how many games he gets. The call sets which cats that value sits in. A normal call moves a cat about 5 to 8 percent and a strong one about double. Where he gave real numbers the cat moves most of the way to them. FG% or FT% moves about a point, more where he gave numbers. A minutes call only lets the rank move the whole line as far as his minutes number.':'')+'</p></div></div>';
   return h;
 }
 function wire(){
@@ -1341,7 +1401,7 @@ async function load(){
   const get=async f=>{ try{ const r=await fetch('data/'+f,{cache:'no-store'}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } };
   const files=['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json','josh_cats.json'];
   // news, ages, a saved plan and Josh's newest ranks are extras. The tab works without them, so a missing one is never an error
-  const extra=['news.json','ages.json','plan.json','josh_live.json'];
+  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json'];
   const all=await Promise.all(files.concat(extra).map(get)), a=all.slice(0,files.length), ex=all.slice(files.length);
   // every file but the weekly snapshot is needed for the numbers to be right. If one did not arrive, say so and draw nothing, because numbers built without it look normal and are wrong
   // A file that arrives but holds nothing useful is treated the same way, for example a scan with no players on your team or a schedule with no games
@@ -1354,7 +1414,7 @@ async function load(){
   D.miss=files.filter((f,i)=>!okShape[i](a[i]));
   if(D.miss.length){ D.loading=false; D.loaded=false; render(); return; }
   D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=(a[5]&&a[5].rosters)?a[5]:a[4]; D.jc=a[6]; loadJC();
-  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null;
+  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; loadDepth();
   D.gset={}; if(D.sched) Object.keys(D.sched.games).forEach(t=>D.gset[t]=new Set(D.sched.games[t]));
   D.loading=false; D.loaded=true;
   // Josh's newest ranks go to the board before anything is built from it. This comes after the load is marked done, because the board draws again and asks this tab for its numbers
@@ -1372,6 +1432,7 @@ function summary(){
   o.push('average week '+pc(c.base[ME].week)+' percent, rank '+me.pos+' of 10, top four chance '+pc(me.top4)+' percent, record '+(me.rec.w||0)+' wins '+(me.rec.l||0)+' losses');
   o.push('plan'+(pl.start?'':' (changed)')+', locks '+cl(pl.lock)+', build pool '+cl(pl.build)+', punt '+(cl(pl.punt)||'none')+', plan cats on target '+pt.hit+' of '+pt.of+', plan week '+pc(pt.week)+' percent'+(pt.risk.length?', locks at risk '+cl(pt.risk.map(r=>r.c)):'')+(TR.lead?', leading route '+cl(TR.lead):''));
   o.push('adds left for week '+c.wk.n+' '+c.addsNow+(PK.week && PK.week.n!==c.wk.n?', pickups below are scored for week '+PK.week.n+' which has '+PK.adds+' adds left':', pickups below are scored for week '+c.wk.n)+', waiver spot '+((c.teams[ME]||{}).waiver||'unknown')+(PK.ilMove&&!PK.free?', IL move open for '+PK.ilMove.name:'')+(PK.free?', open roster spots '+PK.free:''));
+  { const U=Object.values(c.U), dm=U.filter(p=>p.dep), fl=U.filter(p=>p.fill); o.push(DP?'depth chart '+DP.day+', '+dm.length+' lines moved by it'+(fl.length?', filling in '+fl.map(p=>p.name+' for '+p.fill.who.name).join(', '):', nobody filling in'):'no depth chart in use'); }
   PK.list.slice(0,4).forEach((r,i)=>o.push('pickup '+(i+1)+', need '+r.need+', '+r.p.name+(r.drop?', drop '+r.drop.name:', no drop')+', '+r.tag+', '+r.labels.join(' and ').toLowerCase()+(Math.round(100*r.cut)>=1?', tag cut '+Math.round(100*r.cut)+' percent':'')+(r.built.length?', builds '+cl(r.built):'')+', '+(r.wd?'waivers until '+nice(r.wd):r.waiver?'on waivers':'free agent')));
   if(TR.note) o.push(TR.note);
   else { if(!TR.list.length) o.push('no fair trade improves the plan right now, '+TR.count+' fair offers checked');
