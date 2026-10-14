@@ -65,7 +65,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
    * If the news step still fails, the scan goes on. Leave the old news file as it is, carry on with the next step and say in the report that the news was not refreshed
 8. On Mondays also refresh the NBA schedule with `node scan/fetch-sched.js` in the project folder. If it says the schedule was not saved, leave the old file and mention it
    * On Mondays also run `node scan/fetch-ages.js` in the project folder. It prints ages saved when it worked. If it prints ages NOT saved, leave the old file and mention it
-9. Deploy from the project folder on Windows
+9. Check, then deploy from the project folder on Windows. First run `node scan/check-deploy.js` in the project folder. It must print deploy ok. If it prints deploy NOT ok, do not deploy. Report that the scan is saved but not live and give the reason it printed
    ```
    cmd /c "cd /d C:\Users\vikas\Projects\ninecat-war-room && vercel deploy --prod --yes"
    ```
@@ -127,7 +127,7 @@ This is a job of its own, not part of the daily scan. Run it whenever Vikas past
    * It prints josh saved and a line for each player whose rank changed
    * If it prints josh NOT saved it names each entry that needs fixing and writes nothing. Fix the list and run it again
    * Add --dry to check without writing
-5. Deploy the same way the scan does, then open the live site and read `NCWMoves.summary()`. The josh updates line names the count and the newest date
+5. Deploy the same way the scan does, check-deploy.js first, then open the live site and read `NCWMoves.summary()`. The josh updates line names the count and the newest date
 6. Tell Vikas in a few bullets who moved and why, and what it did to his top trades and pickups
 * The file changes ranks only. Josh's category calls in data/josh_cats.json stay as they were on draft day and fade by themselves as real games are played
 * A rank moves the board, the stat lines, pickups and trades together. A stat line stays put when one of his minutes calls already holds it. Before a player has played it counts 25 percent of how he looks to other managers for a pick in the first 80 and 40 percent for a pick from 100 on, and 20 percent for everyone by his 41st game
@@ -135,3 +135,7 @@ This is a job of its own, not part of the daily scan. Run it whenever Vikas past
 ## One time and occasional jobs
 * League schedule. Run the scanner with `NCWSCAN.run({mode:'sched'})` and ingest it the same way. It rewrites data/league.json
 * If code changes are pulled from GitHub and git complains about the data files, run `git checkout -- data` first, pull, then run the daily scan again. Copy data/plan.json somewhere safe first if it was changed and not yet pushed, because that command puts it back to the pushed version
+
+## Trade numbers in chat
+* Never quote a trade gain worked out by hand in chat. Open the live site, go to #moves and run `NCWMoves.checkOffer(teamId,[ids you give],[ids you get])`. It applies every rule the trade list uses, the three center rule, the fairness caps, the Josh check, the plan floors and the two for one credit, and says which rule would stop the offer. Player ids are the keys in data/players.json
+* A chain of trades is judged by marking the first one with I made this trade and then checking the next one, never by adding gains together

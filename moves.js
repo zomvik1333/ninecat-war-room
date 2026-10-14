@@ -94,7 +94,7 @@ function loadJL(){ Object.keys(JLI).forEach(k=>delete JLI[k]); const j=D.jl&&D.j
   if(!INW && typeof B.applyJosh==='function'){ const m=Object.create(null); Object.keys(JLI).forEach(k=>{ m[k]=JLI[k]; if(typeof BALIAS[k]==='string') m[BALIAS[k]]=JLI[k]; }); try{ B.applyJosh(m); }catch(e){} } }
 const jlOf=name=>aliasIn(JLI,B.nkey(name));
 // one line on a player Josh has moved since the draft
-const joshMove=p=>{ const u=p.jl; if(!u) return ''; const from=u.was||u.base; return 'Josh '+(from && from!==u.rank?'moved '+p.name+' from '+from+' to '+u.rank:'has '+p.name+' at '+u.rank)+(u.at?' on '+nice(u.at):'')+(u.note?'. '+u.note:'')+'.'; };
+const joshMove=p=>{ const u0=p.jl; if(!u0) return ''; const u=(p.b && p.b.jlive && p.b.jlive.rank)?Object.assign({},u0,{rank:p.b.jlive.rank}):u0; const from=u.was||u.base; return 'Josh '+(from && from!==u.rank?'moved '+p.name+' from '+from+' to '+u.rank:'has '+p.name+' at '+u.rank)+(u.at?' on '+nice(u.at):'')+(u.note?'. '+u.note:'')+'.'; };
 const aliasIn=(T,k)=>{ const has=x=>typeof x==='string' && Object.prototype.hasOwnProperty.call(T,x); return has(k)?T[k]:has(BALIAS[k])?T[BALIAS[k]]:has(PALIAS[k])?T[PALIAS[k]]:null; };
 const jcOf=name=>aliasIn(JCI,B.nkey(name));
 /* ref is last season's own line, given only when l is a blend of two seasons. A call is written as a change to last season.
@@ -1321,13 +1321,19 @@ function compute(redoTrades){
   catch(e){ failed(e); }
 }
 function failed(e){ ERR=String(e&&e.message||e); const root=$('viewMoves'); if(root) root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">The numbers could not be built from the last scan. The next scan should fix it. Detail for the fixer, '+esc(ERR)+'</p></div>'; }
+/* the trade list keeps the weekly roster snapshot so it stays steady through the week, but injury tags change daily.
+   So every player in the snapshot takes his tag from the newest daily scan when the daily scan has him on the same team */
+function weekTags(week,scan){ if(!week || week===scan || !scan || !scan.rosters) return week||scan;
+  const now={}; Object.keys(scan.rosters).forEach(t=>(scan.rosters[t]||[]).forEach(e=>{ now[t+'|'+e[0]]=e[2]||''; }));
+  const w=Object.assign({},week,{rosters:{}}); Object.keys(week.rosters||{}).forEach(t=>{ w.rosters[t]=(week.rosters[t]||[]).map(e=>{ const k=t+'|'+e[0]; return k in now?[e[0],e[1],now[k]]:e; }); });
+  return w; }
 function computeInner(redoTrades){
   if(!D.scan || !D.league || !D.sched){ render(); return; }
   if(ST.at!==D.scan.at && ST.marks.length){ ST.marks=[]; ST.at=D.scan.at; save(); }
   // a marked add must be a player the scan knows, so a damaged saved mark can never put a made up player on your roster or use up an add
   if(ST.marks.length){ const known=new Set(Object.keys(D.scan.avail||{})); Object.keys(D.scan.rosters||{}).forEach(t=>(D.scan.rosters[t]||[]).forEach(e=>known.add(String(e[0])))); const keep=ST.marks.filter(m=>m.type!=='add' || known.has(m.add)); if(keep.length!==ST.marks.length){ ST.marks=keep; save(); } }
   CTX=build(D.scan); WK=thisWeek(CTX); PK=pickups(CTX); RACE=race(CTX);
-  if(redoTrades || !TR){ TR=null; CTXW=build(D.week||D.scan); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ failed(e); return; } if(TR.lead){ const k=TR.lead.join(','); if(ST.lead!==k){ ST.lead=k; save(); } } },()=>run===TRUN); }
+  if(redoTrades || !TR){ TR=null; CTXW=build(weekTags(D.week,D.scan)); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ failed(e); return; } if(TR.lead){ const k=TR.lead.join(','); if(ST.lead!==k){ ST.lead=k; save(); } } },()=>run===TRUN); }
   else render();
 }
 async function load(){
@@ -1383,6 +1389,24 @@ function cats(cb){
   const go=()=>{ try{ if(!CTX) CTX=build(D.scan); const pl=planOf(), pt=planTable(CTX,pl); cb({at:D.scan.at,hit:pt.hit,of:pt.of,week:pt.week,weekN:pt.weekN,rows:pt.rows.map(r=>({c:r.c,name:CATS[r.c],role:ROLEWORD[r.role],p:r.p,rank:r.rank,fav:r.fav,st:r.st}))}); }catch(e){ cb(null); } };
   if(D.loaded) go(); else if(D.miss && D.miss.length) cb(null); else { LITE=true; load().then(()=>{ if(D.loaded) go(); else cb(null); },()=>cb(null)); }
 }
+/* checkOffer scores any offer with every rule the trade search uses, and says which rule would stop it.
+   Use it in chat before quoting any trade number. NCWMoves.checkOffer('4',[giveIds],[getIds]) */
+function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map(i=>U[String(i)]), get=getIds.map(i=>U[String(i)]); if(give.some(p=>!p)||get.some(p=>!p)) return {err:'unknown player id'};
+  const pl=planOf(), env=tradeEnv(ctx,pl); env.spotV=TR?TR.spot:spotValue(ctx,pl,env); const stops=[];
+  if(give.length>2||get.length>2||give.length<get.length) stops.push('the search only tries one for one, two for two and two for one where you send two');
+  give.forEach(p=>{ const k=B.nkey(p.name); if(p.own!==ME) stops.push(p.name+' is not yours'); if(NEVER.has(k)) stops.push('Kyrie is never offered'); if(HOLD[k] && env.today<HOLD[k]) stops.push(p.name+' is held until '+HOLD[k]); });
+  get.forEach(p=>{ if(p.own!==o) stops.push(p.name+' is not on that team'); });
+  const fair=fairOf(give,get); if(!fair.ok) stops.push('fails look fair, look '+r1(100*(fair.look-1))+' percent their way');
+  if(ctx.ros[ME].filter(isC).length-give.filter(isC).length+get.filter(isC).length<3) stops.push('leaves you under 3 centers');
+  if(ctx.ros[o].filter(isC).length-get.filter(isC).length+give.filter(isC).length<2) stops.push('leaves them under 2 centers');
+  const js=joshSide(give,get); if(js==='lose') stops.push('you lose by Josh ranks');
+  const two=give.length>get.length; let cut=null; if(two){ const worst=ctx.ros[o].filter(p=>p.proj).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0)); cut=worst.find(p=>!get.includes(p))||null; }
+  const Tm=scaleT(seasonTotals(ctx,ME,give,get),1/ctx.tweeks); if(two) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
+  const To=scaleT(seasonTotals(ctx,o,cut?get.concat([cut]):get,give),1/ctx.tweeks); const over={}; over[o]=To; const v=myView(ctx,Tm,over);
+  const gain=100*(planWeekOf(ctx,v.prs,pl,false)-env.basePlan)-(two?env.spotV:0); const broke=env.guard.filter(c=>env.hit(c,v.per[c],v.fav[c]));
+  if(gain<0.3) stops.push('plan gain under 0.3'); if(broke.length) stops.push('breaks '+broke.map(c=>CATS[c]).join(' ')+', so at best a pivot');
+  const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To;
+  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,listed:!stops.length,stops}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), _fn:{build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
+window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
 })();

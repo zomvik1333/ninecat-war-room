@@ -1604,7 +1604,8 @@ function applyJosh(map){ let n=0;
   PLAYERS.forEach(p=>{ if(p.stub) return; if(!p.jb) p.jb=[p.josh,p.jnote,p.jest,p.jw];
     p.josh=p.jb[0]; p.jnote=p.jb[1]; p.jest=p.jb[2]; p.jw=p.jb[3]; p.jlive=null;
     const u=map?map[nkey(p.name)]:null;
-    if(u && Number.isInteger(u.rank) && u.rank>=1 && u.rank<=400){ p.jlive={rank:u.rank,was:p.jb[0]||null}; p.josh=u.rank; p.jw=u.soft?0.4:0.7; p.jest=false; if(typeof u.note==='string' && u.note) p.jnote=u.note; n++; } });
+    if(u && Number.isInteger(u.rank) && u.rank>=1 && u.rank<=400){ // a soft entry is a passing remark. It moves him only 40 percent of the way from his draft day rank and keeps the weight his rank already had, so a soft move up can never push him down the board
+      const b0=p.jb[0]; const r=(u.soft && b0)?Math.max(1,Math.round(b0+0.4*(u.rank-b0))):u.rank; p.jlive={rank:r,was:b0||null}; p.josh=r; p.jw=b0?(p.jb[3]||0.7):(u.soft?0.4:0.7); p.jest=false; if(typeof u.note==='string' && u.note) p.jnote=u.note; n++; } });
   calibrate(); render(); return n; }
 window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab,applyJosh};
 const WANT_MOVES=S.tab==='moves';
