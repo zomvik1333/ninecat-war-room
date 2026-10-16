@@ -423,7 +423,7 @@ function planTable(ctx,pl){ const v=ctx.view0, rows=[];
 
 /* how a player looks to the other managers. Five things are blended as ranks. This season's production, last season's, where he went in this league's draft,
    Josh Lloyd's rank and a small part Yahoo's own rank. Before a player has played, the draft counts 45, Josh 25, last season 20 and Yahoo 10.
-   By his 41st game it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10, moving a little with every game he plays. It goes by his own games,
+   By his 41st game it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10, moving faster early. Most of the move comes in his first 20 games and games 20 to 41 only fine tune it, since a role shows early and managers react to it early. It goes by his own games,
    so a player who has missed most of the year still leans on the draft and last season. Games missed count against both seasons */
 // Players drafted in the first 80 picks. Before games the draft leads. Josh and the draft meet at 26.25 percent each at the half way mark, about 20 games, and from there the draft keeps falling to 15
 const SEENW=s=>{ const h=s<=0.5, t=h?s/0.5:(s-0.5)/0.5, mix=(a,b)=>a+(b-a)*t; return {cur:0.40*s,draft:h?mix(0.45,0.2625):mix(0.2625,0.15),josh:h?mix(0.25,0.2625):mix(0.2625,0.20),last:0.20-0.05*s,yahoo:0.10}; };
@@ -431,6 +431,10 @@ const SEENW=s=>{ const h=s<=0.5, t=h?s/0.5:(s-0.5)/0.5, mix=(a,b)=>a+(b-a)*t; re
 const SEENWL=s=>({cur:0.40*s,draft:0.20-0.05*s,josh:0.40-0.20*s,last:0.20-0.05*s,yahoo:0.20-0.10*s});
 // Picks 81 to 99 get a mix of the two, a little more of the late pick weights with each pick, so two players drafted one spot apart are never valued by different rules
 const LATE0=80, LATE1=100;
+// how far a player is along the way from preseason to mid season, from his games played. A curve that rises fast early, 1 minus (1 minus g/41) squared,
+// so about 43 percent of the way at 10 games and 74 at 20. The first 3 games stay on the straight line and the curve takes over fully by game 6, so one hot night does not swing the blend
+const SEEN_G=41;
+const seenOf=gp=>{ const lin=clamp((gp||0)/SEEN_G,0,1), cur=1-Math.pow(1-lin,2), r=clamp(((gp||0)-3)/3,0,1); return lin+(cur-lin)*r; };
 const seenW=(s,pick)=>{ const L=pick?Math.min(1,Math.max(0,(pick-LATE0)/(LATE1-LATE0))):1, a=SEENW(s), b=SEENWL(s), o={}; for(const k in a) o[k]=a[k]+(b[k]-a[k])*L; return o; };
 function realOf(p,scan){ const pr=priorOf(p.name), b=p.b, st=b?B.STATS[b.name]:null, s=scan.stats&&scan.stats[p.id], gp=s?(s[1]||0):0;
   let cur=null; if(s && gp>=1){ cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); }
@@ -458,7 +462,7 @@ function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
     have.forEach(p=>{ p.tv=p[vk]>R?R+(p[vk]-R)*p[ak]:p[vk]; }); have.sort((a,b)=>b.tv-a.tv||(a.id<b.id?-1:1)).forEach((p,i)=>{ p[rk]=i+1; }); };
   rankBy('lv0','avL','lastRank'); rankBy('cv0','avC','curRank');
   const wy=clamp(ctx.avgGP/25,0,0.7);
-  all.forEach(p=>{ const k=B.nkey(p.name), b=p.b, parts=[], sg=clamp(p.rl.gp/41,0,1), W=seenW(sg,pickOf[k]); p.seenS=sg;
+  all.forEach(p=>{ const k=B.nkey(p.name), b=p.b, parts=[], sg=seenOf(p.rl.gp), W=seenW(sg,pickOf[k]); p.seenS=sg;
     if(p.curRank && W.cur>0) parts.push([W.cur,Math.min(260,p.curRank*p.seenMultC)]);
     if(p.lastRank) parts.push([W.last,Math.min(260,p.lastRank*p.seenMult)]);
     const pick=pickOf[k]; parts.push(pick?[W.draft,pick]:[W.draft/2,165]);
@@ -1106,11 +1110,11 @@ function tradeForYou(ctx,t){
   return {head:oneDot([s])[0],rows:tc.up.map(row).concat(tc.dn.map(row))};
 }
 /* the blend behind how a player looks, in words, at the league's average games played */
-function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(clamp((ctx.avgGP||0)/41,0,1)), W={}, n=x=>x;
+function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(seenOf(ctx.avgGP||0)), W={}, n=x=>x;
   // whole percents that add to 100. Each share is rounded down and the points left over go to the shares that were closest to the next whole number
   { const ks=Object.keys(W0); let left=100; ks.forEach(k=>{ W[k]=Math.floor(100*W0[k]+1e-9); left-=W[k]; }); ks.slice().sort((a,b)=>(100*W0[b]-W[b])-(100*W0[a]-W[a])).slice(0,left).forEach(k=>{ W[k]++; }); }
   const late=' A player drafted after pick 80, or not drafted at all, leans less on the draft and more on Josh and Yahoo, fully so from pick 100, because a late pick is one manager\'s reach and not the league\'s view.';
-  if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10.'+late+' From pick 100 on it is Josh 40 and 20 each for the draft, last season and Yahoo. Once games start, this season\'s numbers take a growing share with every game a player plays, up to 40 percent by his 41st game. Games missed count against him.';
+  if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10.'+late+' From pick 100 on it is Josh 40 and 20 each for the draft, last season and Yahoo. Once games start, this season\'s numbers take a growing share, fastest early. About 17 percent by his 10th game, 30 by his 20th and 40 by his 41st. Games missed count against him.';
   return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'.'+late+' It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10 for everyone. Games missed count against him.'; }
 /* how the offer looks from their side, and by Josh's ranks from mine */
 function tradeFair(ctx,t){
@@ -1552,5 +1556,5 @@ function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map
   const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To;
   return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,listed:!stops.length,stops}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
+window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
 })();
