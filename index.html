@@ -302,6 +302,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
       <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
       <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
       <button class="tab" role="tab" id="tabMoves" aria-selected="false" type="button">Pickups and trades</button>
+      <button class="tab" role="tab" id="tabMgr" aria-selected="false" type="button">By manager</button>
     </div>
   </div>
 
@@ -357,6 +358,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
   </section>
 
   <section id="viewMoves" hidden></section>
+  <section id="viewMgr" hidden></section>
 
   <section id="viewPlan" class="plan" hidden>
     <div class="panel span">
@@ -1568,7 +1570,7 @@ $('copy').onclick=()=>{
   const done=()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy list',1500); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>{ btn.textContent='Copy blocked'; setTimeout(()=>btn.textContent='Copy list',1500); });
 };
-const TABS=['board','teams','plan','moves'];
+const TABS=['board','teams','plan','moves','mgr'];
 /* With the real league on the board, the nine cat panel shows the same numbers as the Pickups and trades tab, built from the latest Yahoo scan.
    Winning means you win that cat 60 percent of the time or more in an average week, losing means under 45 percent, and the rest are toss ups.
    In a mock draft the panel stays a draft tool that compares your picks with an average team */
@@ -1593,9 +1595,9 @@ function catsLive(){
   }).join('');
 }
 function hashFor(t){ const want=t==='board'?'':'#'+t; if(location.hash===want) return; try{ history.replaceState(null,'',want||location.pathname+location.search); }catch(e){} }
-function setTab(t){ if(!TABS.includes(t)) t='board'; const early=t==='moves' && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
-$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan'); $('tabMoves').onclick=()=>setTab('moves');
-if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves';
+function setTab(t){ if(!TABS.includes(t)) t='board'; const early=(t==='moves'||t==='mgr') && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('tabMgr').setAttribute('aria-selected',t==='mgr'); $('viewMgr').hidden=t!=='mgr'; $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else if(t==='mgr') window.NCWMoves.showMgr(); else window.NCWMoves.hide(); } save(); }
+$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan'); $('tabMoves').onclick=()=>setTab('moves'); $('tabMgr').onclick=()=>setTab('mgr');
+if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves'; if (location.hash==='#mgr') S.tab='mgr';
 // the address follows the tab, and a changed address or the back button switches the tab
 window.addEventListener('hashchange',()=>{ const t=location.hash.slice(1)||'board'; if(TABS.includes(t) && t!==S.tab) setTab(t); });
 // Josh's ranks can move during the season without a code change. data/josh_live.json holds the newest rank for each player he has spoken about since the draft.
@@ -1608,8 +1610,8 @@ function applyJosh(map){ let n=0;
       const b0=p.jb[0]; const r=(u.soft && b0)?Math.max(1,Math.round(b0+0.4*(u.rank-b0))):u.rank; p.jlive={rank:r,was:b0||null}; p.josh=r; p.jw=b0?(p.jb[3]||0.7):(u.soft?0.4:0.7); p.jest=false; if(typeof u.note==='string' && u.note) p.jnote=u.note; n++; } });
   calibrate(); render(); return n; }
 window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab,applyJosh};
-const WANT_MOVES=S.tab==='moves';
-window.NCWBoot=()=>{ if(WANT_MOVES) setTab('moves'); render(); };
+const WANT_MOVES=(S.tab==='moves'||S.tab==='mgr')?S.tab:'';
+window.NCWBoot=()=>{ if(WANT_MOVES) setTab(WANT_MOVES); render(); };
 setTab(S.tab||'board');
 render();
 yInit();

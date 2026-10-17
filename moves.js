@@ -44,7 +44,7 @@ function okMgr(j){
   const keys=x=>arr(x,30).map(v=>B.nkey(v)), o={made:typeof j.made==='string'?j.made.slice(0,10):'',teams:{}};
   Object.keys(j.teams).forEach(id=>{ const t=j.teams[id]; if(!/^\d{1,2}$/.test(id) || id===ME || !t || typeof t!=='object' || Array.isArray(t)) return;
     o.teams[id]={name:(typeof t.name==='string' && t.name.trim()?t.name.trim().slice(0,30):'This manager'),ease:isFinite(+t.ease)?clamp(+t.ease,-2,2):0,
-      reply:MGREPLY.indexOf(t.reply)>=0?t.reply:'normal',style:MGSTYLE.indexOf(t.style)>=0?t.style:'',edge:t.edge===true,callout:t.callout===true,noTwo:t.noTwo===true,
+      reply:MGREPLY.indexOf(t.reply)>=0?t.reply:'normal',style:MGSTYLE.indexOf(t.style)>=0?t.style:'',edge:t.edge===true,callout:t.callout===true,noTwo:t.noTwo===true,byDraft:t.valueBy==='draft',pairs:t.pairs===true,
       needPos:arr(t.needPos,5).filter(p=>/^(PG|SG|SF|PF|C)$/.test(p)),needCats:arr(t.needCats,9).map(c=>CATS.indexOf(c)).filter(c=>c>=0),
       keep:keys(t.keep),prize:keys(t.prize),like:keys(t.like),dislike:keys(t.dislike),doubt:keys(t.doubt),
       yes:(Array.isArray(t.yes)?t.yes:[]).slice(0,10).filter(y=>y && typeof y==='object' && Array.isArray(y.give) && Array.isArray(y.get)).map(y=>({give:keys(y.give).slice(0,3),get:keys(y.get).slice(0,3),at:isDay(y.at)?y.at:''})).filter(y=>y.give.length && y.get.length),
@@ -79,7 +79,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
    Then, when your private notes have this manager, it moves for what he has told you, the same things the notes rating reads.
    It is a rough guide to sort by, not a forecast */
 function acceptOf(t){
-  const look=t.fair.look, why=[]; let c=look>=1.06?0.55:look>=1.0?0.45:look>=t.fair.need?0.38:t.fair.ask?0.18:0.08;
+  const mv=t.mview, look=mv?mv.look:t.fair.look, need=mv?1.0:t.fair.need, why=[]; let c=mv?(mv.ok?(look>=1.06?0.55:look>=1.02?0.45:0.38):(look>=0.9?0.18:0.08)):(look>=1.06?0.55:look>=1.0?0.45:look>=need?0.38:t.fair.ask?0.18:0.08);
   if(t.oGain>=1){ c+=0.1; why.push('his team gets better'); } else if(t.oGain<=-6){ c-=0.15; why.push('his team gets clearly worse'); } else if(t.oGain<=-3){ c-=0.08; why.push('his team gets a little worse'); }
   if(t.weakHelp && t.weakHelp.length){ c+=0.05; why.push('it helps a cat he is short in'); }
   if(t.jside==='win'){ c-=0.05; why.push('he loses by Josh\'s ranks'); }
@@ -948,7 +948,7 @@ function trades(ctx,done,live){
       // a fair deal that gives more and gets no more than another with the same team is left out. Up to 40 are kept and ranked when the panel is drawn, so loading notes reorders them at once
       const fair=pick(planAll.filter(t=>t.o===o && t.myGain>=1 && !beaten(t)),40,gk);
       const sAll=out.filter(t=>t.o===o && t.ask && t.kind==='plan' && ok(t) && t.myGain>=1).sort(byGain);
-      res.byTeam[o]={fair,stretch:pick(sAll,6,gk),nStr:sAll.length}; });
+      res.byTeam[o]={fair,stretch:pick(sAll,40,gk),nStr:sAll.length}; });
     const kept=out.filter(t=>!t.ask);
     res.pass=res.list.length; res.count=seen; res.kept=kept.length; res.askN=askAll.length; res.basePlan=basePlan; res.spot=env.spotV;
     res.relist=()=>{};
@@ -1271,8 +1271,10 @@ function scanLine(ctx){
   return '<div class="mvscan"><span class="ydot '+dot+'"></span><span>Yahoo was last scanned '+esc(when)+(age>30?', that is '+(age<48?r0(age)+' hours':Math.floor(age/24)+' days')+' old':'')+'. '+basis+' Every number is a model estimate.</span></div>'
     +(age>48?'<div class="switch" style="margin-top:8px">The last Yahoo scan is '+Math.floor(age/24)+' days old. Rosters, injury tags, pickups and trades below may be out of date. Run a fresh scan before you act on them.</div>':'');
 }
+let MODE='moves';
 function render(){
-  css(); const root=$('viewMoves'); if(!root) return;
+  css(); if(MODE==='mgr'){ const rm=$('viewMgr'); if(!rm) return; rm.innerHTML=(D.scan&&CTXW?'<div class="mv"><div class="panel">'+scanLine(CTXW)+'</div>'+mgrPage(CTXW)+notesPanel()+'</div>':'<div class="panel"><h2>Trades by manager</h2><p class="empty">'+(D.loading?'Loading the league data.':'Scoring trades.')+'</p></div>'); wire(rm); return; }
+  const root=$('viewMoves'); if(!root) return;
   if(D.miss && D.miss.length && !D.loading){ root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">'+(D.miss.length===1?'One data file did not load properly, ':'Some data files did not load properly, ')+esc(D.miss.join(', '))+'. No numbers are shown because they would be wrong without '+(D.miss.length===1?'it':'them')+'. Check your connection and try again.</p><div class="mvact"><button class="btn" id="mvretry" type="button">Try again</button></div></div>'; const b=$('mvretry'); if(b) b.onclick=()=>{ D.miss=null; load(); }; return; }
   if(!D.scan || !D.league || !D.sched){ root.innerHTML='<div class="panel"><h2>Pickups and trades</h2><p class="empty">'+(D.loading?'Loading the league data.':'No Yahoo scan is loaded yet. The daily scan puts it here.')+'</p></div>'; return; }
   const ctx=CTX, wk=WK, pk=PK, me=ctx.base[ME], rc=RACE; const mine=rc.rows.find(r=>r.tid===ME);
@@ -1291,9 +1293,9 @@ function render(){
   if(ST.marks.length) h+='<div class="switch" style="margin-top:10px">You marked '+ST.marks.length+' move'+(ST.marks.length===1?'':'s')+' since the last Yahoo scan, so the lists below already count '+(ST.marks.length===1?'it':'them')+'. The next scan replaces this with what Yahoo shows.<div><button class="btn" id="mvundo" type="button">Undo my marked moves</button></div></div>';
   h+='</div>';
   h+=planPanel(ctx,pk);
-  h+='<div class="mvgrid"><div class="mvcol">'+weekPanel(ctx,wk)+leaguePanel(ctx,rc)+'</div><div class="mvcol">'+pickPanel(ctx,pk)+tradePanel(ctx)+byTeamPanel(CTXW)+teamPanel(ctx,wk)+notesPanel()+'</div></div>';
+  h+='<div class="mvgrid"><div class="mvcol">'+weekPanel(ctx,wk)+leaguePanel(ctx,rc)+'</div><div class="mvcol">'+pickPanel(ctx,pk)+tradePanel(ctx)+teamPanel(ctx,wk)+notesPanel()+'</div></div>';
   h+='</div>';
-  root.innerHTML=h; wire();
+  root.innerHTML=h; wire(root);
 }
 function goalLine(ctx,wk,pk){
   if(!wk) return 'No matchup found for this week.';
@@ -1400,7 +1402,7 @@ function tradeCard(cw,t,i,grp){
     +(t.kind==='plan'&&t.spent.length?'<span class="chip warn">Spends '+t.spent.map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip good">Helps '+tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip warn">Costs '+tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
-    +(t.acc2!=null && (grp==='t'||grp==='s')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+(t.bigG && grp==='t'?'<span class="chip gem">Biggest gain</span>':''):'')+(grp==='s'?'<span class="chip bad">Stretch, about '+Math.max(1,Math.round(100*(t.fair.need-t.fair.look)))+'% short of fair</span>':'')+sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):'')+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
+    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.fair.need-t.fair.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(newsChip).join('')+'</span></span></summary>';
   h+='<div class="mvbody"><div><span class="lab">What it does for you</span><p>'+esc(fy.head)+'</p>'+(fy.rows.length?'<ul>'+fy.rows.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p class="small">Each line is the change in your chance to win that cat in an average week, in points. Cats that move less than 1.5 are left out.</p>':'<p>No single cat moves by 1.5 points or more. The gain comes from small lifts across several cats.</p>')+'</div>'
@@ -1408,7 +1410,7 @@ function tradeCard(cw,t,i,grp){
     +'<div><span class="lab">How to sell it</span>'+(kit.open?'<p>'+esc(kit.open)+'</p>':'')+(kit.pts.length?'<ul>'+kit.pts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>No strong selling point is true for this deal, which is why it is marked a hard sell.</p>')+'</div>'
     +'<p><span class="lab">What they will say</span>'+esc(kit.push)+' '+esc(kit.alt)+'</p>'
     +'<p><span class="lab">For your eyes only</span>'+esc(kit.eyes)+'</p>'
-    +(mgOf(t)?(g=>'<div><span class="lab">From your notes on '+esc(g.m.name)+'</span><p>With your notes this is a'+(g.lv===2?'n easy sell':g.lv===1?' fair ask':' hard sell')+', about '+pc(g.chance)+' percent to happen.</p>'+(g.why.length?'<ul>'+g.why.map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(g.m.tips.length?'<p class="small">'+esc(g.m.tips.map(x=>x.replace(/\.+$/,'')).join('. ')+'.')+'</p>':'')+'</div>')(mgOf(t)):'')
+    +(mgOf(t)?(g=>'<div><span class="lab">From your notes on '+esc(g.m.name)+'</span>'+((grp==='t'||grp==='s'||grp==='h') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes, from the numbers and your notes'+(t.mview?', judged his way. On his view he gets '+Math.round(100*t.mview.look)+' percent of what he gives'+(t.mview.pair?', and he loses on the '+t.mview.pair+' player':''):'')+'.</p>':'<p>With your notes this is a'+(g.lv===2?'n easy sell':g.lv===1?' fair ask':' hard sell')+', about '+pc(g.chance)+' percent to happen.</p>')+(g.why.length?'<ul>'+g.why.map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(g.m.tips.length?'<p class="small">'+esc(g.m.tips.map(x=>x.replace(/\.+$/,'')).join('. ')+'.')+'</p>':'')+'</div>')(mgOf(t)):'')
     +(why.josh?'<p><span class="lab">Josh on the cats</span>'+esc(why.josh)+'</p>':'')+(why.news?'<p><span class="lab">News</span>'+esc(why.news)+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why.risk)+'</p>'
     +'<div class="mvact"><button class="btn" type="button" data-trade="'+grp+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+grp+i+'">Copy a message to send</button>'+(t.kind!=='plan'?'<button class="btn" type="button" data-pivot="'+i+'">Make this my plan</button>':'')+'</div></div></details>';
   return h;
@@ -1432,31 +1434,44 @@ function tradePanel(ctx){
   TR.pivots.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'v'); });
   h+='</div>'; return h;
 }
-/* the team by team list. Fair trades first, ranked by your gain times the chance he says yes when your notes have him, otherwise by the usual trade score.
-   The single biggest gain always shows, even when its chance is low. Then the stretch trades, light to him, by your gain alone */
-function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return null; const hasMg=!!(MG && MG.teams[o]);
-  const all=b.fair.map(t=>{ const a=acceptOf(t); t.acc2=a.c; t.accWhy=a.why; t.ev=t.myGain*a.c; return t; });
-  all.sort(hasMg?(x,y)=>y.ev-x.ev||y.myGain-x.myGain:(x,y)=>y.score-x.score||y.myGain-x.myGain);
-  const top=all.slice(0,8), big=all.reduce((m,t)=>!m||t.myGain>m.myGain?t:m,null); if(big && top.indexOf(big)<0) top.push(big); all.forEach(t=>{ t.bigG=t===big; });
-  b.stretch.forEach(t=>{ const a=acceptOf(t); t.acc2=a.c; t.accWhy=a.why; });
-  return {fair:top,stretch:b.stretch,hasMg,nFair:all.length,nStr:b.nStr}; }
+/* how one manager sees a deal, from your notes. A manager who values by draft judges a player mostly by where he went in this league's draft,
+   60 percent draft and 40 percent his current rank, with no lift for late picks. A manager who judges player for player lines up the best player on each side,
+   then the second best, at full weight, with no credit for consolidating. Without either setting the site's own fair check stands */
+const draftVal=p=>{ const pk=pickOf[B.nkey(p.name)]||165, now=(p.curRank && p.rl && p.rl.gp>=5)?p.curRank:(p.seenRank||165); return 100*Math.exp(-(Math.max(1,0.6*pk+0.4*now)-1)/45)+3; };
+function mgView(t,m){ if(!m || !(m.byDraft||m.pairs)) return null;
+  const v=p=>m.byDraft?draftVal(p):p.mv, inn=t.give.map(v).sort((a,b)=>b-a), out=t.get.map(v).sort((a,b)=>b-a);
+  const sum=a=>a.reduce((x,y)=>x+y,0), A=m.pairs?sum(inn):dw(inn), Bv=m.pairs?sum(out):dw(out), look=A/Math.max(Bv,1); let ok=look>=1.0, pair='';
+  if(m.pairs) for(let i=0;i<Math.max(inn.length,out.length);i++){ const a=inn[i]||0, b=out[i]||0; if(b>0 && a<0.85*b && b-a>4){ ok=false; pair=i===0?'best':'second'; break; } }
+  return {look,ok,pair,A,B:Bv}; }
+function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return null; const m=MG && MG.teams[o], hasMg=!!m;
+  let fair=b.fair.slice(), str=b.stretch.slice();
+  fair.concat(str).forEach(t=>{ t.mview=mgView(t,m); });
+  if(m && (m.byDraft||m.pairs)){ const all=fair.concat(str); fair=all.filter(t=>t.mview.ok && t.fair.look>=0.75); str=all.filter(t=>!t.mview.ok && t.mview.look>=0.72); }
+  fair.concat(str).forEach(t=>{ const a=acceptOf(t); t.acc2=a.c; t.accWhy=a.why; t.accG=a.g; t.ev=t.myGain*a.c; });
+  // a deal your notes rule out, a player he said is not for trade, a shape he has no room for, or a light offer to a manager who calls those out, is left off
+  const live=t=>!(t.accG && t.accG.force && !t.accG.yes); fair=fair.filter(live); str=str.filter(live);
+  const likely=fair.slice().sort((x,y)=>y.ev-x.ev||y.myGain-x.myGain).filter(t=>t.acc2>=0.1).slice(0,5);
+  const helpful=fair.filter(t=>likely.indexOf(t)<0).sort((x,y)=>y.myGain-x.myGain).slice(0,5);
+  str.sort((x,y)=>y.myGain-x.myGain);
+  return {likely,helpful,stretch:str.slice(0,6),hasMg,m,nFair:fair.length,nStr:str.length,view:!!(m && (m.byDraft||m.pairs))}; }
 const accTag=c=>c>=0.5?'<span class="chip good">Likely yes</span>':c>=0.25?'<span class="chip muted">Worth a try</span>':'<span class="chip warn">Long shot</span>';
-function byTeamPanel(cw){
-  if(!TR || !TR.byTeam) return '';
-  const opps=Object.keys(TR.byTeam); if(!opps.length) return '';
-  const o=opps.indexOf(ST.tteam)>=0?ST.tteam:opps[0], r=teamRank(o), tn=x=>((cw.teams[x]||{}).name||('Team '+x)), mn=x=>MG && MG.teams[x]?MG.teams[x].name:'';
-  let h='<div class="panel" id="mvbyteam"><h2>Trades by team <span>fair first, stretches at the bottom</span></h2>';
-  h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap"><button class="btn" type="button" id="mvtprev" aria-label="Previous team">Prev</button><select id="mvtsel" class="btn" aria-label="Team" style="flex:1;min-width:0">'+opps.map(x=>'<option value="'+esc(x)+'"'+(x===o?' selected':'')+'>'+esc(tn(x))+(mn(x)?', '+esc(mn(x)):'')+'</option>').join('')+'</select><button class="btn" type="button" id="mvtnext" aria-label="Next team">Next</button></div>';
-  const m=MG && MG.teams[o];
+function mgrPage(cw){
+  let h='<div class="panel"><h2>Trades by manager <span>ranked by what each manager values</span></h2>';
+  if(!TR){ return h+'<p class="empty">Scoring trades with all nine teams.</p></div>'; }
+  if(TR.note || !TR.byTeam){ return h+'<p class="empty">'+esc(TR.note||'No trades right now.')+'</p></div>'; }
+  const opps=Object.keys(TR.byTeam), o=opps.indexOf(ST.tteam)>=0?ST.tteam:opps[0], r=teamRank(o), tn=x=>((cw.teams[x]||{}).name||('Team '+x)), mn=x=>MG && MG.teams[x]?MG.teams[x].name:'';
+  h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap"><button class="btn" type="button" id="mvtprev" aria-label="Previous manager">Prev</button><select id="mvtsel" class="btn" aria-label="Manager" style="flex:1;min-width:0">'+opps.map(x=>'<option value="'+esc(x)+'"'+(x===o?' selected':'')+'>'+(mn(x)?esc(mn(x))+', ':'')+esc(tn(x))+'</option>').join('')+'</select><button class="btn" type="button" id="mvtnext" aria-label="Next manager">Next</button></div>';
+  const m=r.m;
   if(m && m.tips.length) h+='<details class="mvteam" style="margin-top:8px"><summary class="small"><b>Your notes on '+esc(m.name)+'</b>, '+m.tips.length+' tips</summary><ul class="mvlist">'+m.tips.map(x=>'<li>'+esc(x.replace(/\.+$/,''))+'.</li>').join('')+'</ul></details>';
-  h+='<p class="small">'+(r.hasMg?'Ranked by your gain times the chance '+esc(m.name)+' says yes, from the numbers and your notes. ':'No notes on this manager, so these are ranked by your gain and how easy the sell is. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.</p>';
-  h+='<h2 style="margin-top:10px">Fair trades <span>'+r.nFair+' gain a point or more</span></h2>';
-  if(!r.fair.length) h+='<p class="empty">No fair trade with this team gains a full point right now.</p>';
-  r.fair.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'t'); });
-  h+='<h2 style="margin-top:14px">Stretch trades <span>lean your way, need a strong pitch</span></h2>';
-  h+='<p class="small">These fall short of fair to them, by up to about 25 percent on the value scale, so they lean on your selling. They still keep your locks and three centers. Pitch what is really true for them, like role, games, age or a cat they need.</p>';
-  if(!r.stretch.length) h+='<p class="empty">No stretch trade with this team gains a full point.</p>';
-  r.stretch.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'s'); });
+  h+='<p class="small">'+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.</p>';
+  if(!r.likely.length && !r.helpful.length) h+='<p class="empty">No helpful trades at this time.'+(r.stretch.length?' Stretch trades only, below.':'')+'</p>';
+  else {
+    h+='<h2 style="margin-top:10px">Most likely <span>your gain times the chance he says yes</span></h2>';
+    if(!r.likely.length) h+='<p class="empty">None with a real chance right now.</p>';
+    r.likely.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'t'); });
+    if(r.helpful.length){ h+='<h2 style="margin-top:14px">Most helpful <span>biggest gain for you, fair to him</span></h2>'; r.helpful.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'h'); }); }
+  }
+  if(r.stretch.length){ h+='<h2 style="margin-top:14px">Stretch trades <span>short of fair to him, lean on your pitch</span></h2><p class="small">These fall short of fair to him, so they lean on your selling. They still keep your locks and three centers. Pitch what is really true for him, like role, games, age or a cat he needs.</p>'; r.stretch.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'s'); }); }
   h+='</div>'; return h; }
 /* most likely to happen. Only drawn when your private notes are loaded on this device. Your gain times the chance they say yes */
 function likelyPanel(cw){
@@ -1498,12 +1513,12 @@ function teamPanel(ctx,wk){
   h+='</tbody></table></div><p class="small">Wk G is how many of his games this week fit in your starting lineup. The best players are seated first, so a questionable player keeps his spot. A bench player shows the share of starts he is expected to pick up when a starter sits. Each line blends last season with this season. The weight on this season is games played divided by games played plus 12. Rookie guesses and older seasons fade faster.'+(DP?' NBA starter, NBA bench or NBA deep bench is his spot on ESPN\'s depth chart from '+nice(DP.day)+'. Where that spot does not fit his minutes from last season, they move up to 15 percent toward the usual range for that spot, unless Josh gave a minutes number. Filling in means a starter ahead of him is out, so he is counted with more minutes until that starter is due back.':'')+' Players 33 and older are counted for 3 percent fewer games early in the season, rising to 8 percent by the playoff weeks, and half again as much at 36 and older. Their per game numbers are not changed.'+(hasJC()?' The line under a name is the category call Josh Lloyd made for that player. His rank sets how much the player is worth and how many games he gets. The call sets which cats that value sits in. A normal call moves a cat about 5 to 8 percent and a strong one about double. Where he gave real numbers the cat moves most of the way to them. FG% or FT% moves about a point, more where he gave numbers. A minutes call only lets the rank move the whole line as far as his minutes number.':'')+'</p></div></div>';
   return h;
 }
-function wire(){
-  const root=$('viewMoves');
+function wire(root){
+  root=root||$('viewMoves');
   [['mvshowskip','showSkip','showskip'],['mvshowmine','showMine','showmine'],['mvshowsmall','small','showsmall']].forEach(x=>{ const b=$(x[0]); if(b) b.onchange=()=>{ ST[x[1]]=!!b.checked; save(); const m=root.querySelector('.mv'); if(m) m.classList.toggle(x[2],ST[x[1]]); }; });
   root.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ ST.marks.push({type:'add',add:b.getAttribute('data-add'),drop:b.getAttribute('data-drop')||null,il:b.getAttribute('data-il')||null,day:CTX?CTX.now.date:null}); ST.at=D.scan.at; save(); compute(true); });
-  const trOf=k=>{ const i=+String(k).slice(1), g=String(k).charAt(0); if(!TR) return null; if(g==='t'||g==='s'){ const ks=Object.keys(TR.byTeam||{}), o=ks.indexOf(ST.tteam)>=0?ST.tteam:ks[0], r=o?teamRank(o):null; return r?(g==='t'?r.fair:r.stretch)[i]:null; } return (g==='v'?TR.pivots:TR.list)[i]; };
-  const goTeam=d=>{ const ks=Object.keys((TR&&TR.byTeam)||{}); if(!ks.length) return; let i=ks.indexOf(ST.tteam); if(i<0) i=0; ST.tteam=typeof d==='string'?d:ks[(i+d+ks.length)%ks.length]; save(); render(); const el=$('mvbyteam'); if(el && el.scrollIntoView) el.scrollIntoView({block:'start'}); };
+  const trOf=k=>{ const i=+String(k).slice(1), g=String(k).charAt(0); if(!TR) return null; if(g==='t'||g==='s'||g==='h'){ const ks=Object.keys(TR.byTeam||{}), o=ks.indexOf(ST.tteam)>=0?ST.tteam:ks[0], r=o?teamRank(o):null; return r?(g==='t'?r.likely:g==='h'?r.helpful:r.stretch)[i]:null; } return (g==='v'?TR.pivots:TR.list)[i]; };
+  const goTeam=d=>{ const ks=Object.keys((TR&&TR.byTeam)||{}); if(!ks.length) return; let i=ks.indexOf(ST.tteam); if(i<0) i=0; ST.tteam=typeof d==='string'?d:ks[(i+d+ks.length)%ks.length]; save(); render();  };
   { const a=$('mvtprev'), b=$('mvtnext'), sl=$('mvtsel'); if(a) a.onclick=()=>goTeam(-1); if(b) b.onclick=()=>goTeam(1); if(sl) sl.onchange=()=>goTeam(sl.value); }
   root.querySelectorAll('[data-trade]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-trade')); if(!t) return; ST.marks.push({type:'trade',withTeam:t.o,give:t.give.map(p=>p.id),get:t.get.map(p=>p.id),cut:t.cut?t.cut.id:null}); ST.at=D.scan.at; save(); compute(true); });
   root.querySelectorAll('[data-pitch]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-pitch')); if(!t) return; const txt=pitchText(CTXW,t); const ok=()=>{ b.textContent='Copied'; setTimeout(()=>{ b.textContent='Copy a message to send'; },1500); }; try{ navigator.clipboard.writeText(txt).then(ok,()=>{ b.textContent=txt; }); }catch(e){ b.textContent=txt; } });
@@ -1607,5 +1622,5 @@ function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map
   const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To;
   return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,listed:!stops.length,stops}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,cats,show:()=>{ document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,byTeamPanel,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
+window.NCWMoves={summary,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
 })();
