@@ -1393,6 +1393,7 @@ function planPanel(ctx,pk){
 }
 const tinyTrade=t=>t.kind==='plan' && !t.pinned && !t.urgent && t.myGain<1;
 function tradeCard(cw,t,i,grp){
+  let h0='';
   const why=tradeWhy(cw,t), fy=tradeForYou(cw,t), kit=sellKit(cw,t), tc=tradeCats(t), oName=(cw.teams[t.o]||{}).name||'', nm=a=>a.map(p=>esc(p.name)).join(' and '), pl=TR.plan;
   const sellChip=t.sell==='easy'?'<span class="chip good">Easy sell</span>':t.sell==='fair'?'<span class="chip muted">Fair ask</span>':'<span class="chip warn">Hard sell</span>';
   let h='<details class="mvcard'+(grp==='p' && tinyTrade(t)?' mvtiny':'')+'"><summary><span class="mvn '+(t.urgent?'must':t.myGain>=1?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
@@ -1405,7 +1406,11 @@ function tradeCard(cw,t,i,grp){
     +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.fair.need-t.fair.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(newsChip).join('')+'</span></span></summary>';
-  h+='<div class="mvbody"><div><span class="lab">What it does for you</span><p>'+esc(fy.head)+'</p>'+(fy.rows.length?'<ul>'+fy.rows.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p class="small">Each line is the change in your chance to win that cat in an average week, in points. Cats that move less than 1.5 are left out.</p>':'<p>No single cat moves by 1.5 points or more. The gain comes from small lifts across several cats.</p>')+'</div>'
+  // the by manager tab says plainly what the deal does to your locks. Before and after are your chance to win that cat in an average week
+  if((grp==='t'||grp==='s'||grp==='h') && pl && pl.lock){ const lk=pl.lock.map(c=>({c,a:t.per[c],b:t.per[c]-t.dme[c]/100})), dip=lk.filter(x=>t.dme[x.c]<=-1.5), up=lk.filter(x=>t.dme[x.c]>=1.5);
+    const w=x=>CATS[x.c]+' from '+pc(x.b)+' to '+pc(x.a)+' percent';
+    h0='<p><span class="lab">Your locks</span>'+(t.broke && t.broke.length?'Breaks '+esc(listWords(t.broke.map(c=>CATS[c])))+'. ':dip.length?'Keeps all your locks above the floor, but dips '+esc(listWords(dip.map(w)))+'. ':'Keeps all your locks. ')+(up.length?'Lifts '+esc(listWords(up.map(w)))+'. ':'')+(dip.length||up.length?'':'None of them moves by 1.5 points or more.')+'</p>'; }
+  h+='<div class="mvbody">'+h0+'<div><span class="lab">What it does for you</span><p>'+esc(fy.head)+'</p>'+(fy.rows.length?'<ul>'+fy.rows.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p class="small">Each line is the change in your chance to win that cat in an average week, in points. Cats that move less than 1.5 are left out.</p>':'<p>No single cat moves by 1.5 points or more. The gain comes from small lifts across several cats.</p>')+'</div>'
     +'<p><span class="lab">How it looks to them</span>'+esc(tradeFair(cw,t))+'</p>'
     +'<div><span class="lab">How to sell it</span>'+(kit.open?'<p>'+esc(kit.open)+'</p>':'')+(kit.pts.length?'<ul>'+kit.pts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>No strong selling point is true for this deal, which is why it is marked a hard sell.</p>')+'</div>'
     +'<p><span class="lab">What they will say</span>'+esc(kit.push)+' '+esc(kit.alt)+'</p>'
