@@ -28,10 +28,10 @@ const WP=[0.8,0.9,1,1,1,1,1,1,1];
 const KEY='ncw_moves_v1';
 const ME='11';
 const D={};
-let ST={marks:[],small:false,at:'',plan:null,planMade:'',pin:'',lead:'',showSkip:false,showMine:false,tteam:''};
+let ST={marks:[],small:false,at:'',plan:null,planMade:'',pin:'',lead:'',showSkip:false,showMine:false,tteam:'',trTab:'best'};
 // a saved state that is damaged is cleaned on load, so one bad entry can never break the tab
 const okMark=m=>!!m && typeof m==='object' && ((m.type==='add' && typeof m.add==='string' && m.add!=='') || (m.type==='trade' && m.withTeam!=null && Array.isArray(m.give) && Array.isArray(m.get)));
-try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=j.small===true; ST.at=typeof j.at==='string'?j.at:''; ST.plan=Array.isArray(j.plan)?j.plan:null; ST.planMade=typeof j.planMade==='string'?j.planMade:''; ST.pin=typeof j.pin==='string'?j.pin:''; ST.lead=typeof j.lead==='string'?j.lead:''; ST.showSkip=j.showSkip===true; ST.showMine=j.showMine===true; ST.tteam=typeof j.tteam==='string' && /^\d{1,2}$/.test(j.tteam)?j.tteam:''; } }catch(e){}
+try{ const j=JSON.parse(localStorage.getItem(KEY)||'null'); if(j && typeof j==='object'){ ST.marks=Array.isArray(j.marks)?j.marks.filter(okMark):[]; ST.small=j.small===true; ST.at=typeof j.at==='string'?j.at:''; ST.plan=Array.isArray(j.plan)?j.plan:null; ST.planMade=typeof j.planMade==='string'?j.planMade:''; ST.pin=typeof j.pin==='string'?j.pin:''; ST.lead=typeof j.lead==='string'?j.lead:''; ST.showSkip=j.showSkip===true; ST.showMine=j.showMine===true; ST.trTab=j.trTab==='mgr'?'mgr':'best'; if(typeof location!=='undefined' && location.hash==='#mgr') ST.trTab='mgr'; ST.tteam=typeof j.tteam==='string' && /^\d{1,2}$/.test(j.tteam)?j.tteam:''; } }catch(e){}
 const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} };
 /* private manager notes. Vikas keeps notes on the other managers in his own notes folder and can load them on his own device.
    They are kept in this browser's storage only and never travel with the site, which is public. The code here holds no names and no notes.
@@ -1249,7 +1249,7 @@ function pitchText(ctx,t){ const kit=sellKit(ctx,t), g=mgOf(t); if(!g || !g.m.st
 let CTX=null, CTXW=null, TR=null, PK=null, WK=null, RACE=null, ERR='', TRUN=0, LITE=false;
 function css(){
   if($('mvcss')) return; const s=document.createElement('style'); s.id='mvcss';
-  s.textContent='.mvlist{margin:6px 0 0 18px;padding:0}.mvlist li{margin:3px 0;font-size:13.5px}.mv{display:flex;flex-direction:column;gap:16px}.mvgrid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:16px;align-items:start}@media (max-width:1100px){.mvgrid{grid-template-columns:minmax(0,1fr)}}.mvcol{display:flex;flex-direction:column;gap:16px;min-width:0}'
+  s.textContent='.mvsub{display:flex;gap:6px;margin:8px 0 10px}.mvsub .btn.on{background:var(--accent,#2b6cb0);color:#fff;border-color:transparent}.mvlist{margin:6px 0 0 18px;padding:0}.mvlist li{margin:3px 0;font-size:13.5px}.mv{display:flex;flex-direction:column;gap:16px}.mvgrid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:16px;align-items:start}@media (max-width:1100px){.mvgrid{grid-template-columns:minmax(0,1fr)}}.mvcol{display:flex;flex-direction:column;gap:16px;min-width:0}'
   +'.mvcells{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;margin:10px 0}.mvc{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel-2)}.mvc .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}.mvc .v{font-family:var(--display);font-size:26px;line-height:1.1}.mvc .s{font-size:12px;color:var(--muted)}'
   +'.mvscan{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}'
   +'.mvcard{border:1px solid var(--line);border-radius:8px;background:var(--panel-2);margin-bottom:8px}.mvcard[open]{border-color:var(--accent)}.mvcard summary{list-style:none;cursor:pointer;padding:10px 12px;display:grid;grid-template-columns:54px minmax(0,1fr);gap:4px 10px;align-items:center}.mvcard summary::-webkit-details-marker{display:none}'
@@ -1423,7 +1423,10 @@ function tradeCard(cw,t,i,grp){
 function tradePanel(ctx){
   let h='<div class="panel"><h2>Trades <span>updates each week and after any roster move in the league</span></h2>';
   const cw=CTXW; const snap=new Date(cw.scan.at).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-  h+='<p class="small">Every trade here is good for you first. Your gain is how many points your chance to win an average week goes up, counted the way your plan counts cats. The card also shows the real nine cat number. A trade has to look fair to the other manager, and nothing asks that it helps their team. '+seenWords(cw)+' Small deals are judged by the gap in value and not the ratio. An offer has to look even or better to them. It never hands them more than 15 percent extra value, 10 if you give the best player and 5 if he is clearly the best. If they give the best player in the deal the offer has to pay for it. Easy sell, Fair ask and Hard sell say how the pitch should go, and each card lists talking points that are true for that deal. Where a bigger ask is worth trying first, the card names it. Listed by your gain, with a hard sell marked down by half and a fair ask by 10 percent so they sit lower. Value you give away beyond an even deal counts a little against a trade. For a two for one, what you would gain by simply dropping a player for a streamer is taken off first. They always keep two centers and you keep three. At most 14 trades show, one per team and set of players you get. Trades that gain under 1 point stay hidden until you tick the box under the list. Built from the snapshot of '+esc(snap)+'. Kyrie is never offered. Boozer is held until the middle of January.</p>';
+  // two views of the same trades. Best trades is the list as it has always been. By manager ranks each manager's deals the way he values players
+  h+='<div class="mvsub" role="tablist"><button type="button" role="tab" class="btn'+(ST.trTab!=='mgr'?' on':'')+'" id="mvtrbest" aria-selected="'+(ST.trTab!=='mgr')+'">Best trades</button><button type="button" role="tab" class="btn'+(ST.trTab==='mgr'?' on':'')+'" id="mvtrmgr" aria-selected="'+(ST.trTab==='mgr')+'">By manager</button></div>';
+  if(ST.trTab!=='mgr') h+='<p class="small">Every trade here is good for you first. Your gain is how many points your chance to win an average week goes up, counted the way your plan counts cats. The card also shows the real nine cat number. A trade has to look fair to the other manager, and nothing asks that it helps their team. '+seenWords(cw)+' Small deals are judged by the gap in value and not the ratio. An offer has to look even or better to them. It never hands them more than 15 percent extra value, 10 if you give the best player and 5 if he is clearly the best. If they give the best player in the deal the offer has to pay for it. Easy sell, Fair ask and Hard sell say how the pitch should go, and each card lists talking points that are true for that deal. Where a bigger ask is worth trying first, the card names it. Listed by your gain, with a hard sell marked down by half and a fair ask by 10 percent so they sit lower. Value you give away beyond an even deal counts a little against a trade. For a two for one, what you would gain by simply dropping a player for a streamer is taken off first. They always keep two centers and you keep three. At most 14 trades show, one per team and set of players you get. Trades that gain under 1 point stay hidden until you tick the box under the list. Built from the snapshot of '+esc(snap)+'. Kyrie is never offered. Boozer is held until the middle of January.</p>';
+  if(ST.trTab==='mgr'){ h+=mgrPage(cw,true)+'</div>'; return h; }
   if(!TR){ h+='<p class="empty" id="mvtrwait">Scoring trades with all nine teams.</p></div>'; return h; }
   if(TR.note){ h+='<p class="empty">'+esc(TR.note)+'</p></div>'; return h; }
   if(MG) h+=likelyPanel(cw);
@@ -1460,10 +1463,10 @@ function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return nul
   str.sort((x,y)=>y.myGain-x.myGain);
   return {likely,helpful,stretch:str.slice(0,6),hasMg,m,nFair:fair.length,nStr:str.length,view:!!(m && (m.byDraft||m.pairs))}; }
 const accTag=c=>c>=0.5?'<span class="chip good">Likely yes</span>':c>=0.25?'<span class="chip muted">Worth a try</span>':'<span class="chip warn">Long shot</span>';
-function mgrPage(cw){
-  let h='<div class="panel"><h2>Trades by manager <span>ranked by what each manager values</span></h2>';
-  if(!TR){ return h+'<p class="empty">Scoring trades with all nine teams.</p></div>'; }
-  if(TR.note || !TR.byTeam){ return h+'<p class="empty">'+esc(TR.note||'No trades right now.')+'</p></div>'; }
+function mgrPage(cw,inner){
+  const E=inner?'':'</div>'; let h=inner?'':'<div class="panel"><h2>Trades by manager <span>ranked by what each manager values</span></h2>';
+  if(!TR){ return h+'<p class="empty">Scoring trades with all nine teams.</p>'+E; }
+  if(TR.note || !TR.byTeam){ return h+'<p class="empty">'+esc(TR.note||'No trades right now.')+'</p>'+E; }
   const opps=Object.keys(TR.byTeam), o=opps.indexOf(ST.tteam)>=0?ST.tteam:opps[0], r=teamRank(o), tn=x=>((cw.teams[x]||{}).name||('Team '+x)), mn=x=>MG && MG.teams[x]?MG.teams[x].name:'';
   h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap"><button class="btn" type="button" id="mvtprev" aria-label="Previous manager">Prev</button><select id="mvtsel" class="btn" aria-label="Manager" style="flex:1;min-width:0">'+opps.map(x=>'<option value="'+esc(x)+'"'+(x===o?' selected':'')+'>'+(mn(x)?esc(mn(x))+', ':'')+esc(tn(x))+'</option>').join('')+'</select><button class="btn" type="button" id="mvtnext" aria-label="Next manager">Next</button></div>';
   const m=r.m;
@@ -1477,7 +1480,7 @@ function mgrPage(cw){
     if(r.helpful.length){ h+='<h2 style="margin-top:14px">Most helpful <span>biggest gain for you, fair to him</span></h2>'; r.helpful.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'h'); }); }
   }
   if(r.stretch.length){ h+='<h2 style="margin-top:14px">Stretch trades <span>short of fair to him, lean on your pitch</span></h2><p class="small">These fall short of fair to him, so they lean on your selling. They still keep your locks and three centers. Pitch what is really true for him, like role, games, age or a cat he needs.</p>'; r.stretch.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'s'); }); }
-  h+='</div>'; return h; }
+  h+=E; return h; }
 /* most likely to happen. Only drawn when your private notes are loaded on this device. Your gain times the chance they say yes */
 function likelyPanel(cw){
   let h='<h2 style="margin-top:6px">Most likely to happen <span>your gain times the chance they say yes, from your notes</span></h2>';
@@ -1524,6 +1527,7 @@ function wire(root){
   root.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ ST.marks.push({type:'add',add:b.getAttribute('data-add'),drop:b.getAttribute('data-drop')||null,il:b.getAttribute('data-il')||null,day:CTX?CTX.now.date:null}); ST.at=D.scan.at; save(); compute(true); });
   const trOf=k=>{ const i=+String(k).slice(1), g=String(k).charAt(0); if(!TR) return null; if(g==='t'||g==='s'||g==='h'){ const ks=Object.keys(TR.byTeam||{}), o=ks.indexOf(ST.tteam)>=0?ST.tteam:ks[0], r=o?teamRank(o):null; return r?(g==='t'?r.likely:g==='h'?r.helpful:r.stretch)[i]:null; } return (g==='v'?TR.pivots:TR.list)[i]; };
   const goTeam=d=>{ const ks=Object.keys((TR&&TR.byTeam)||{}); if(!ks.length) return; let i=ks.indexOf(ST.tteam); if(i<0) i=0; ST.tteam=typeof d==='string'?d:ks[(i+d+ks.length)%ks.length]; save(); render();  };
+  { const tb=$('mvtrbest'), tm=$('mvtrmgr'); if(tb) tb.onclick=()=>{ ST.trTab='best'; save(); render(); }; if(tm) tm.onclick=()=>{ ST.trTab='mgr'; save(); render(); }; }
   { const a=$('mvtprev'), b=$('mvtnext'), sl=$('mvtsel'); if(a) a.onclick=()=>goTeam(-1); if(b) b.onclick=()=>goTeam(1); if(sl) sl.onchange=()=>goTeam(sl.value); }
   root.querySelectorAll('[data-trade]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-trade')); if(!t) return; ST.marks.push({type:'trade',withTeam:t.o,give:t.give.map(p=>p.id),get:t.get.map(p=>p.id),cut:t.cut?t.cut.id:null}); ST.at=D.scan.at; save(); compute(true); });
   root.querySelectorAll('[data-pitch]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-pitch')); if(!t) return; const txt=pitchText(CTXW,t); const ok=()=>{ b.textContent='Copied'; setTimeout(()=>{ b.textContent='Copy a message to send'; },1500); }; try{ navigator.clipboard.writeText(txt).then(ok,()=>{ b.textContent=txt; }); }catch(e){ b.textContent=txt; } });
