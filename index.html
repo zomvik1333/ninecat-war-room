@@ -300,7 +300,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tabBoard" aria-selected="true" type="button">Draft board</button>
       <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
-      <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button">Game plan</button>
+      <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button" hidden>Game plan</button>
       <button class="tab" role="tab" id="tabMoves" aria-selected="false" type="button">Pickups and trades</button>
     </div>
   </div>
@@ -1593,7 +1593,7 @@ function catsLive(){
   }).join('');
 }
 function hashFor(t){ const want=t==='board'?'':'#'+t; if(location.hash===want) return; try{ history.replaceState(null,'',want||location.pathname+location.search); }catch(e){} }
-function setTab(t){ if(!TABS.includes(t)) t='board'; const early=t==='moves' && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
+function setTab(t){ if(!TABS.includes(t) || t==='plan') t='board'; const early=t==='moves' && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
 $('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan'); $('tabMoves').onclick=()=>setTab('moves');
 if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves'; if (location.hash==='#mgr') S.tab='moves';
 // the address follows the tab, and a changed address or the back button switches the tab
