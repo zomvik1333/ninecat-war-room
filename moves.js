@@ -44,7 +44,7 @@ function okMgr(j){
   const keys=x=>arr(x,30).map(v=>B.nkey(v)), o={made:typeof j.made==='string'?j.made.slice(0,10):'',teams:{}};
   Object.keys(j.teams).forEach(id=>{ const t=j.teams[id]; if(!/^\d{1,2}$/.test(id) || id===ME || !t || typeof t!=='object' || Array.isArray(t)) return;
     o.teams[id]={name:(typeof t.name==='string' && t.name.trim()?t.name.trim().slice(0,30):'This manager'),ease:isFinite(+t.ease)?clamp(+t.ease,-2,2):0,
-      reply:MGREPLY.indexOf(t.reply)>=0?t.reply:'normal',style:MGSTYLE.indexOf(t.style)>=0?t.style:'',edge:t.edge===true,callout:t.callout===true,noTwo:t.noTwo===true,byDraft:t.valueBy==='draft',pairs:t.pairs===true,
+      reply:MGREPLY.indexOf(t.reply)>=0?t.reply:'normal',style:MGSTYLE.indexOf(t.style)>=0?t.style:'',edge:t.edge===true,callout:t.callout===true,noTwo:t.noTwo===true,byDraft:t.valueBy==='draft',pairs:t.pairs===true,noLate:t.noLate===true,
       needPos:arr(t.needPos,5).filter(p=>/^(PG|SG|SF|PF|C)$/.test(p)),needCats:arr(t.needCats,9).map(c=>CATS.indexOf(c)).filter(c=>c>=0),
       keep:keys(t.keep),prize:keys(t.prize),like:keys(t.like),dislike:keys(t.dislike),doubt:keys(t.doubt),
       yes:(Array.isArray(t.yes)?t.yes:[]).slice(0,10).filter(y=>y && typeof y==='object' && Array.isArray(y.give) && Array.isArray(y.get)).map(y=>({give:keys(y.give).slice(0,3),get:keys(y.get).slice(0,3),at:isDay(y.at)?y.at:''})).filter(y=>y.give.length && y.get.length),
@@ -85,7 +85,7 @@ function acceptOf(t){
   if(t.jside==='win'){ c-=0.05; why.push('he loses by Josh\'s ranks'); }
   if(t.cut){ c-=0.1; why.push('he has to drop a player'); }
   const g=mgOf(t);
-  if(g){ c+=0.12*clamp(g.adj,-3,3); c*=g.rf; if(g.force) c=Math.min(c,0.04); if(g.yes) c=Math.max(c,0.8); }
+  if(g){ c+=0.18*clamp(g.adj,-4,4); c*=g.rf; if(g.force) c=Math.min(c,0.04); if(g.yes) c=Math.max(c,0.8); }
   return {c:clamp(c,0.02,0.85),why,g}; }
 const PHI=x=>1/(1+Math.exp(-1.702*x));
 // a weighted cat is pulled toward a coin flip, so a 10 point edge in a half weight cat counts as 5
@@ -1403,7 +1403,7 @@ function tradeCard(cw,t,i,grp){
     +(t.kind==='plan'&&t.spent.length?'<span class="chip warn">Spends '+t.spent.map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip good">Helps '+tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip warn">Costs '+tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
-    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.fair.need-t.fair.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
+    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.fair.need-t.fair.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">No credit for '+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(newsChip).join('')+'</span></span></summary>';
   // the by manager tab says plainly what the deal does to your locks. Before and after are your chance to win that cat in an average week
@@ -1446,22 +1446,26 @@ function tradePanel(ctx){
    60 percent draft and 40 percent his current rank, with no lift for late picks. A manager who judges player for player lines up the best player on each side,
    then the second best, at full weight, with no credit for consolidating. Without either setting the site's own fair check stands */
 const draftVal=p=>{ const pk=pickOf[B.nkey(p.name)]||165, now=(p.curRank && p.rl && p.rl.gp>=5)?p.curRank:(p.seenRank||165); return 100*Math.exp(-(Math.max(1,0.6*pk+0.4*now)-1)/45)+3; };
-function mgView(t,m){ if(!m || !(m.byDraft||m.pairs)) return null;
-  const v=p=>m.byDraft?draftVal(p):p.mv, inn=t.give.map(v).sort((a,b)=>b-a), out=t.get.map(v).sort((a,b)=>b-a);
+const LATEPICK=130, isLate=p=>{ const pk=pickOf[B.nkey(p.name)]; return !pk || pk>LATEPICK; };
+function mgView(t,m){ if(!m || !(m.byDraft||m.pairs||m.noLate)) return null;
+  // a manager who wants no late pieces counts a player you give as nothing when he went in the last two rounds or was picked up after the draft,
+  // unless he sends back one of his own late pieces in the same deal
+  const zero=m.noLate && !t.get.some(isLate) ? t.give.filter(isLate) : [];
+  const v=p=>zero.indexOf(p)>=0?0:m.byDraft?draftVal(p):p.mv, inn=t.give.map(v).sort((a,b)=>b-a), out=t.get.map(v).sort((a,b)=>b-a);
   const sum=a=>a.reduce((x,y)=>x+y,0), A=m.pairs?sum(inn):dw(inn), Bv=m.pairs?sum(out):dw(out), look=A/Math.max(Bv,1); let ok=look>=1.0, pair='';
   if(m.pairs) for(let i=0;i<Math.max(inn.length,out.length);i++){ const a=inn[i]||0, b=out[i]||0; if(b>0 && a<0.85*b && b-a>4){ ok=false; pair=i===0?'best':'second'; break; } }
-  return {look,ok,pair,A,B:Bv}; }
+  return {look,ok,pair,A,B:Bv,late:zero.map(p=>p.name)}; }
 function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return null; const m=MG && MG.teams[o], hasMg=!!m;
   let fair=b.fair.slice(), str=b.stretch.slice();
   fair.concat(str).forEach(t=>{ t.mview=mgView(t,m); });
-  if(m && (m.byDraft||m.pairs)){ const all=fair.concat(str); fair=all.filter(t=>t.mview.ok && t.fair.look>=0.75); str=all.filter(t=>!t.mview.ok && t.mview.look>=0.72); }
+  if(m && (m.byDraft||m.pairs||m.noLate)){ const all=fair.concat(str); fair=all.filter(t=>t.mview.ok && t.fair.look>=0.75); str=all.filter(t=>!t.mview.ok && t.mview.look>=0.72); }
   fair.concat(str).forEach(t=>{ const a=acceptOf(t); t.acc2=a.c; t.accWhy=a.why; t.accG=a.g; t.ev=t.myGain*a.c; });
   // a deal your notes rule out, a player he said is not for trade, a shape he has no room for, or a light offer to a manager who calls those out, is left off
   const live=t=>!(t.accG && t.accG.force && !t.accG.yes); fair=fair.filter(live); str=str.filter(live);
   const likely=fair.slice().sort((x,y)=>y.ev-x.ev||y.myGain-x.myGain).filter(t=>t.acc2>=0.1).slice(0,5);
   const helpful=fair.filter(t=>likely.indexOf(t)<0).sort((x,y)=>y.myGain-x.myGain).slice(0,5);
   str.sort((x,y)=>y.myGain-x.myGain);
-  return {likely,helpful,stretch:str.slice(0,6),hasMg,m,nFair:fair.length,nStr:str.length,view:!!(m && (m.byDraft||m.pairs))}; }
+  return {likely,helpful,stretch:str.slice(0,6),hasMg,m,nFair:fair.length,nStr:str.length,view:!!(m && (m.byDraft||m.pairs||m.noLate))}; }
 const accTag=c=>c>=0.5?'<span class="chip good">Likely yes</span>':c>=0.25?'<span class="chip muted">Worth a try</span>':'<span class="chip warn">Long shot</span>';
 function mgrPage(cw,inner){
   const E=inner?'':'</div>'; let h=inner?'':'<div class="panel"><h2>Trades by manager <span>ranked by what each manager values</span></h2>';
@@ -1471,7 +1475,7 @@ function mgrPage(cw,inner){
   h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap"><button class="btn" type="button" id="mvtprev" aria-label="Previous manager">Prev</button><select id="mvtsel" class="btn" aria-label="Manager" style="flex:1;min-width:0">'+opps.map(x=>'<option value="'+esc(x)+'"'+(x===o?' selected':'')+'>'+(mn(x)?esc(mn(x))+', ':'')+esc(tn(x))+'</option>').join('')+'</select><button class="btn" type="button" id="mvtnext" aria-label="Next manager">Next</button></div>';
   const m=r.m;
   if(m && m.tips.length) h+='<details class="mvteam" style="margin-top:8px"><summary class="small"><b>Your notes on '+esc(m.name)+'</b>, '+m.tips.length+' tips</summary><ul class="mvlist">'+m.tips.map(x=>'<li>'+esc(x.replace(/\.+$/,''))+'.</li>').join('')+'</ul></details>';
-  h+='<p class="small">'+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.</p>';
+  h+='<p class="small">'+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+(m.noLate?((m.byDraft||m.pairs)?', and':'')+' gives no credit for players taken after pick '+LATEPICK+' or picked up after the draft':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.</p>';
   if(!r.likely.length && !r.helpful.length) h+='<p class="empty">No helpful trades at this time.'+(r.stretch.length?' Stretch trades only, below.':'')+'</p>';
   else {
     h+='<h2 style="margin-top:10px">Most likely <span>your gain times the chance he says yes</span></h2>';
