@@ -695,7 +695,8 @@ function pickups(ctx){
       const ros=mine.filter(p=>p!==d && !(out.ilMove && !out.free && p===out.ilMove)).concat([c]);
       const t=mk(ros,start), pr=catProbs(t,opT,ctx.u,ctx.up), gW=100*(pWin5(wPr(pr,WP))-bwW), gWt=100*(pWin5(pr)-bw);
       const lr=rosLift(c,d), gR=lr.g;
-      const hold=0.4*gW+0.6*gR, stream=0.85*gW; const g=Math.max(hold,stream);
+      // a stream still costs the player you drop for good, so any rest of season loss counts in full against it. A stream may win the week, never at the cost of the season
+      const hold=0.4*gW+0.6*gR, stream=0.85*gW+Math.min(0,gR); const g=Math.max(hold,stream);
       if(!best || g>best.g) best={drop:d,gW,gWt,gR,g,kind:hold>=stream?'hold':'stream',pr,use:t.ug.get(c.id)||0,ds:lr.ds};
     }
     if(!best) continue;
@@ -1403,7 +1404,7 @@ function tradeCard(cw,t,i,grp){
     +(t.kind==='plan'&&t.spent.length?'<span class="chip warn">Spends '+t.spent.map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip good">Helps '+tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip warn">Costs '+tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
-    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.fair.need-t.fair.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">No credit for '+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
+    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.fair.need-t.fair.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">'+(t.mview.lateCap>0.001?'Little credit for ':'No credit for ')+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(t.steal?'<span class="chip gem">Steal</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(newsChip).join('')+'</span></span></summary>';
   // the by manager tab says plainly what the deal does to your locks. Before and after are your chance to win that cat in an average week
@@ -1450,11 +1451,13 @@ const LATEPICK=130, isLate=p=>{ const pk=pickOf[B.nkey(p.name)]; return !pk || p
 function mgView(t,m){ if(!m || !(m.byDraft||m.pairs||m.noLate)) return null;
   // a manager who wants no late pieces counts a player you give as nothing when he went in the last two rounds or was picked up after the draft,
   // unless he sends back one of his own late pieces in the same deal
-  const zero=m.noLate && !t.get.some(isLate) ? t.give.filter(isLate) : [];
-  const v=p=>zero.indexOf(p)>=0?0:m.byDraft?draftVal(p):p.mv, inn=t.give.map(v).sort((a,b)=>b-a), out=t.get.map(v).sort((a,b)=>b-a);
+  // a late piece is only good to him as a swap for one of his own late pieces, so your late pieces together count for no more than his late pieces in the deal
+  const v0=p=>m.byDraft?draftVal(p):p.mv, myLate=m.noLate?t.give.filter(isLate):[], hisLate=m.noLate?t.get.filter(isLate):[];
+  const mS=myLate.reduce((x,p)=>x+v0(p),0), hS=hisLate.reduce((x,p)=>x+v0(p),0), lk=mS>0?Math.min(1,hS/mS):1, zero=lk<0.999?myLate:[];
+  const v=p=>myLate.indexOf(p)>=0?v0(p)*lk:v0(p), inn=t.give.map(v).sort((a,b)=>b-a), out=t.get.map(v).sort((a,b)=>b-a);
   const sum=a=>a.reduce((x,y)=>x+y,0), A=m.pairs?sum(inn):dw(inn), Bv=m.pairs?sum(out):dw(out), look=A/Math.max(Bv,1); let ok=look>=1.0, pair='';
   if(m.pairs) for(let i=0;i<Math.max(inn.length,out.length);i++){ const a=inn[i]||0, b=out[i]||0; if(b>0 && a<0.85*b && b-a>4){ ok=false; pair=i===0?'best':'second'; break; } }
-  return {look,ok,pair,A,B:Bv,late:zero.map(p=>p.name)}; }
+  return {look,ok,pair,A,B:Bv,late:zero.map(p=>p.name),lateCap:lk}; }
 function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return null; const m=MG && MG.teams[o], hasMg=!!m;
   let fair=b.fair.slice(), str=b.stretch.slice();
   fair.concat(str).forEach(t=>{ t.mview=mgView(t,m); });
