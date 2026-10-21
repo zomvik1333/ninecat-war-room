@@ -642,6 +642,52 @@ function myProtected(ctx){
   mine.forEach(p=>{ const k=B.nkey(p.name); if(NEVER.has(k)) set.add(p.id); if(HOLD[k] && today<HOLD[k]) set.add(p.id); });
   return set;
 }
+/* who may be dropped, Vikas's rules from Oct 21.
+   Top picks (rounds 1 to 4) go only when out for the season. Mid picks (rounds 5 to 12) never go for a stream. They go for a long term add only when
+   slumping, out for the season, or out more than 6 weeks with no IL spot. Late picks (rounds 13 to 15) and players picked up off waivers can go for
+   any clear upgrade. Injuries are sorted by the return date in the news. Under 2 weeks he is kept and moved to IL, 2 to 6 weeks a late pick may go when
+   no IL spot is open, over 6 weeks a late pick may go, and out for the season anyone may go */
+const TIER_TOP=40, TIER_MID=120, PICKNOW=1.0;
+// players Vikas has said he wants to keep, never suggested as a drop for a pickup. Trades can still include them
+const KEEP=new Set(['rui hachimura']);
+const tierOf=p=>{ const k=pickOf[B.nkey(p.name)]; return !k?'pickup':k<=TIER_TOP?'top':k<=TIER_MID?'mid':'late'; };
+const tierWord=t=>t==='top'?'a top pick':t==='mid'?'a mid round pick':t==='late'?'a late pick':'a waiver pickup';
+const seasonEndOf=()=>{ const L=D.league; const w=L&&Array.isArray(L.weeks)?L.weeks.find(x=>x.n===(L.lastRegularWeek||18)):null; return (w&&w.end)||null; };
+function injClass(ctx,p){ const out=isOut(p)||isIL(p), n=p.news||{}, txt=String((n.note||'')+' '+(n.part||'')), se=seasonEndOf(), ret=p.ret||((n.st==='Out'&&n.ret)?n.ret:null);
+  if(out && (/out for the (rest of the )?season|season[ -]ending/i.test(txt) || (ret && se && ret>se))) return 'season';
+  if(!out) return '';
+  if(!ret) return 'mid';
+  const wks=(Date.parse(ret+'T12:00:00Z')-Date.parse(ctx.now.date+'T12:00:00Z'))/(7*864e5);
+  return wks<2?'short':wks<=6?'mid':'long'; }
+// a slump needs two weeks of real games, and two of three signs
+function slumpOf(ctx,p){ const why=[]; if(!(p.gp>=6)) return {on:false,why};
+  if(p.v14!=null && p.g14>=4 && p.v14<p.val-4) why.push('his last two weeks are well below his projection');
+  const u=p.jl; if(u){ const from=u.was||u.base, to=(p.b&&p.b.jlive&&p.b.jlive.rank)||u.rank; if(from && to && to-from>=15) why.push('Josh moved him down from '+from+' to '+to); }
+  if(p.cur && p.pre && p.cur-p.pre>=30) why.push('his Yahoo rank fell from '+p.pre+' to '+p.cur);
+  return {on:why.length>=2,why}; }
+// may this player of yours be dropped, for a stream or for a long term add
+function dropOK(ctx,d,kind,ilOpen){ const t=tierOf(d), inj=injClass(ctx,d), low=t==='late'||t==='pickup';
+  if(NEVER.has(B.nkey(d.name))) return {ok:false,why:'never dropped'};
+  if(KEEP.has(B.nkey(d.name))) return {ok:false,why:'on your keep list'};
+  if(inj==='season') return {ok:true,why:'out for the season',inj:true,t};
+  if(inj==='short') return {ok:false,why:'short injury, move him to IL instead',t};
+  if(inj==='mid') return low && !ilOpen?{ok:true,why:tierWord(t)+' out 2 to 6 weeks with no IL spot open',inj:true,t}:{ok:false,why:'out 2 to 6 weeks, keep him on IL',t};
+  if(inj==='long') return low?{ok:true,why:tierWord(t)+' out more than 6 weeks',inj:true,t}:(t==='mid' && !ilOpen && kind!=='stream')?{ok:true,why:'a mid round pick out more than 6 weeks with no IL spot open',inj:true,t}:{ok:false,why:'out a while, keep him on IL',t};
+  if(low && kind==='stream' && recentAdds(ctx).has(d.id)) return {ok:false,why:'added in the last 7 days, not dropped for a stream',t};
+  if(low) return {ok:true,why:tierWord(t),t};
+  if(kind==='stream') return {ok:false,why:tierWord(t)+', never dropped for a stream',t};
+  if(t==='mid'){ const sl=slumpOf(ctx,d); if(sl.on) return {ok:true,why:'a mid round pick who is slumping, '+sl.why.join(' and '),t}; }
+  return {ok:false,why:tierWord(t)+', protected',t}; }
+// proof that a free agent is for real. Two weeks of real production, more minutes than before, or filling in for an injured starter
+const proofOf=p=>(p.gp>=6 && p.g14>=4 && p.v14!=null && p.v14>=p.val-1) || p.role==='up' || !!p.fill;
+// your own drops from the last 7 days are never suggested back to you
+function myRecentDrops(ctx,sign){ const out=new Set(), now=Date.parse(ctx.now.date+'T12:00:00Z'), sg=sign||'-';
+  (ctx.scan.tx||[]).forEach(t=>{ if(String(t[1])!==ME) return; const m=String(t[0]).match(/^([A-Za-z]{3})(\d{1,2})$/); if(!m) return; const mo=MON.indexOf(m[1]); if(mo<0) return;
+    const d=Date.parse((mo>=8?2026:2027)+'-'+String(mo+1).padStart(2,'0')+'-'+String(+m[2]).padStart(2,'0')+'T12:00:00Z'); if(now-d>7*864e5) return;
+    String(t[2]||'').split(',').forEach(x=>{ if(x[0]===sg) out.add(x.slice(1)); }); });
+  return out; }
+// a player you added in the last 7 days is never churned for a stream
+const recentAdds=ctx=>ctx._radd||(ctx._radd=myRecentDrops(ctx,'+'));
 function pickups(ctx){
   const mine=ctx.ros[ME], prot=myProtected(ctx), days=ctx.pdays; let opp=ctx.popp, standIn=false;
   // no matchup set yet, as in the fantasy playoffs, so measure against the strongest other team
@@ -665,7 +711,8 @@ function pickups(ctx){
   // It is counted the way the game plan counts cats, so the punt earns nothing here. The week part below uses the real scoreboard against that week's opponent
   const rosLift=(inP,outP)=>{ const T=scaleT(seasonTotals(ctx,ME,outP?[outP]:[],[inP]),1/ctx.tweeks), v=myView(ctx,T); return {g:100*(planWeekOf(ctx,v.prs,pl,false)-b0p),ds:v.per.map((x,c)=>100*(x-ctx.view0.per[c]))}; };
   // a player who is out can still be worth keeping, but only when the news gives a return date. He is never a stream
-  const cands=ctx.avail.filter(p=>p.proj && p.team && (!isOut(p) || p.ret));
+  const mineGone=myRecentDrops(ctx);
+  const cands=ctx.avail.filter(p=>p.proj && p.team && (!isOut(p) || p.ret) && !mineGone.has(p.id));
   const openSpot=out.free>0 || !!out.ilMove;
   // an IL spot nobody is using or about to use, counting every out player of yours who is not on IL yet. An out free agent goes there, so nothing is dropped until he is back.
   // Failing that, an open roster spot or a pending IL move of your own lets you add him without a drop for now
@@ -678,12 +725,13 @@ function pickups(ctx){
       // the season lift is counted with the player he would replace once he is back. With an IL spot open the week costs nothing, without one the drop costs its games this week
       for(const d of drops){
         if(isC(d) && !isC(c) && myCn<=3) continue;
+        const dk=dropOK(ctx,d,'long',ilOpen); if(!noDrop && !dk.ok) continue;
         const lr=rosLift(c,d); let gW=0, gWt=0, pr=bp, use=0;
         if(!noDrop){ const t=mk(mine.filter(p=>p!==d).concat([c]),start); pr=catProbs(t,opT,ctx.u,ctx.up); gW=100*(pWin5(wPr(pr,WP))-bwW); gWt=100*(pWin5(pr)-bw); use=t.ug.get(c.id)||0; }
         // he has no week of his own, so the score is the whole rest of season lift, less 40 percent of what a drop costs that week when one is needed now.
         // A stash is a season move. Scored on the 40 and 60 split of a normal keep, one week of a bench player's games would hide a star who is back in two weeks
         const g=0.4*gW+lr.g;
-        if(!best || g>best.g) best={drop:noDrop?null:d,later:d,stash:ilOpen,gW,gWt,gR:lr.g,g,kind:'hold',pr,use,ds:lr.ds};
+        if(!best || g>best.g) best={drop:noDrop?null:d,later:d,stash:ilOpen,gW,gWt,gR:lr.g,g,kind:'hold',pr,use,ds:lr.ds,dropWhy:noDrop?null:dk};
       }
       // marking the add puts him on IL when that is the plan, or moves your own out player there first when that is what opens the spot
       if(best) rows.push(Object.assign({p:c,gl:0,wd,il:best.stash?c.id:(!best.drop && !out.free && out.ilMove)?out.ilMove.id:null,away:true},best));
@@ -696,8 +744,11 @@ function pickups(ctx){
       const t=mk(ros,start), pr=catProbs(t,opT,ctx.u,ctx.up), gW=100*(pWin5(wPr(pr,WP))-bwW), gWt=100*(pWin5(pr)-bw);
       const lr=rosLift(c,d), gR=lr.g;
       // a stream still costs the player you drop for good, so any rest of season loss counts in full against it. A stream may win the week, never at the cost of the season
-      const hold=0.4*gW+0.6*gR, stream=0.85*gW+Math.min(0,gR); const g=Math.max(hold,stream);
-      if(!best || g>best.g) best={drop:d,gW,gWt,gR,g,kind:hold>=stream?'hold':'stream',pr,use:t.ug.get(c.id)||0,ds:lr.ds};
+      const hold=0.4*gW+0.6*gR, stream=0.85*gW+Math.min(0,gR);
+      // the drop rules. A stream may only drop a late pick or a pickup, a long term add follows the full rules
+      let okH=true, okS=true, dk=null; if(d){ const kh=dropOK(ctx,d,'long',ilOpen), ks=dropOK(ctx,d,'stream',ilOpen); okH=kh.ok; okS=ks.ok; dk=kh.ok?kh:ks; }
+      const g=Math.max(okH?hold:-Infinity, okS?stream:-Infinity); if(!isFinite(g)) continue;
+      if(!best || g>best.g) best={drop:d,gW,gWt,gR,g,kind:(okH && (hold>=stream || !okS))?'hold':'stream',pr,use:t.ug.get(c.id)||0,ds:lr.ds,dropWhy:dk};
     }
     if(!best) continue;
     rows.push(Object.assign({p:c,gl,wd,il:(!best.drop && !out.free && out.ilMove)?out.ilMove.id:null},best));
@@ -732,6 +783,14 @@ function pickups(ctx){
     r.early=r.pure && out.wait>3; if(r.early) r.need=Math.min(r.need,60);
     // the tag cut. Full for a stream, half for a keep, and scaled down for a player ranked inside the top 140. A cut that rounds to under 1 percent is no cut
     r.need0=r.need; r.cut0=tagCut(p); r.share=rankShare(p.seenRank); r.cut=r.cut0*r.share*(r.kind==='stream'?1:0.5); if(Math.round(100*r.cut)<1) r.cut=0; if(r.cut>0) r.need=clamp(Math.round(r.need*(1-r.cut)),0,99);
+    // Vikas's rules for the top band. A pure stream tops out at 80. Must add needs a season lift of 1 or more, no loss this week, and proof in real games
+    // or a new role, except when it replaces a long term injury. Nothing but an injury fill in reaches it in the first two weeks of the season
+    // an injury fill in, either the drop is hurt long term or the add uses the IL spot of a player out 2 weeks or more
+    const ilc=(!r.drop && r.il && out.ilMove && r.il===out.ilMove.id)?injClass(ctx,out.ilMove):'';
+    r.proof=proofOf(p); r.injRep=!!(r.dropWhy && r.dropWhy.inj) || ilc==='mid' || ilc==='long' || ilc==='season'; const early=ctx.wk.n<=2;
+    if(r.kind==='stream' && !(r1(r.gR)>=PICKNOW)) r.need=Math.min(r.need,80);
+    r.mustOK=!r.away && r1(r.gR)>=PICKNOW && r.gW>=0 && (r.injRep || (!early && r.proof));
+    if(!r.mustOK) r.need=Math.min(r.need,84);
     r.band=r.need>=85?'must':r.need>=65?'strong':r.need>=50?'helps':'skip';
     // a pickup only counts as building the plan when the season, counted the plan's way, really gets better with him on the roster
     const lifts=r.gR>=0.3; r.routes=lifts?rts.filter(R=>pickFits(R,r.ds)):[]; r.built=lifts?pl.build.filter(c=>r.ds[c]>=0.7).sort((x,y)=>r.ds[y]-r.ds[x]):[];
@@ -747,18 +806,19 @@ function pickups(ctx){
 const WPICK=1.0;
 function waivers(ctx){
   const mine=ctx.ros[ME], prot=myProtected(ctx), active=mine.filter(p=>!isIL(p)), free=Math.max(0,15-active.length);
-  const drops=active.filter(p=>!prot.has(p.id)), myCn=active.filter(isC).length, pl=planOf(), b0p=planWeekOf(ctx,ctx.view0.prs,pl,false);
+  const ilUsed=mine.filter(isIL).length, ilOpen=ilUsed+active.filter(p=>isOut(p)).length<2, mineGone=myRecentDrops(ctx);
+  const drops=active.filter(p=>!prot.has(p.id) && dropOK(ctx,p,'long',ilOpen).ok), myCn=active.filter(isC).length, pl=planOf(), b0p=planWeekOf(ctx,ctx.view0.prs,pl,false);
   const lift=(inP,outP)=>{ const T=scaleT(seasonTotals(ctx,ME,outP?[outP]:[],[inP]),1/ctx.tweeks), v=myView(ctx,T); return {g:100*(planWeekOf(ctx,v.prs,pl,false)-b0p),ds:v.per.map((x,c)=>100*(x-ctx.view0.per[c]))}; };
   // the newest drop of each player in the league's transaction lines, which come newest first
   const by={}; (ctx.scan.tx||[]).forEach(t=>String(t[2]||'').split(',').forEach(x=>{ if(x[0]==='-'){ const id=x.slice(1); if(!by[id]) by[id]={team:String(t[1]),day:String(t[0])}; } }));
-  const cands=ctx.avail.filter(p=>p.proj && p.team && (!isOut(p) || p.ret));
+  const cands=ctx.avail.filter(p=>p.proj && p.team && (!isOut(p) || p.ret) && !mineGone.has(p.id));
   const rows=[];
   for(const c of cands){
     let best=null;
     for(const d of (free>0?[null]:drops)){ if(d && isC(d) && !isC(c) && myCn<=3) continue; const l=lift(c,d); if(!best || l.g>best.gR) best={drop:d,gR:l.g,ds:l.ds}; }
     if(!best) continue;
     const wd0=waiverDate(c.fa), wd=wd0 && wd0>ctx.now.date?wd0:null, onW=!!wd || c.fa==='W';
-    const r=Object.assign({p:c,wd,waiver:onW,by:by[c.id]||null},best);
+    const r=Object.assign({p:c,wd,waiver:onW,by:by[c.id]||null},best); r.dropWhy=best.drop?dropOK(ctx,best.drop,'long',ilOpen):null;
     let need=100*(1-Math.exp(-Math.max(0,r.gR)/3.5)); const b=c.b; r.josh=0;
     if(b && b.josh){ const yr=c.cur||c.pre||200; if(yr-b.josh>=25){ need+=6; r.josh=1; } else if(b.josh-yr>=30){ need-=6; r.josh=-1; } }
     r.cut=tagCut(c)*rankShare(c.seenRank)*0.5; if(Math.round(100*r.cut)<1) r.cut=0; if(r.cut>0) need*=1-r.cut;
@@ -772,7 +832,7 @@ function waivers(ctx){
   // If he clears the bar even at 18 minutes the minutes do not matter. Otherwise the card says Watch and names the minutes to look for
   const setMp=(p,mp)=>{ const o=p.proj, f=mp/o.mp, q={}; for(const k in o) q[k]=typeof o[k]==='number'?o[k]*f:o[k]; q.mp=mp; p.proj=q; return o; };
   for(const r of rows){ const p=r.p; r.need=null;
-    if(r.gR<WPICK){ r.call='skip'; continue; }
+    if(r1(r.gR)<WPICK){ r.call='skip'; continue; }
     if(isOut(p)){ r.call='watch'; r.watch='back'; continue; }
     const shown=(p.g14>=3 && p.m14!=null) || p.ds===0;
     if(shown || !(p.proj.mp>18)){ r.call='pick'; continue; }
@@ -780,10 +840,13 @@ function waivers(ctx){
     try{ for(let mp=18; mp<=Math.ceil(o.mp); mp+=2){ setMp(p,Math.min(mp,o.mp)); if(lift(p,r.drop).g>=WPICK){ need=Math.min(mp,Math.ceil(o.mp)); break; } p.proj=o; } } finally { p.proj=o; }
     if(need!=null && need<=18) r.call='pick'; else { r.call='watch'; r.watch='mins'; r.need=need||Math.ceil(o.mp); }
   }
+  // a pick up now also needs proof in real games or a new role, unless it replaces a long term injury. Nothing else in the first two weeks
+  const early=ctx.wk.n<=2;
+  for(const r of rows){ if(r.call!=='pick') continue; const inj=!!(r.dropWhy && r.dropWhy.inj); if(inj) continue; if(early){ r.call='watch'; r.watch='early'; } else if(!proofOf(r.p)){ r.call='watch'; r.watch='proof'; } }
   const order={pick:0,watch:1,skip:2};
   rows.sort((a,b)=>order[a.call]-order[b.call] || b.gR-a.gR);
   // players on waivers who cannot be scored still get a line, so you can see the site looked at them
-  const inC=new Set(cands), skipped=ctx.avail.filter(p=>!inC.has(p) && ((waiverDate(p.fa)||'')>ctx.now.date || p.fa==='W')).map(p=>({p,by:by[p.id]||null,why:/^NA$/i.test(p.status||'')||!p.team?'is not with an NBA team right now':isOut(p)?'is out with no return date in the news':'has no projection yet'}));
+  const inC=new Set(cands), skipped=ctx.avail.filter(p=>!inC.has(p) && !mineGone.has(p.id) && ((waiverDate(p.fa)||'')>ctx.now.date || p.fa==='W')).map(p=>({p,by:by[p.id]||null,why:/^NA$/i.test(p.status||'')||!p.team?'is not with an NBA team right now':isOut(p)?'is out with no return date in the news':'has no projection yet'}));
   return {plan:pl,free,skipped,onW:rows.filter(r=>r.waiver),longer:rows.filter(r=>!r.waiver && r.gR>=0.3).slice(0,10),n:cands.length};
 }
 function addsLeft(ctx,week){ const L=D.league, wk=week||ctx.wk, tx=ctx.scan.tx||[]; let used=0;
@@ -1068,7 +1131,7 @@ function basisWords(ps){
   if(k.size===1 && k.has('now')) return 'Based on this season\'s numbers, '+(lo===hi?lo:lo+' to '+hi)+' games played.';
   // only say Josh shaped the numbers for players he has a rank or a category call for
   const noJ=ps.filter(p=>!(p.b&&p.b.josh) && !p.jcOn);
-  let s='Based on last season\'s numbers'+(noJ.length<ps.length?', shaped by Josh Lloyd\'s ranks'+(hasJC()?' and his category calls':''):'')+'. No games have been played this season yet.';
+  let s='Based on last season\'s numbers'+(noJ.length<ps.length?', shaped by Josh Lloyd\'s ranks'+(hasJC()?' and his category calls':''):'')+'.'+(hi>0?' Only '+(lo===hi?lo:lo+' to '+hi)+' game'+(hi===1?'':'s')+' played this season, so last season still carries most of the weight.':' No games have been played this season yet.');
   if(noJ.length) s+=' Josh Lloyd has no rank and no category call for '+listWords(noJ.map(p=>p.name))+'.';
   if(k.has('est')) s+=' Rookie numbers are a preseason estimate.';
   if(k.has('older')) s+=' A player who missed last season uses his most recent full season.';
@@ -1378,15 +1441,17 @@ function wavCard(ctx,r){
   let call;
   if(r.call==='pick') call='Pick him up now'+(r.wd?'. Put in a claim today and he joins you when he clears on '+nice(r.wd)+'.':'. He is a free agent, so he joins you right away.');
   else if(r.call==='watch' && r.watch==='mins') call='Not yet. He has no real games this season and is not a starter, so his minutes are a guess. Pick him up if he plays '+r.need+' minutes or more a game over his next two or three games. Below that he is not worth the spot.';
+  else if(r.call==='watch' && r.watch==='early') call='Not yet. It is the first two weeks of the season, so there are not enough real games to trust anyone yet. If he keeps this up through week 2 he becomes a pick up now.';
+  else if(r.call==='watch' && r.watch==='proof') call='Not yet. He has not shown it in real games. Pick him up once he has two weeks of production at this level, or his role grows.';
   else if(r.call==='watch') call='Not yet. He is out'+(p.ret?' until about '+nice(p.ret):'')+'. Pick him up a few days before he is due back, so he does not take a roster spot while he sits.';
   else call=r.gR>=0.3?'Skip. He helps your season a little, but not enough to give up a roster spot for.':'Skip. He does not make your season better.';
-  const costs=r.drop?'You drop '+r.drop.name+' for him, the drop that leaves your season best.'+(tr?' '+r.drop.name+' is also in one of your top trades, '+tr.give.map(x=>x.name).join(' and ')+' for '+tr.get.map(x=>x.name).join(' and ')+', so dropping him ends that deal.':''):WV.free?'You have an open roster spot, so no drop is needed.':'No drop is needed.';
+  const costs=r.drop?'You drop '+r.drop.name+' for him, the drop that leaves your season best'+(r.dropWhy&&r.dropWhy.why?'. He can go because he is '+r.dropWhy.why:'')+'.'+(tr?' '+r.drop.name+' is also in one of your top trades, '+tr.give.map(x=>x.name).join(' and ')+' for '+tr.get.map(x=>x.name).join(' and ')+', so dropping him ends that deal.':''):WV.free?'You have an open roster spot, so no drop is needed.':'No drop is needed.';
   const claim=r.wd?'He clears waivers on '+nice(r.wd)+'. A claim puts you at the back of the waiver line, you are number '+((ctx.teams[ME]||{}).waiver||'?')+' now.':r.waiver?'He is on waivers. A claim puts you at the back of the waiver line.':'He is a free agent, so he needs no claim and can play right away.';
   const news=(p.news&&p.news.note?p.news.note:'')+(isOut(p)&&p.ret?(p.news&&p.news.note?' ':'')+'He is out now and counted from about '+nice(p.ret)+', when he is due back.':'');
   return '<details class="mvcard'+(r.call==='skip'?' mvnone':'')+'"><summary><span class="mvn '+(r.call==='pick'?'must':r.call==='watch'?'helps':'skip')+'">'+(r.gR>=0?'+':'')+r1(r.gR)+'<small>'+word+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
     +'<span class="meta"><span class="chip muted">Season '+(r.gR>=0?'+':'')+r1(r.gR)+'</span>'+(r.built.length?'<span class="chip gem">Builds '+r.built.map(c=>CATS[c]).join(' ')+'</span>':'')+(r.hurt.length?'<span class="chip bad">Hurts '+r.hurt.map(c=>CATS[c]).join(' ')+'</span>':'')
     +(r.wd?'<span class="chip warn">Waiver claim, clears '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">Waiver claim</span>':'<span class="chip good">Free agent</span>')
-    +(r.call==='watch'&&r.watch==='mins'?'<span class="chip warn">Needs '+r.need+' minutes</span>':'')+(tr&&r.call!=='skip'?'<span class="chip bad">Ends a trade</span>':'')
+    +(r.call==='watch'&&r.watch==='mins'?'<span class="chip warn">Needs '+r.need+' minutes</span>':'')+(r.call==='watch'&&r.watch==='early'?'<span class="chip warn">Too early to tell</span>':'')+(r.call==='watch'&&r.watch==='proof'?'<span class="chip warn">Needs real games</span>':'')+(tr&&r.call!=='skip'?'<span class="chip bad">Ends a trade</span>':'')
     +(isOut(p)&&p.ret?'<span class="chip warn">Back about '+nice(p.ret)+'</span>':'')    +(r.by?'<span class="chip muted">Dropped by '+esc(by)+' '+esc(day)+'</span>':'')+newsChip(p)+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+'</span></span></summary>'
     +'<div class="mvbody"><p><span class="lab">What to do</span>'+esc(call)+'</p><p><span class="lab">What it does for your season</span>'+esc(does)+'</p><p><span class="lab">What it costs</span>'+esc(costs)+'</p><p><span class="lab">How you get him</span>'+esc(claim)+'</p>'
     +(r.by?'<p><span class="lab">Who dropped him</span>'+esc(by+' dropped him on '+day+'.')+'</p>':'')+(news?'<p><span class="lab">News</span>'+esc(news)+'</p>':'')
@@ -1394,7 +1459,7 @@ function wavCard(ctx,r){
 }
 function wavPage(ctx){
   if(!WV) return '<p class="empty">Waivers load with the pickups.</p>';
-  let h='<p class="small">These are longer term adds. A waiver claim takes days to clear, so this week\'s games count for nothing here. Each player is scored only on the rest of the season, counted the way your plan counts cats, so your punt earns nothing. The number is how many points your average week goes up with him in place of the drop that leaves your season best. Every card ends in one call. Pick up now means do it today. Watch means he is worth it only once something happens, the card says what, either real minutes or his return from injury. Skip means he is not worth a roster spot. Pick up now needs a season lift of '+r1(WPICK)+' or more, and a player with no real games who is not a starter has to clear that bar at 18 minutes, or he is a Watch. Your top 8 players and Kyrie are never dropped here.</p>';
+  let h='<p class="small">These are longer term adds. A waiver claim takes days to clear, so this week\'s games count for nothing here. Each player is scored only on the rest of the season, counted the way your plan counts cats, so your punt earns nothing. The number is how many points your average week goes up with him in place of the drop that leaves your season best. Every card ends in one call. Pick up now means do it today. Watch means he is worth it only once something happens, the card says what, either real minutes or his return from injury. Skip means he is not worth a roster spot. Pick up now needs a season lift of '+r1(WPICK)+' or more, and a player with no real games who is not a starter has to clear that bar at 18 minutes, or he is a Watch. Drops follow your rules. Your top 8 players, Kyrie, your keep list (Rui for now) and picks from rounds 1 to 12 are not dropped here, unless a mid round pick is slumping or out long with no IL spot, or anyone is out for the season. In the first two weeks of the season only an injury replacement can be a pick up now, since there are too few real games to trust.</p>';
   h+='<h3 class="mvh">On waivers now</h3>';
   if(!WV.onW.length && !WV.skipped.length) h+='<p class="empty">Nobody is on waivers right now.</p>'; else WV.onW.forEach(r=>{ h+=wavCard(ctx,r); });
   WV.skipped.forEach(x=>{ h+='<p class="small">'+esc(x.p.name)+' is also on waivers'+(x.by?', dropped by '+esc((ctx.teams[x.by.team]||{}).name||'a team')+' '+esc(x.by.day.replace(/^([A-Za-z]{3})(\d+)$/,'$1 $2')):'')+', but he '+x.why+', so he is not scored.</p>'; });
@@ -1408,7 +1473,7 @@ function pickPanel(ctx,pk){
   if(ST.pkTab==='wav'){ h+=wavPage(ctx)+'</div>'; return h; }
   const wkWord=weekWord(ctx,pk.week).replace(/^in /,'');
   if(pk.standIn) h+='<div class="switch">No matchup is set for that week yet, so these scores use '+esc((ctx.teams[pk.opp]||{}).name||'the strongest team')+' as a stand in.</div>';
-  h+='<p class="small">Week is how many points the move adds to your chance to win this week. Season is the same for the rest of the season, counted the way your plan counts cats. A red tag means the drop costs you for the season, and a stream now pays that cost in full. Need score, 85 and up means add him now even if it costs a waiver claim. 65 to 84 means add him once he is a free agent. 50 to 64 helps but keep your waiver spot. Under 50, skip. Those stay hidden until you tick the box under the list. Solid cats count in full, FT% counts 90 percent and FG% 80 percent. Scores are for '+wkWord+' against '+esc((ctx.teams[pk.opp]||{}).name||'')+' and for the rest of the season. Each score takes the better of two readings. A hold counts 40 percent of the lift for that week and 60 percent of the lift to your average week for the rest of the season. The rest of season part follows your season plan, so your punt earns nothing there. The week part uses the real scoreboard against that week\'s opponent, every cat included, because any close cat can win a week. A one week stream counts 85 percent of that week\'s lift alone, so read the rest of season line on the card before you drop someone for it. A stream whose add day is more than 3 days away is capped at 60. The top score is 99. An injury tag counts twice. Each game counts 75 percent for a game time call or day to day, 60 for questionable and 25 for doubtful. Then the score itself is cut, by 10, 25 or 60 percent for a stream and half of that for a keep, because an add is wasted while he sits. The better the player the smaller that cut. It is nothing inside the top 60 of the blended rank and all of it from 140 on. A player who is out is listed only as a keep, only when the news gives a return date, and only when he scores 50 or more. He has no week of his own, so his score is the whole rest of season lift, counted from the day he is due back, less 40 percent of what a drop costs that week when one is needed. A card says Stream for games when the week alone moves 2 points or more, Keep long term when your season gets better with him, and both when both are true. The label of the reading that gave the score is always shown.</p>';
+  h+='<p class="small">Week is how many points the move adds to your chance to win this week. Season is the same for the rest of the season, counted the way your plan counts cats. A red tag means the drop costs you for the season, and a stream now pays that cost in full. Drops follow your rules. Picks from rounds 1 to 12 are never dropped for a stream, a top pick goes only when out for the season, and a mid round pick goes for a long term add only when slumping or out long with no IL spot. A stream tops out at 80. Need score, 85 and up means add him now, and it needs a season lift of 1 or more, no loss this week, and proof in real games or a new role, unless it replaces a long term injury. Nothing but an injury fill in reaches 85 in the first two weeks. 65 to 84 means add him once he is a free agent. 50 to 64 helps but keep your waiver spot. Under 50, skip. Those stay hidden until you tick the box under the list. Solid cats count in full, FT% counts 90 percent and FG% 80 percent. Scores are for '+wkWord+' against '+esc((ctx.teams[pk.opp]||{}).name||'')+' and for the rest of the season. Each score takes the better of two readings. A hold counts 40 percent of the lift for that week and 60 percent of the lift to your average week for the rest of the season. The rest of season part follows your season plan, so your punt earns nothing there. The week part uses the real scoreboard against that week\'s opponent, every cat included, because any close cat can win a week. A one week stream counts 85 percent of that week\'s lift alone, so read the rest of season line on the card before you drop someone for it. A stream whose add day is more than 3 days away is capped at 60. The top score is 99. An injury tag counts twice. Each game counts 75 percent for a game time call or day to day, 60 for questionable and 25 for doubtful. Then the score itself is cut, by 10, 25 or 60 percent for a stream and half of that for a keep, because an add is wasted while he sits. The better the player the smaller that cut. It is nothing inside the top 60 of the blended rank and all of it from 140 on. A player who is out is listed only as a keep, only when the news gives a return date, and only when he scores 50 or more. He has no week of his own, so his score is the whole rest of season lift, counted from the day he is due back, less 40 percent of what a drop costs that week when one is needed. A card says Stream for games when the week alone moves 2 points or more, Keep long term when your season gets better with him, and both when both are true. The label of the reading that gave the score is always shown.</p>';
   if(ctx.noAdds) h+='<div class="switch">You have used all '+(D.league.adds||4)+' adds for week '+ctx.wk.n+', so Yahoo will not take another add this week. These pickups are scored for week '+pk.week.n+'.</div>';
   if(pk.ilMove && !pk.free) h+='<div class="switch">'+esc(pk.ilMove.name)+' is tagged '+statusWord(pk.ilMove.status)+'. Move him to IL and you can add someone without dropping anyone.</div>';
   if(pk.free) h+='<div class="switch">You have '+pk.free+' open roster spot'+(pk.free===1?'':'s')+', so an add needs no drop.</div>';
@@ -1418,7 +1483,7 @@ function pickPanel(ctx,pk){
   pk.list.forEach((r,i)=>{
     const p=r.p; const why=pickupWhy(ctx,pk,r);
     h+='<details class="mvcard'+(r.band==='skip'?' mvskip':'')+'"><summary><span class="mvn '+r.band+'">'+r.need+'<small>'+(r.band==='must'?'must add':r.band==='strong'?'strong':r.band==='helps'?'helps':'skip')+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
-      +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span>'+(r.away?'':'<span class="chip muted">Week '+(r.gW>=0?'+':'')+r1(r.gW)+'</span>')+'<span class="chip muted">Season '+(r.gR>=0?'+':'')+r1(r.gR)+'</span>'+(r.gR<=-0.3?'<span class="chip bad">Costs you long term, '+r1(-r.gR)+' pts</span>':'')+r.labels.map(x=>'<span class="chip '+(x==='Stream for games'?'warn':'good')+'">'+x+'</span>').join('')+(r.built.length?'<span class="chip gem">Builds '+r.built.map(c=>CATS[c]).join(' ')+'</span>':'')+newsChip(p)+(r.away?'':'<span class="chip muted">'+r.gl+(r.gl===1?' game':' games')+(weekWord(ctx,pk.week)==='this week'?' left':' '+weekWord(ctx,pk.week))+'</span>')+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">'+(r.bal.crowd.length?'Crowded spot':'Leaves '+r.bal.thin.join(' ')+' thin')+'</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+basisChip(p)+'</span></span></summary>'
+      +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span>'+(r.dropWhy&&r.dropWhy.why&&r.drop?'<span class="chip muted">Drop is '+esc(r.dropWhy.why.replace(/^(a |an )/,''))+'</span>':'')+(r.away?'':'<span class="chip muted">Week '+(r.gW>=0?'+':'')+r1(r.gW)+'</span>')+'<span class="chip muted">Season '+(r.gR>=0?'+':'')+r1(r.gR)+'</span>'+(r.gR<=-0.3?'<span class="chip bad">Costs you long term, '+r1(-r.gR)+' pts</span>':'')+r.labels.map(x=>'<span class="chip '+(x==='Stream for games'?'warn':'good')+'">'+x+'</span>').join('')+(r.built.length?'<span class="chip gem">Builds '+r.built.map(c=>CATS[c]).join(' ')+'</span>':'')+newsChip(p)+(r.away?'':'<span class="chip muted">'+r.gl+(r.gl===1?' game':' games')+(weekWord(ctx,pk.week)==='this week'?' left':' '+weekWord(ctx,pk.week))+'</span>')+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">'+(r.bal.crowd.length?'Crowded spot':'Leaves '+r.bal.thin.join(' ')+' thin')+'</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+basisChip(p)+'</span></span></summary>'
       +'<div class="mvbody"><p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+(why[5]?'<p><span class="lab">News</span>'+esc(why[5])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-add="'+esc(p.id)+'" data-drop="'+esc(r.drop?r.drop.id:'')+'" data-il="'+esc(r.il||'')+'">I made this add</button></div></div></details>';
   });
@@ -1723,5 +1788,5 @@ function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map
   const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To;
   return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,listed:!stops.length,stops}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{waivers,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
+window.NCWMoves={summary,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{waivers,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
 })();
