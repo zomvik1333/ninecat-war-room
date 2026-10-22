@@ -17,7 +17,16 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.3 (branch main), Oct 22 2026
+## Version 26.4 (branch main), Oct 22 2026
+
+* Deals in talks. The notes file can list deals a manager has talked about, each marked yes, maybe or no, with a date and a short note. Any size works, three for three included, and every number comes from checkOffer
+* By manager shows an In talks section at the top for that manager, with your gain, your average week before and after, whether it keeps your locks, how it looks to him on box scores, and the chance it happens (about 80 percent for a yes in principle, about 55 for considering)
+* Best trades shows In talks and worth closing only for deals that gain at least 1 point, keep every lock and lift your average week
+* A deal a manager turned down never shows for him again, and a deal in talks is not listed twice
+* Up to 30 tips per manager, up from 16
+* Fallback branch fallback-v26-3-before-talks
+
+## Version 26.3, Oct 22 2026
 
 * The whole site is behind a password. A sign in page asks for the password and nothing else. After the right password the browser keeps a cookie for 400 days, the longest Chrome allows
 * The password is never in the code. Vercel keeps only its hash in the SITE_PASS_HASH setting. Changing that setting signs every browser out, which is how to lock someone out later
