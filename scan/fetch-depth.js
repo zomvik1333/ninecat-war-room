@@ -82,7 +82,10 @@ async function get(url){
   const f=path.join(OUT,'depth.json'); let old=null;
   if(fs.existsSync(f)){ try{ old=readJson(f); }catch(e){ say.push('WARNING, the old depth file could not be read, so every spot counts as new today.'); } }
   const op=old && old.p && typeof old.p==='object'?old.p:{}, ot=old && old.t && typeof old.t==='object'?old.t:{};
-  failed.forEach(code=>{ if(Array.isArray(ot[code]) && ot[code].length===5) t[code]=ot[code]; });
+  // each team keeps the day its chart was read, so a team that failed today keeps the old day and ages out after 10 days like any old chart
+  const otd=old && old.td && typeof old.td==='object'?old.td:{}, td={};
+  Object.keys(t).forEach(code=>{ td[code]=today; });
+  failed.forEach(code=>{ if(Array.isArray(ot[code]) && ot[code].length===5){ t[code]=ot[code]; td[code]=isDay(otd[code])?otd[code]:(old && isDay(old.day)?old.day:today); } });
 
   const p={}, into=[], outOf=[], up=[], down=[];
   Object.keys(t).forEach(code=>{ const best={};
@@ -95,7 +98,7 @@ async function get(url){
         if(s===0) into.push(n); else if(was===0) outOf.push(n); else if(s<was) up.push(n); else down.push(n); } }); });
   if(Object.keys(p).length<150) stop('depth NOT saved. Only '+Object.keys(p).length+' tracked players were found on the charts, far fewer than expected. Nothing written.');
 
-  const out={made:new Date().toISOString().slice(0,19)+'Z',day:today,src:'ESPN depth charts, order only',t,p};
+  const out={made:new Date().toISOString().slice(0,19)+'Z',day:today,src:'ESPN depth charts, order only',t,td,p};
   fs.writeFileSync(f,JSON.stringify(out));
   say.forEach(x=>console.log(x));
   if(into.length) console.log('Into the starting five, '+into.join(', ')+'.');

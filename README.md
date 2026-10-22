@@ -17,7 +17,52 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 16 (branch main), Oct 9 2026
+## Version 26 (branch main), Oct 22 2026
+
+Built after the full audit of version 25 and after Vikas pointed out that the top trades would get him laughed at. Other managers judge a trade by the box score and the name, not by minutes or nine cat math. Every trade is still scored for you the deep way.
+
+**Trades, judged the way they see it**
+* Face value. Each player gets a box score rating that leads with points, then rebounds and assists, plus threes, steals and blocks. It starts from last season, or the season before for a player who missed last season, or the projection for a rookie
+* This season moves it fast only when the start backs up the record, a hot start from a solid player or a cold start from a weak one. Otherwise it reads as one good or bad night and moves slowly. Missed games, age 33 and up, injuries and a big name move it a little
+* A listed trade has to look about even to them on face value and may be at most a little light on the value scale. It never hands them more than 20 percent extra
+* Insult guard. A deal under 80 percent of even on face value is never shown anywhere. A manager your notes say calls out lowballs never sees a light deal, not even as a long shot
+* The pitch, How it looks to them, the sell rating, the yes chance and the By manager views all use face value. The rankings claim in the pitch is only made when Josh's ranks agree
+* Yes chances without notes start lower, about a third for an easy deal
+* No more than 3 trades with one manager in Best trades. By manager still shows them all
+* Hold. When no trade passes both checks the list says hold. Before about 5 games a player a note says holding is a fair choice
+* Sell high. Your players running hot on a modest record, with no change in minutes or role, after 3 or more games, with the best fair deals for them. Rising players whose record backs the start are listed as keep
+* Trade totals start two days after the scan, for Yahoo's trade review. A trade with this week's opponent says it barely changes this week
+* The center minimums count only centers who can play, not centers on IL or out
+* Hurt or IL players you would get carry a red chip, a risk line and a warning in the daily summary. An injury status always beats the tone of a news note
+
+**Pickups**
+* Why him on every pickup and waiver card. Both seasons, this season so far, the trend, his minutes against last season, his depth chart spot, the plan cats he adds and costs, and a plain verdict
+* Ends a trade on pickup cards when the drop is in a top trade
+* The bigger ask on a trade card and the stash card for a hurt free agent now follow the drop rules, so Rui and other protected players are never named as the drop
+* Real minutes count from the first game, a game weighing like a quarter of the starting guess
+* A day to day player's return date sets his injury class and how long a backup fills in
+* Notes from before opening night show as preseason news and no longer move a chip score
+* Trade chips use the day a waiver claim clears, ignore Yahoo's season rank before 3 games, and a chip that costs your season more than 2 points is a trade piece at best
+* The waiver level leaves out your own recent drops
+
+**Scan and data**
+* ingest.js fills a missing two week line from the season line in weeks 1 and 2, when they are the same thing. From week 3 it warns when more than 10 percent are missing. On Oct 22, 95 of 230 lines were missing
+* The live game refusal says to wait until the last game ends and that the site keeps the last good scan
+* fetch-depth.js keeps a date for each team, so a team that failed to load ages out after 10 days
+* Kyrie, Boozer's hold and Rui's keep can be changed in data/plan.json with no code change. The code keeps the same defaults
+* Season years come from the league file, so the site rolls over next season
+* Page text has no dash or colon characters. Negative numbers in text read up or down, and a score badge uses a true minus sign
+
+**Checked**
+* Every owner rule tested on the Oct 22 scan against pickups, waivers, chips and trades. Workers and the page give the same trades. The trade search is about a quarter faster because insults are skipped before scoring
+
+## How to fall back to version 25
+
+* The fallback-v25-before-v26 branch holds the site exactly as it was before version 26
+* `git checkout fallback-v25-before-v26 -- index.html moves.js scan README.md` then deploy
+* data/plan.json gained the never, hold and keep fields. Version 25 ignores them
+
+## Version 16, Oct 9 2026
 
 Built after Vikas tried the pitch on a real manager. Josh's ranks mean nothing to another manager, and most managers do not know their own stats well. The pitch now tells them what their team gets. No trade changed in how good it is for you or in which trades are found.
 

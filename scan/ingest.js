@@ -46,7 +46,9 @@ if(K.length && (K.length!==21 || K.some(f=>!f[2]||!f[3]))) stop('CHECK FAILED, t
 let league=null;
 if(K.length){
   const TEAMS={1:{name:"Vinny's Team",slot:2},2:{name:"Shu's Heard of Goats",slot:7},3:{name:'Extraterrestrial',slot:10},4:{name:"Haziq's Dandy Team",slot:3},5:{name:'Registered Nurse',slot:4},6:{name:'Lickmylulu',slot:8},7:{name:'The Jokic On You',slot:1},8:{name:'Rohan and Vikas CoManaged Team',slot:9},11:{name:'Vik in a Box',slot:6},12:{name:"LeGM's Team",slot:5}};
-  const iso=md=>{ const m=md.split('/'); if(m.length<2) return ''; const mo=+m[0], d=+m[1]; return (mo>=9?2026:2027)+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'); };
+  // the season starts in the fall, so a schedule read from July on is for the season that starts this year
+  const now0=new Date(), Y0=now0.getMonth()>=6?now0.getFullYear():now0.getFullYear()-1;
+  const iso=md=>{ const m=md.split('/'); if(m.length<2) return ''; const mo=+m[0], d=+m[1]; return (mo>=9?Y0:Y0+1)+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'); };
   league={league:'Ball Lovers',id:82878,me:'11',teams:TEAMS,adds:4,tradeDeadline:'2027-03-04',lastRegularWeek:18,playoffTeams:8,
     weeks:K.map(f=>({n:+f[1],start:iso(f[2]),end:iso(f[3]),games:(f[5]||'').split(',').filter(Boolean).map(x=>x.split('v'))}))};
 }
@@ -61,6 +63,14 @@ if(H){
   of('A').forEach(f=>(f[1]||'').split(',').filter(Boolean).forEach(x=>{ const a=x.split(':'); scan.avail[a[0]]=[a[1]||'F',a[2]||'']; }));
   of('Q').forEach(f=>(f[1]||'').split(',').filter(Boolean).forEach(x=>{ const a=x.split(':'); scan.q[a[0]]=[n(a[1]),n(a[2])]; }));
   of('S').forEach(f=>{ scan.stats[f[1]]=[f[2],n(f[3])||0].concat(f.slice(4,16).map(t10),[n(f[16]),t10(f[17]),t10(f[18])]); scan.q[f[1]]=[n(f[19]),n(f[20])]; });
+  // Yahoo's last two weeks numbers and its own ranks are worked out after its season numbers, so a scan soon after the last game can have the season line
+  // and no two week line for players who played that night. In weeks 1 and 2 every game is inside the last two weeks, so the season line fills the gap.
+  // From week 3 on a gap is only reported, because the two lines really differ then
+  { const zs=s=>{ const g=i=>s[i]||0, fga=g(4), fta=g(6), pts=g(8), fgp=fga>0?100*g(3)/fga:48.5, ftp=fta>0?100*g(5)/fta:80.5;
+      return 0.010226*(fgp-48.5)*pts+0.008824*(fgp-48.5)-0.12296+0.0075475*(ftp-80.5)*pts-0.0061865*(ftp-80.5)+0.02054+1.004*g(7)-1.689+0.169*pts-2.850+0.440*g(9)-2.621+0.495*g(10)-1.872+2.823*g(11)-3.004+2.065*g(12)-1.446-1.274*g(13)+2.406; };
+    const gap=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[1]>0 && (s[14]==null || s[14]<s[1]); });
+    if(gap.length && scan.week && scan.week<=2){ gap.forEach(i=>{ const s=scan.stats[i]; s[14]=s[1]; s[15]=s[2]; s[16]=Math.round(10*zs(s))/10; }); say.push('NOTE, Yahoo had not finished its two week numbers for '+gap.length+' players, so their season line was used, which is the same thing in week '+scan.week+'.'); }
+    else if(gap.length>0.1*Object.keys(scan.stats).length) say.push('WARNING, '+gap.length+' of '+Object.keys(scan.stats).length+' players have no two week numbers from Yahoo. Yahoo was probably still updating. A scan an hour later should have them.'); }
   // checks on the shape of the scan. A scan can carry valid checksums and still be wrong, so all of these run before anything is written
   const wrong=[], tid=scan.teams.map(t=>t.id), rid=of('R').map(f=>f[1]), dup=a=>a.filter((x,i)=>a.indexOf(x)!==i);
   const who=i=>(players.p[i]?players.p[i][0]+' ':'')+'(id '+i+')', nm=s=>asc(s).toLowerCase().replace(/\s+/g,' ').trim();
@@ -72,7 +82,7 @@ if(H){
   if(M.length){ scan.matchup={week:n(M[0][1]),rows:M.map(f=>({tid:f[2],fgm:n(f[3]),fga:n(f[4]),ftm:n(f[5]),fta:n(f[6]),tpm:n(f[7]),pts:n(f[8]),reb:n(f[9]),ast:n(f[10]),stl:n(f[11]),blk:n(f[12]),to:n(f[13])})),rem:(of('G')[0]||[]).slice(1).map(n)}; }
   of('X').forEach(f=>scan.tx.push([f[1],f[2],f[3]]));
   const probs=[]; if(scan.teams.length!==10) probs.push('expected 10 teams and saw '+scan.teams.length); if(Object.keys(scan.rosters).length!==10) probs.push('expected 10 rosters and saw '+Object.keys(scan.rosters).length); if(!scan.rosters['11']||scan.rosters['11'].length<10) probs.push('my roster is missing or short'); if(Object.values(scan.rosters).some(r=>r.length<10)) probs.push('a roster has fewer than 10 players'); if(!Object.keys(scan.avail).length) probs.push('no available players were read');
-  if(scan.mode==='season' && scan.week && scan.week<=18 && (!scan.matchup || scan.matchup.rows.length!==2)) probs.push('the live matchup score was not read');
+  if(scan.mode==='season' && scan.week && scan.week<=18 && (!scan.matchup || scan.matchup.rows.length!==2)) probs.push('the live matchup score was not read. Yahoo hides it while games are in progress, so wait until the last game of the night has ended and scan again. The site keeps showing the last good scan until then');
   if(probs.length) stop('CHECK FAILED, the scan is incomplete, '+probs.join(', ')+'. Nothing written. Run the scan again.');
   const at=Date.parse(H[2]+':00Z'), atOk=/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(H[2]) && !isNaN(at) && new Date(at).toISOString().slice(0,16)===H[2];
   if(!atOk) wrong.push('the scan time "'+H[2]+'" is not a valid time'); else if(at>Date.now()+36*3600e3) wrong.push('the scan time '+H[2]+' is more than 36 hours ahead of the clock on this computer');
