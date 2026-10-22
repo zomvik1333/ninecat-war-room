@@ -17,7 +17,14 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.1 (branch main), Oct 22 2026
+## Version 26.2 (branch main), Oct 22 2026
+
+* Trade cards are about a fifth the size. Three sections. What it does for me, one table with the locks always and any cat that moves 1.5 or more. How to sell it, what the other team gains, said about that team. News and risk, a few short lines
+* Gone from trade cards. How it looks to them, For your eyes only, Josh on the cats, and What they will say unless a profile on that manager is loaded
+* Pickup cards keep Why him, What it does for me and What it costs, with News and risk in one line. What it is based on and Josh on the cats are gone
+* To fall back, `git checkout fallback-v26-1-before-cards -- moves.js README.md` then deploy
+
+## Version 26.1, Oct 22 2026
 
 * Pickups has three tabs, This week, Long term and Trade chips. Trade chips used to sit under a tab named Waivers, so a free agent like Brook Lopez read as a waiver claim. Each chip card still says Free agent, or Waiver claim with the day he clears
 * To fall back, `git checkout fallback-v26-before-tabs -- moves.js README.md` then deploy

@@ -1685,6 +1685,8 @@ function sellPanel(cw){ const ctx=CTX; if(!ctx) return ''; const sh=sellHigh(ctx
 const endsTrade=d=>d?((TR && TR.list || []).slice(0,3).find(t=>t.give.some(x=>x.id===d.id))||null):null;
 // the verdict on a pickup card, from its band and how it scores
 const pickVerdict=r=>r.away?'a stash for when he is back, not a player for this week.':r.band==='must'?'add him now, he is a real long term upgrade.':r.band==='strong'?(r.kind==='stream'?'a strong add for this week\'s games, not a keeper.':'a strong add that also helps your season.'):r.band==='helps'?'helps a little, keep your waiver spot unless nothing better comes.':'skip him for now.';
+// news and risk on a pickup card in one short line. The risk sentence, then the first part of the news note
+const pickRisk=(p,risk)=>{ const n=p.news; let s=String(risk||'').replace(/^Risk, /,''); if(n){ const bits=[]; if(n.st==='Out') bits.push('ESPN has him out'+(n.ret?' until about '+nice(n.ret):'')); else if(n.st) bits.push('ESPN has him day to day'); if(n.note && !n.pre) bits.push(String(n.note).split(/[.,]/)[0].trim()); if(bits.length) s+=' '+capF(bits.join('. '))+'.'; } return capF(s.trim()); };
 function pickPanel(ctx,pk){
   let h='<div class="panel"><h2>Pickups <span>updates every day after the Yahoo scan</span></h2>';
   // three tabs. This week, the long term list with real waiver claims and free agents, and trade chips, so a free agent chip never sits under a tab named for waivers
@@ -1705,7 +1707,7 @@ function pickPanel(ctx,pk){
     const p=r.p; const why=pickupWhy(ctx,pk,r);
     h+='<details class="mvcard'+(r.band==='skip'?' mvskip':'')+'"><summary><span class="mvn '+r.band+'">'+r.need+'<small>'+(r.band==='must'?'must add':r.band==='strong'?'strong':r.band==='helps'?'helps':'skip')+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
       +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span>'+(r.dropWhy&&r.dropWhy.why&&r.drop?'<span class="chip muted">Drop is '+esc(r.dropWhy.why.replace(/^(a |an )/,''))+'</span>':'')+(r.away?'':'<span class="chip muted">Week '+updn(r.gW)+'</span>')+'<span class="chip muted">Season '+updn(r.gR)+'</span>'+(r.gR<=-0.3?'<span class="chip bad">Costs you long term, '+r1(-r.gR)+' pts</span>':'')+r.labels.map(x=>'<span class="chip '+(x==='Stream for games'?'warn':'good')+'">'+x+'</span>').join('')+(r.built.length?'<span class="chip gem">Builds '+r.built.map(c=>CATS[c]).join(' ')+'</span>':'')+newsChip(p)+(r.away?'':'<span class="chip muted">'+r.gl+(r.gl===1?' game':' games')+(weekWord(ctx,pk.week)==='this week'?' left':' '+weekWord(ctx,pk.week))+'</span>')+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">'+(r.bal.crowd.length?'Crowded spot':'Leaves '+r.bal.thin.join(' ')+' thin')+'</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+(endsTrade(r.drop)?'<span class="chip bad">Ends a trade</span>':'')+basisChip(p)+'</span></span></summary>'
-      +'<div class="mvbody"><p><span class="lab">Why him</span>'+esc(whyHim(ctx,p,r.ds,pickVerdict(r)))+'</p>'+(endsTrade(r.drop)?'<p><span class="lab">Ends a trade</span>'+esc(r.drop.name+' is in one of your top trades, '+(t=>t.give.map(x=>x.name).join(' and ')+' for '+t.get.map(x=>x.name).join(' and '))(endsTrade(r.drop))+', so dropping him ends that deal.')+'</p>':'')+'<p><span class="lab">What it does for you</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">What it is based on</span>'+esc(why[2])+'</p>'+(why[4]?'<p><span class="lab">Josh on the cats</span>'+esc(why[4])+'</p>':'')+(why[5]?'<p><span class="lab">News</span>'+esc(why[5])+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why[3])+'</p>'
+      +'<div class="mvbody"><p><span class="lab">Why him</span>'+esc(whyHim(ctx,p,r.ds,pickVerdict(r)))+'</p>'+(endsTrade(r.drop)?'<p><span class="lab">Ends a trade</span>'+esc(r.drop.name+' is in one of your top trades, '+(t=>t.give.map(x=>x.name).join(' and ')+' for '+t.get.map(x=>x.name).join(' and '))(endsTrade(r.drop))+', so dropping him ends that deal.')+'</p>':'')+'<p><span class="lab">What it does for me</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">News and risk</span>'+esc(pickRisk(p,why[3]))+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-add="'+esc(p.id)+'" data-drop="'+esc(r.drop?r.drop.id:'')+'" data-il="'+esc(r.il||'')+'">I made this add</button></div></div></details>';
   });
   if(nSkip) h+='<label class="mvchk"><input type="checkbox" id="mvshowskip"'+(ST.showSkip?' checked':'')+'> Show the '+nSkip+' pickup'+(nSkip===1?'':'s')+' scored under 50 and marked skip</label>';
@@ -1762,9 +1764,46 @@ function planPanel(ctx,pk){
   h+='</div>'; return h;
 }
 const tinyTrade=t=>t.kind==='plan' && !t.pinned && !t.urgent && t.myGain<1;
+/* the trade card, kept short. What it does for me as one table, how to sell it in the other team's own terms, and the news and risk in a few lines */
+function meTable(cw,t){ const pl=TR.plan, per=cw.view0.per, rows=[];
+  for(let c=0;c<9;c++){ const role=pl.roles[c], d=t.dme[c]; if(role!=='lock' && Math.abs(d)<1.5) continue;
+    const b=per[c], a=t.per[c]; let note;
+    if(role==='punt') note='Punt, not counted';
+    else if(t.broke.indexOf(c)>=0) note='Breaks this lock';
+    else if(role==='lock') note=a>=FLOOR?(d<=-1.5?'Lock, still holds':'Lock, holds'):(d>=1.5?'Lock, closer to 60':'Lock, still under 60');
+    else if(role==='build') note=d>0?(b<TARGET && a>=TARGET?'Build, reaches 60':'Build, up'):'Build, down';
+    else note=d>0?'Up':'Down';
+    rows.push([c,role,b,a,d,note]); }
+  rows.sort((x,y)=>((y[1]==='lock')-(x[1]==='lock'))||Math.abs(y[4])-Math.abs(x[4]));
+  let h='<p>Plan gain '+r1(t.myGain)+'. Average week '+pc(cw.view0.weekN)+' to '+pc(t.after)+' percent. Favored in '+per.filter(x=>x>0.5).length+' of 9 cats now, '+t.per.filter(x=>x>0.5).length+' after.'+(t.two?' Opens a roster spot for a streamer.':'')+(t.o===cw.opp?' This is this week\'s opponent, but the trade barely changes this week.':'')+'</p>';
+  h+='<div class="mvtbl"><table><thead><tr><th>Cat</th><th class="num">Now</th><th class="num">After</th><th class="num">Change</th><th>What it means</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+CATS[r[0]]+'</b></td><td class="num">'+pc(r[2])+'%</td><td class="num">'+pc(r[3])+'%</td><td class="num">'+updn(r[4])+'</td><td>'+r[5]+'</td></tr>').join('')+'</tbody></table></div><p class="small">Chance to win each cat in an average week. Locks always show, other cats when they move 1.5 or more.</p>';
+  return h; }
+// what the other team gains, said about that team by name
+function sellFor(cw,t){ const N=(cw.teams[t.o]||{}).name||'They', fc=t.face||faceOf(t.give,t.get), a=[];
+  const sum=ps=>{ const T={pts:0,reb:0,ast:0}; ps.forEach(p=>{ const l=p.fvBase; if(l){ T.pts+=l.pts; T.reb+=l.reb; T.ast+=l.ast; } }); return T; }, G=sum(t.give), R=sum(t.get);
+  a.push(N+' gets '+f1(G.pts)+' points, '+f1(G.reb)+' rebounds and '+f1(G.ast)+' assists a game and gives up '+f1(R.pts)+', '+f1(R.reb)+' and '+f1(R.ast)+(fc.look>=1.02?'. A win for them on the box score.':fc.look>=0.97?'. About even on the box score.':'. A little light on the box score, so lead with the fit.'));
+  // the team is named once, then the lines say they and their, so a long team name does not fill the card
+  if(fc.mine>=1){ const s=t.give.slice().sort((x,y)=>y.fv-x.fv)[0]; a.push('They get the best player in the deal, '+s.name+'.'); }
+  const ups=[]; for(let c=0;c<9;c++){ const d=t.orank[c]-t.orankA[c]; if(d>=1 && t.dop[c]>=1) ups.push([d,c]); } ups.sort((x,y)=>y[0]-x[0]||t.dop[y[1]]-t.dop[x[1]]);
+  ups.slice(0,2).forEach(x=>{ const c=x[1]; a.push((c===8?'They turn it over less':'Their '+CATWORD[c]+(c<2?' goes up':' go up'))+', '+ordW(t.orank[c])+' to '+ordW(t.orankA[c])+' of 10.'); });
+  if(!ups.length){ const lift=[]; for(let c=0;c<9;c++) if(t.dop[c]>=1.5) lift.push(c); if(lift.length) a.push('Their '+listWords(lift.slice(0,3).map(c=>CATWORD[c]))+' go up.'); }
+  const shown=ups.slice(0,2).map(x=>x[1]), weak=(t.weakHelp||[]).filter(c=>shown.indexOf(c)<0); if(weak.length) a.push('It helps where they are shortest, '+listWords(weak.slice(0,2).map(c=>CATWORD[c]))+'.');
+  const cA=t.oC[1]; if(t.get.some(isC)) a.push('They still have '+cA+' center'+(cA===1?'':'s')+' after this.'); else if(cA>t.oC[0]) a.push('They get a center back.');
+  const st=t.give.filter(p=>p.ds===0); if(st.length) a.push(listWords(st.map(p=>p.name+' starts for '+p.team))+'.');
+  if(t.plus) a.push('Open by asking for '+t.plus.x.name+' too, dropping '+t.plus.d.name+'. Settle for this deal.');
+  return a.slice(0,6); }
+// news and risk together, short and plain
+function newsRisk(t){ const a=[];
+  t.get.forEach(p=>{ const f=[]; const w=getWarn(p); if(w) f.push(w.replace(p.name+' ','')); else if(p.status) f.push('tagged '+statusWord(p.status));
+    if(p.age>=33) f.push('is '+p.age); if(p.fvSrc==='two') f.push('missed most of last season'); if(p.ds!=null && p.ds>=1 && !p.fill) f.push('comes off the bench');
+    if(p.fill) f.push('is filling in for '+p.fill.who.name);
+    if(f.length) a.push(p.name+' '+listWords(f)+'.'); });
+  if(t.cut) a.push('They would have to drop '+t.cut.name+'.');
+  t.get.concat(t.give).forEach(p=>{ const n=p.news; if(!n) return; let s=n.st==='Out'?'out'+(n.ret?' until about '+nice(n.ret):''):n.st?'day to day':''; if(n.note && !n.pre){ const one=String(n.note).split(/[.,]/)[0].trim(); s=(s?s+'. ':'')+one; } if(s) a.push(p.name+', '+s.charAt(0).toLowerCase()+s.slice(1)+'.'); });
+  return a.length?a.slice(0,6):['Nothing unusual. Check the news before you send it.']; }
 function tradeCard(cw,t,i,grp){
   let h0='';
-  const why=tradeWhy(cw,t), fy=tradeForYou(cw,t), kit=sellKit(cw,t), tc=tradeCats(t), oName=(cw.teams[t.o]||{}).name||'', nm=a=>a.map(p=>esc(p.name)).join(' and '), pl=TR.plan;
+  const kit=sellKit(cw,t), tc=tradeCats(t), oName=(cw.teams[t.o]||{}).name||'', nm=a=>a.map(p=>esc(p.name)).join(' and '), pl=TR.plan;
   const sellChip=t.sell==='easy'?'<span class="chip good">Easy sell</span>':t.sell==='fair'?'':'<span class="chip warn">Hard sell</span>';
   let h='<details class="mvcard'+(grp==='p' && tinyTrade(t)?' mvtiny':'')+'"><summary><span class="mvn '+(t.urgent?'must':t.myGain>=1?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
     +'<span class="meta">'+(t.pinned?'<span class="chip gem">Your pivot trade</span>':'')+(t.urgent?'<span class="chip gem">Do this now</span>':'')
@@ -1776,17 +1815,12 @@ function tradeCard(cw,t,i,grp){
     +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.face.need-t.face.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">'+(t.mview.lateCap>0.001?'Little credit for ':'No credit for ')+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(p=>{ const w=getWarn(p); return w?'<span class="chip bad">'+esc(w)+'</span>':''; }).join('')+t.get.map(newsChip).join('')+'</span></span></summary>';
-  // the by manager tab says plainly what the deal does to your locks. Before and after are your chance to win that cat in an average week
-  if((grp==='t'||grp==='s'||grp==='h') && pl && pl.lock){ const lk=pl.lock.map(c=>({c,a:t.per[c],b:t.per[c]-t.dme[c]/100})), dip=lk.filter(x=>t.dme[x.c]<=-1.5), up=lk.filter(x=>t.dme[x.c]>=1.5);
-    const w=x=>CATS[x.c]+' from '+pc(x.b)+' to '+pc(x.a)+' percent';
-    h0='<p><span class="lab">Your locks</span>'+(t.broke && t.broke.length?'Breaks '+esc(listWords(t.broke.map(c=>CATS[c])))+'. ':dip.length?'Keeps all your locks above the floor, but dips '+esc(listWords(dip.map(w)))+'. ':'Keeps all your locks. ')+(up.length?'Lifts '+esc(listWords(up.map(w)))+'. ':'')+(dip.length||up.length?'':'None of them moves by 1.5 points or more.')+'</p>'; }
-  h+='<div class="mvbody">'+h0+'<div><span class="lab">What it does for you</span><p>'+esc(fy.head)+'</p>'+(fy.rows.length?'<ul>'+fy.rows.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p class="small">Each line is the change in your chance to win that cat in an average week, in points. Cats that move less than 1.5 are left out.</p>':'<p>No single cat moves by 1.5 points or more. The gain comes from small lifts across several cats.</p>')+'</div>'
-    +'<p><span class="lab">How it looks to them</span>'+esc(tradeFair(cw,t))+'</p>'
-    +'<div><span class="lab">How to sell it</span>'+(kit.open?'<p>'+esc(kit.open)+'</p>':'')+(kit.pts.length?'<ul>'+kit.pts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>No strong selling point is true for this deal, which is why it is marked a hard sell.</p>')+'</div>'
-    +'<p><span class="lab">What they will say</span>'+esc(kit.push)+' '+esc(kit.alt)+'</p>'
-    +'<p><span class="lab">For your eyes only</span>'+esc(kit.eyes)+'</p>'
-    +(mgOf(t)?(g=>'<div><span class="lab">From your notes on '+esc(g.m.name)+'</span>'+((grp==='t'||grp==='s'||grp==='h') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes, from the numbers and your notes'+(t.mview?', judged his way. On his view he gets '+Math.round(100*t.mview.look)+' percent of what he gives'+(t.mview.pair?', and he loses on the '+t.mview.pair+' player':''):'')+'.</p>':'<p>With your notes this is a'+(g.lv===2?'n easy sell':g.lv===1?' fair ask':' hard sell')+', about '+pc(g.chance)+' percent to happen.</p>')+(g.why.length?'<ul>'+g.why.map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(g.m.tips.length?'<p class="small">'+esc(g.m.tips.map(x=>x.replace(/\.+$/,'')).join('. ')+'.')+'</p>':'')+'</div>')(mgOf(t)):'')
-    +(why.josh?'<p><span class="lab">Josh on the cats</span>'+esc(why.josh)+'</p>':'')+(why.news?'<p><span class="lab">News</span>'+esc(why.news)+'</p>':'')+'<p><span class="lab">Risk</span>'+esc(why.risk)+'</p>'
+  const g=mgOf(t);
+  h+='<div class="mvbody"><div><span class="lab">What it does for me</span>'+meTable(cw,t)+'</div>'
+    +'<div><span class="lab">How to sell it to '+esc(oName)+'</span><ul>'+sellFor(cw,t).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
+    // what the other manager will say is only shown once there is a profile on him, since without one it is a guess
+    +(g?'<div><span class="lab">What '+esc(g.m.name)+' will say</span>'+((grp==='t'||grp==='s'||grp==='h') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes.</p>':'<p>About '+pc(g.chance)+' percent he says yes.</p>')+(g.why.length?'<ul>'+g.why.slice(0,4).map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(kit.alt?'<p class="small">'+esc(kit.alt)+'</p>':'')+'</div>':'')
+    +'<div><span class="lab">News and risk</span><ul>'+newsRisk(t).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
     +'<div class="mvact"><button class="btn" type="button" data-trade="'+grp+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+grp+i+'">Copy a message to send</button>'+(t.kind!=='plan'?'<button class="btn" type="button" data-pivot="'+i+'">Make this my plan</button>':'')+'</div></div></details>';
   return h;
 }
