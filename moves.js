@@ -849,6 +849,53 @@ function waivers(ctx){
   const inC=new Set(cands), skipped=ctx.avail.filter(p=>!inC.has(p) && !mineGone.has(p.id) && ((waiverDate(p.fa)||'')>ctx.now.date || p.fa==='W')).map(p=>({p,by:by[p.id]||null,why:/^NA$/i.test(p.status||'')||!p.team?'is not with an NBA team right now':isOut(p)?'is out with no return date in the news':'has no projection yet'}));
   return {plan:pl,free,skipped,onW:rows.filter(r=>r.waiver),longer:rows.filter(r=>!r.waiver && r.gR>=0.3).slice(0,10),n:cands.length};
 }
+/* trade chips. A free agent whose stock is rising, picked up to hold for a week or two and use in a trade, even when he does not fit the plan.
+   Six parts, weighted the way Vikas set them on Oct 21. The spike 25, his track record over the last two seasons 20, his role and how long it lasts 20,
+   market heat on Yahoo 15, how many managers in the league would pay for him 10, and what he does for you while you hold him 10.
+   One game counts 40 percent of a spike, two 60, three 80, four 90 and five or more in full, so one hot night cannot carry a player.
+   The drop follows the stream rules, so only a late pick or a waiver pickup that was not just added, never a protected player */
+const CHW={spike:25,track:20,role:20,heat:15,appeal:10,fit:10};
+const SAMPLE=[0,0.4,0.6,0.8,0.9,1];
+let SEASONRANK=null;
+function seasonRanks(){ if(SEASONRANK) return SEASONRANK; const one=(P,minG)=>{ const r={}; if(!P) return r; Object.keys(P.p).map(k=>[k,P.p[k]]).filter(x=>Array.isArray(x[1]) && x[1][0]>=minG).map(x=>[x[0],valOf(lineOfPrior(x[1]))]).sort((a,b)=>b[1]-a[1]).forEach((x,i)=>{ r[x[0]]=i+1; }); return r; };
+  SEASONRANK={last:one(D.prior,15),two:one(D.prior2,15)}; return SEASONRANK; }
+const seasonLine=(P,k)=>{ const a=P&&(P.p[k]||P.p[PALIAS[k]]); return Array.isArray(a)?a:null; };
+function chips(ctx){
+  const mine=ctx.ros[ME], prot=myProtected(ctx), active=mine.filter(p=>!isIL(p)), ilOpen=mine.filter(isIL).length+active.filter(p=>isOut(p)).length<2, gone=myRecentDrops(ctx);
+  const drops=active.filter(p=>!prot.has(p.id) && dropOK(ctx,p,'stream',ilOpen).ok), myCn=active.filter(isC).length, pl=planOf(), b0p=planWeekOf(ctx,ctx.view0.prs,pl,false);
+  const lift=(inP,outP)=>{ const T=scaleT(seasonTotals(ctx,ME,outP?[outP]:[],[inP]),1/ctx.tweeks), v=myView(ctx,T); return 100*(planWeekOf(ctx,v.prs,pl,false)-b0p); };
+  const R=seasonRanks(), prevQ=(D.prev&&D.prev.q)||{}, day=ctx.addDay, now=ctx.now.date;
+  const cands=ctx.avail.filter(p=>p.proj && p.team && !isOut(p) && !gone.has(p.id) && p.gp>=1);
+  const rows=cands.map(p=>{ const k=B.nkey(p.name), why={};
+    // the spike, real games against what he was expected to do
+    const w=SAMPLE[Math.min(5,p.gp||0)], base=p.prior?p.prior.mp:p.proj.mp;
+    const sv=(p.v14!=null && p.g14>=1)?clamp((p.v14-p.val)/5,0,1):0, sm=(p.m14!=null && p.g14>=1)?clamp((p.m14-base)/8,0,1):0;
+    const spike=w*(0.7*sv+0.3*sm);
+    // track record, his best of the last two seasons by rank, from games he actually played
+    const l1=seasonLine(D.prior,k), l2=seasonLine(D.prior2,k), r1s=R.last[k]||R.last[PALIAS[k]]||null, r2s=R.two[k]||R.two[PALIAS[k]]||null;
+    const best=Math.min(r1s||999,r2s||999), track=best<999?clamp((220-best)/180,0,1):0.3;
+    // role, the depth chart, more minutes, filling in for a starter, and the news
+    let role=p.ds===0?1:p.ds===1?0.6:p.ds===2?0.35:p.ds==null?0.3:0.15; if(p.role==='up') role+=0.25; if(p.fill) role+=0.25;
+    if(p.news && p.news.dir==='good') role+=0.1; if(p.news && p.news.dir==='bad') role-=0.25; role=clamp(role,0,1);
+    // market heat, his Yahoo rank this season and whether more teams are picking him up
+    const pct=p.pct||0, pq=prevQ[p.id], pct0=Array.isArray(pq)?(pq[1]||0):pct;
+    const heat=0.4*(p.cur?clamp((150-p.cur)/140,0,1):0)+0.3*clamp(pct/50,0,1)+0.3*clamp((pct-pct0)/8,0,1);
+    // who in the league would pay for him. A manager who counts waiver pickups as nothing is never a buyer
+    const z=zLine(p.proj), buyers=[]; if(MG) Object.keys(MG.teams).forEach(t=>{ const m=MG.teams[t]; if(m.noLate) return; let sc=0; if(m.needPos.some(x=>p.pos.indexOf(x)>=0)) sc++; if(m.needCats.some(c=>z[c]>0.5)) sc++; if(m.dislike.indexOf(k)>=0) sc=0; if(sc>0) buyers.push(m.name); });
+    const general=clamp((p.proj.pts-8)/14,0,1), appeal=0.5*general+0.5*(MG?Math.min(1,buyers.length/2):0.5);
+    const pre=CHW.spike*spike+CHW.track*track+CHW.role*role+CHW.heat*heat+CHW.appeal*appeal;
+    return {p,k,spike,track,role,heat,appeal,buyers,pre,l1,l2,r1s,r2s,best,pct,pct0,w}; });
+  rows.sort((a,b)=>b.pre-a.pre);
+  const top=rows.slice(0,12);
+  for(const r of top){ let best=null; for(const d of drops){ if(isC(d) && !isC(r.p) && myCn<=3) continue; const g=lift(r.p,d); if(!best || g>best.g) best={d,g}; }
+    r.drop=best?best.d:null; r.gR=best?best.g:null; r.tom=playsOn(r.p.team,day);
+    r.fit=clamp(0.7*clamp(((r.gR==null?-1.5:r.gR)+1.5)/3,0,1)+(r.tom?0.3:0),0,1);
+    r.score=Math.round(r.pre+CHW.fit*r.fit);
+    const hot=r.spike>=0.35 || r.heat>=0.5;
+    r.call=(r.score>=60 && hot && r.drop)?'grab':r.score>=45?'watch':'pass';
+    r.bail=Math.max(20,Math.round((r.p.m14||r.p.proj.mp)-3)); }
+  top.sort((a,b)=>b.score-a.score);
+  return {list:top.filter(r=>r.call!=='pass').slice(0,3),all:top,hasMg:!!MG,day}; }
 function addsLeft(ctx,week){ const L=D.league, wk=week||ctx.wk, tx=ctx.scan.tx||[]; let used=0;
   tx.forEach(x=>{ if(x[1]!==ME) return; const m=String(x[0]).match(/^([A-Za-z]{3})(\d{1,2})$/); if(!m) return; const mo=MON.indexOf(m[1]); if(mo<0) return; const d=(mo>=8?2026:2027)+'-'+String(mo+1).padStart(2,'0')+'-'+String(+m[2]).padStart(2,'0'); if(d>=wk.start && d<=wk.end) used+=(String(x[2]).match(/\+/g)||[]).length; });
   // an add you marked counts the same way a scanned one does, only when its day falls inside that week
@@ -1355,7 +1402,7 @@ function pitchText(ctx,t){ const kit=sellKit(ctx,t), g=mgOf(t); if(!g || !g.m.st
   return oneDot([a.filter(Boolean).join(' ')])[0]; }
 
 /* drawing */
-let CTX=null, CTXW=null, TR=null, PK=null, WV=null, WK=null, RACE=null, ERR='', TRUN=0, LITE=false;
+let CTX=null, CTXW=null, TR=null, PK=null, WV=null, CH=null, WK=null, RACE=null, ERR='', TRUN=0, LITE=false;
 function css(){
   if($('mvcss')) return; const s=document.createElement('style'); s.id='mvcss';
   s.textContent='.mvh{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:14px 0 6px}.mvnone{opacity:.75}.mvsub{display:flex;gap:6px;margin:8px 0 10px}.mvsub .btn.on{background:var(--accent,#2b6cb0);color:#fff;border-color:transparent}.mvlist{margin:6px 0 0 18px;padding:0}.mvlist li{margin:3px 0;font-size:13.5px}.mv{display:flex;flex-direction:column;gap:16px}.mvgrid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:16px;align-items:start}@media (max-width:1100px){.mvgrid{grid-template-columns:minmax(0,1fr)}}.mvcol{display:flex;flex-direction:column;gap:16px;min-width:0}'
@@ -1457,9 +1504,30 @@ function wavCard(ctx,r){
     +(r.by?'<p><span class="lab">Who dropped him</span>'+esc(by+' dropped him on '+day+'.')+'</p>':'')+(news?'<p><span class="lab">News</span>'+esc(news)+'</p>':'')
     +(r.call==='pick'?'<div class="mvact"><button class="btn" type="button" data-add="'+esc(p.id)+'" data-drop="'+esc(r.drop?r.drop.id:'')+'" data-il="">I made this add</button></div>':'')+'</div></details>';
 }
+/* a trade chip card */
+function chipCard(ctx,r){
+  const p=r.p, n1=v=>Math.round(v), sl=(l,lab,rk)=>l?lab+' '+l[0]+' games, '+r1(l[1])+' minutes, '+r1(l[7])+' points, '+r1(l[6])+' threes, '+r1(l[8])+' rebounds, '+r1(l[9])+' assists'+(rk?', rank '+rk+' that season':'')+'.':lab+' no NBA games on file.';
+  const word=r.call==='grab'?'grab tonight':r.call==='watch'?'watch':'pass';
+  const g14=p.g14||0, s14=p.v14!=null?(p.v14>=p.val?'above':'below'):'';
+  let now='He has '+(p.gp||0)+' game'+(p.gp===1?'':'s')+' this season, playing about '+n1(p.m14||0)+' minutes'+(s14?', '+s14+' what he was expected to do':'')+'. A spike from '+(p.gp||0)+' game'+(p.gp===1?'':'s')+' counts '+Math.round(100*r.w)+' percent, so one hot night cannot carry him.';
+  let trend=''; if(r.r1s && r.r2s) trend=r.r1s<r.r2s-25?' He was better last season than the year before, so the trend is up.':r.r2s<r.r1s-25?' He was better two seasons ago, so last season was a dip and he has shown more before.':' His last two seasons were about the same level.';
+  const track=sl(r.l2,'2024 to 25,',r.r2s)+' '+sl(r.l1,'2025 to 26,',r.r1s)+trend;
+  const role=(p.ds===0?'He starts on the depth chart.':p.ds===1?'He is first off the bench at his spot.':p.ds!=null?'He is deeper on the bench.':'He is not on the depth chart.')+(p.role==='up'?' His minutes are up.':'')+(p.fill?' He is filling in for '+p.fill.who.name+', who is out.':'')+(p.news&&p.news.note?' '+p.news.note:'');
+  const mkt='Yahoo has him at '+(p.cur||'no')+' in its rank for this season and '+r.pct+' percent rostered'+(r.pct>r.pct0?', up from '+r.pct0+' at the last scan, so other managers are noticing':'')+'.';
+  const buy=!CH.hasMg?'Load the manager notes in this browser to see which managers would pay for him.':r.buyers.length?'Managers whose needs he fits, '+r.buyers.join(', ')+'.':'No manager in the notes needs what he does right now. A manager who counts waiver pickups as nothing is never counted.';
+  const hold=(r.gR==null?'There is no drop allowed by your rules, so he cannot be added without breaking them.':'While you hold him your season goes '+(r.gR>=0?'up ':'down ')+r1(Math.abs(r.gR))+' points with '+r.drop.name+' dropped.')+(r.tom?' He plays on '+nice(CH.day)+', the first day an add can play.':' He does not play on '+nice(CH.day)+'.');
+  const what=r.call==='grab'?'Pick him up tonight before another manager does'+(r.drop?', dropping '+r.drop.name:'')+'. Shop him once he keeps it up. If he plays under '+r.bail+' minutes a game over his next 3 games, drop him and move on.':r.call==='watch'?'Not yet. Check again after his next game. If he keeps the minutes and the production, he becomes a grab.':'Pass.';
+  const parts=[['Spike',r.spike,CHW.spike],['Track record',r.track,CHW.track],['Role',r.role,CHW.role],['Market',r.heat,CHW.heat],['Buyers',r.appeal,CHW.appeal],['Fit',r.fit,CHW.fit]].map(x=>'<span class="chip muted">'+x[0]+' '+Math.round(x[1]*x[2])+' of '+x[2]+'</span>').join('');
+  return '<details class="mvcard"><summary><span class="mvn '+(r.call==='grab'?'must':r.call==='watch'?'helps':'skip')+'">'+r.score+'<small>'+word+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
+    +'<span class="meta"><span class="chip gem">Trade chip</span>'+(p.fa&&p.fa!=='F'?'<span class="chip warn">Waiver claim</span>':'<span class="chip good">Free agent</span>')+parts+'</span></span></summary>'
+    +'<div class="mvbody"><p><span class="lab">What to do</span>'+esc(what)+'</p><p><span class="lab">This season</span>'+esc(now)+'</p><p><span class="lab">Track record</span>'+esc(track)+'</p><p><span class="lab">Role</span>'+esc(role)+'</p><p><span class="lab">Market</span>'+esc(mkt)+'</p><p><span class="lab">Who might buy</span>'+esc(buy)+'</p><p><span class="lab">While you hold him</span>'+esc(hold)+'</p>'
+    +(r.call==='grab'&&r.drop?'<div class="mvact"><button class="btn" type="button" data-add="'+esc(p.id)+'" data-drop="'+esc(r.drop.id)+'" data-il="">I made this add</button></div>':'')+'</div></details>';
+}
 function wavPage(ctx){
   if(!WV) return '<p class="empty">Waivers load with the pickups.</p>';
   let h='<p class="small">These are longer term adds. A waiver claim takes days to clear, so this week\'s games count for nothing here. Each player is scored only on the rest of the season, counted the way your plan counts cats, so your punt earns nothing. The number is how many points your average week goes up with him in place of the drop that leaves your season best. Every card ends in one call. Pick up now means do it today. Watch means he is worth it only once something happens, the card says what, either real minutes or his return from injury. Skip means he is not worth a roster spot. Pick up now needs a season lift of '+r1(WPICK)+' or more, and a player with no real games who is not a starter has to clear that bar at 18 minutes, or he is a Watch. Drops follow your rules. Your top 8 players, Kyrie, your keep list (Rui for now) and picks from rounds 1 to 12 are not dropped here, unless a mid round pick is slumping or out long with no IL spot, or anyone is out for the season. In the first two weeks of the season only an injury replacement can be a pick up now, since there are too few real games to trust.</p>';
+  h+='<h3 class="mvh">Hot now, trade chips</h3><p class="small">Free agents whose stock is rising, worth grabbing before another manager does and holding for a trade, even when they do not fit your plan. The score out of 100 adds up the spike in real games 25, track record over the last two seasons 20, role 20, market heat on Yahoo 15, managers who would pay for him 10, and what he does for you while you hold him 10. Grab tonight needs 60 or more, a real spike or a hot market, and a drop your rules allow.</p>';
+  if(!CH || !CH.list.length) h+='<p class="empty">No trade chip worth chasing right now.</p>'; else CH.list.forEach(r=>{ h+=chipCard(ctx,r); });
   h+='<h3 class="mvh">On waivers now</h3>';
   if(!WV.onW.length && !WV.skipped.length) h+='<p class="empty">Nobody is on waivers right now.</p>'; else WV.onW.forEach(r=>{ h+=wavCard(ctx,r); });
   WV.skipped.forEach(x=>{ h+='<p class="small">'+esc(x.p.name)+' is also on waivers'+(x.by?', dropped by '+esc((ctx.teams[x.by.team]||{}).name||'a team')+' '+esc(x.by.day.replace(/^([A-Za-z]{3})(\d+)$/,'$1 $2')):'')+', but he '+x.why+', so he is not scored.</p>'; });
@@ -1710,7 +1778,7 @@ function computeInner(redoTrades){
   if(ST.at!==D.scan.at && ST.marks.length){ ST.marks=[]; ST.at=D.scan.at; save(); }
   // a marked add must be a player the scan knows, so a damaged saved mark can never put a made up player on your roster or use up an add
   if(ST.marks.length){ const known=new Set(Object.keys(D.scan.avail||{})); Object.keys(D.scan.rosters||{}).forEach(t=>(D.scan.rosters[t]||[]).forEach(e=>known.add(String(e[0])))); const keep=ST.marks.filter(m=>m.type!=='add' || known.has(m.add)); if(keep.length!==ST.marks.length){ ST.marks=keep; save(); } }
-  CTX=build(D.scan); WK=thisWeek(CTX); PK=pickups(CTX); WV=waivers(CTX); RACE=race(CTX);
+  CTX=build(D.scan); WK=thisWeek(CTX); PK=pickups(CTX); WV=waivers(CTX); CH=chips(CTX); RACE=race(CTX);
   if(redoTrades || !TR){ TR=null; CTXW=build(weekTags(D.week,D.scan)); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ failed(e); return; } if(TR.lead){ const k=TR.lead.join(','); if(ST.lead!==k){ ST.lead=k; save(); } } },()=>run===TRUN); }
   else render();
 }
@@ -1719,7 +1787,7 @@ async function load(){
   const get=async f=>{ try{ const r=await fetch('data/'+f,{cache:'no-store'}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } };
   const files=['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json','josh_cats.json'];
   // news, ages, a saved plan and Josh's newest ranks are extras. The tab works without them, so a missing one is never an error
-  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json'];
+  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json','prior2.json','scan_prev.json'];
   const all=await Promise.all(files.concat(extra).map(get)), a=all.slice(0,files.length), ex=all.slice(files.length);
   // every file but the weekly snapshot is needed for the numbers to be right. If one did not arrive, say so and draw nothing, because numbers built without it look normal and are wrong
   // A file that arrives but holds nothing useful is treated the same way, for example a scan with no players on your team or a schedule with no games
@@ -1732,7 +1800,7 @@ async function load(){
   D.miss=files.filter((f,i)=>!okShape[i](a[i]));
   if(D.miss.length){ D.loading=false; D.loaded=false; render(); return; }
   D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=(a[5]&&a[5].rosters)?a[5]:a[4]; D.jc=a[6]; loadJC();
-  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; loadDepth(); loadMg();
+  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; D.prior2=(obj(ex[5])&&obj(ex[5].p))?ex[5]:null; D.prev=(obj(ex[6])&&obj(ex[6].q))?ex[6]:null; loadDepth(); loadMg();
   D.gset={}; if(D.sched) Object.keys(D.sched.games).forEach(t=>D.gset[t]=new Set(D.sched.games[t]));
   D.loading=false; D.loaded=true;
   // Josh's newest ranks go to the board before anything is built from it. This comes after the load is marked done, because the board draws again and asks this tab for its numbers
@@ -1752,6 +1820,7 @@ function summary(){
   o.push('adds left for week '+c.wk.n+' '+c.addsNow+(PK.week && PK.week.n!==c.wk.n?', pickups below are scored for week '+PK.week.n+' which has '+PK.adds+' adds left':', pickups below are scored for week '+c.wk.n)+', waiver spot '+((c.teams[ME]||{}).waiver||'unknown')+(PK.ilMove&&!PK.free?', IL move open for '+PK.ilMove.name:'')+(PK.free?', open roster spots '+PK.free:''));
   { const U=Object.values(c.U), dm=U.filter(p=>p.dep), fl=U.filter(p=>p.fill); o.push(DP?'depth chart '+DP.day+', '+dm.length+' lines moved by it'+(fl.length?', filling in '+fl.map(p=>p.name+' for '+p.fill.who.name).join(', '):', nobody filling in'):'no depth chart in use'); }
   PK.list.slice(0,4).forEach((r,i)=>o.push('pickup '+(i+1)+', need '+r.need+', '+r.p.name+(r.drop?', drop '+r.drop.name:', no drop')+', '+r.tag+', '+r.labels.join(' and ').toLowerCase()+(Math.round(100*r.cut)>=1?', tag cut '+Math.round(100*r.cut)+' percent':'')+(r.built.length?', builds '+cl(r.built):'')+', '+(r.wd?'waivers until '+nice(r.wd):r.waiver?'on waivers':'free agent')));
+  if(CH) o.push('trade chips, '+(CH.list.length?CH.list.map(r=>r.p.name+' '+r.score+' '+(r.call==='grab'?'grab tonight':'watch')+(r.call==='grab'&&r.drop?' drop '+r.drop.name:'')+(r.call==='grab'?' bail under '+r.bail+' minutes':'')).join(', '):'none worth chasing'));
   if(WV){ o.push('waivers, '+(WV.onW.length?WV.onW.map(r=>r.p.name+' '+(r.call==='pick'?'pick up now':r.call==='watch'?'watch'+(r.watch==='mins'?' for '+r.need+' minutes':' for his return'):'skip')+' season '+(r.gR>=0?'+':'')+r1(r.gR)+(r.wd?' clears '+nice(r.wd):'')+(r.by?' dropped by '+((c.teams[r.by.team]||{}).name||r.by.team):'')).join(', '):'nobody on waivers')+(WV.longer.length?', best long term free agent '+WV.longer[0].p.name+' '+(WV.longer[0].call==='pick'?'pick up now':WV.longer[0].call==='watch'?'watch':'skip')+' season +'+r1(WV.longer[0].gR)+(WV.longer[0].drop?' drop '+WV.longer[0].drop.name:''):', no long term free agent lifts the season')); }
   if(TR.note) o.push(TR.note);
   else { if(!TR.list.length) o.push('no fair trade improves the plan right now, '+TR.count+' fair offers checked');
@@ -1788,5 +1857,5 @@ function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map
   const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To;
   return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,listed:!stops.length,stops}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{waivers,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
+window.NCWMoves={summary,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{waivers,chips,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats}};
 })();
