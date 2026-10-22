@@ -5,6 +5,8 @@
 // Only /data/players.json stays open, because the Yahoo scanner reads it from a Yahoo tab
 // and it is just the public NBA player list.
 
+declare const process: { env: Record<string, string | undefined> };
+
 const COOKIE = 'ncw_gate';
 const GATE = '/__gate';
 const OPEN = new Set(['/data/players.json', '/favicon.ico']);
