@@ -3,7 +3,7 @@
 This is the procedure for the daily scan. It is written so a fresh Claude session can follow it with no other context.
 
 ## What the scan does
-* Reads the Ball Lovers league pages on Yahoo through Claude in Chrome on Vik's computer
+* Reads the Ball Lovers league pages on Yahoo through Claude in Chrome on Vikas's computer
 * Saves the result as data files in the project folder on that computer
 * Refreshes the injury news file and the team depth charts from ESPN every day, and the player ages file on Mondays
 * Deploys the project to Vercel so the Pickups and trades tab shows fresh numbers
@@ -15,7 +15,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 * Do not change code. The only files this job may change are inside the data folder, plus the raw scan text, the news raw file and the news tags file in the notes folder. The Josh updates job below may also change the Josh updates list in the notes folder
 * Never copy ESPN's or RotoWire's sentences into any file in the project folder. The whole project is public
 * If something is broken, stop and say so in plain words. Do not improvise around it
-* Replies to Vik use plain English, bullet points, no dashes and no colons, bold only for section titles
+* Replies to Vikas use plain English, bullet points, no dashes and no colons, bold only for section titles
 
 ## Places
 * Yahoo league page, https://basketball.fantasysports.yahoo.com/nba/82878/11
@@ -28,10 +28,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 ## Steps
 1. Check the tools. You need the Claude in Chrome tools and the linked computer tools. If either is missing, report that the scan could not run and stop
 2. Open a new Chrome tab and go to the Yahoo league page. If Yahoo shows a sign in page, report that Yahoo is signed out and stop
-3. Load and start the scanner with one JavaScript call in that tab
-   ```
-   const t=await (await fetch('https://ninecatwarroom.vercel.app/scan/yahoo-scan.js',{cache:'no-store'})).text(); (0,eval)(t); window.__p=NCWSCAN.run({limit:12000}); 'started'
-   ```
+3. Load and start the scanner. The site is behind a password now, so the Yahoo tab cannot fetch the scanner from it. Read scan\yahoo-scan.js from the project folder on the computer and run its full text as one JavaScript call in the Yahoo tab, then run `window.__p=NCWSCAN.run({limit:12000}); 'started'`. The scanner still reads /data/players.json from the site, which is the one file left open
 4. Every 15 seconds or so run `JSON.stringify(NCWSCAN.status())` until done is true. It takes about one minute. If err is not empty, start it once more. If it fails twice, report the error text and stop
 5. For each page k from 0 to pages minus 1, run `NCWSCAN.show(k)` and then read the page text. Copy every line exactly, from the first line after the heading through the last line, into a file named page1.txt, page2.txt and so on in the raw scan folder. Each line ends with a space and a tilde. Do not fix, reorder or tidy anything
 6. Run the ingest in the project folder
@@ -74,14 +71,14 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
    cmd /c "cd /d C:\Users\vikas\Projects\ninecat-war-room && vercel deploy --prod --yes"
    ```
    * If it prints Not authorized or any other error, run the same command one more time. On Oct 4 the first try failed that way and the second worked
-11. Check the live site. In the Chrome tab run
+11. Check the live site. Go to https://ninecatwarroom.vercel.app/#moves in the Chrome tab first, so the request carries the password cookie. If the password page shows, report that Chrome is signed out of the site and that Vikas has to type the password once. Never type it yourself. Then run
    ```
    (await (await fetch('https://ninecatwarroom.vercel.app/data/scan.json',{cache:'no-store'})).json()).at
    ```
    It must match the time in the scan saved line
-12. Go to https://ninecatwarroom.vercel.app/#moves in the same tab, wait about ten seconds, and run `NCWMoves.summary()`. If it says not ready, wait and try again
+12. In the same tab, wait about ten seconds, and run `NCWMoves.summary()`. If it says not ready, wait and try again
 13. Close the tab you opened
-14. Report to Vik in a few short bullets
+14. Report to Vikas in a few short bullets
     * That the scan ran and what time Yahoo was read
     * Week win chance and cats led or favored
     * The season plan line from the summary. Plan cats on target, any lock at risk and the leading route

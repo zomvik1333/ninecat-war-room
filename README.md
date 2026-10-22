@@ -17,7 +17,16 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.2 (branch main), Oct 22 2026
+## Version 26.3 (branch main), Oct 22 2026
+
+* The whole site is behind a password. A sign in page asks for the password and nothing else. After the right password the browser keeps a cookie for 180 days
+* The password is never in the code. Vercel keeps only its hash in the SITE_PASS_HASH setting. Changing that setting signs every browser out, which is how to lock someone out later
+* Only /data/players.json stays open, since the Yahoo scanner reads it from a Yahoo tab and it is just the public player list
+* Sign out at /__gate?out=1
+* The scan steps now load the scanner from the project folder and check the live data from the site tab, since a Yahoo tab cannot get past the password
+* Fallback branch fallback-v26-2-before-login
+
+## Version 26.2, Oct 22 2026
 
 * Trade cards are about a fifth the size. Three sections. What it does for me, one table with the locks always and any cat that moves 1.5 or more. How to sell it, what the other team gains, said about that team. News and risk, a few short lines
 * Gone from trade cards. How it looks to them, For your eyes only, Josh on the cats, and What they will say unless a profile on that manager is loaded
