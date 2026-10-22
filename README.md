@@ -19,7 +19,7 @@ Live site at https://ninecatwarroom.vercel.app
 
 ## Version 26.3 (branch main), Oct 22 2026
 
-* The whole site is behind a password. A sign in page asks for the password and nothing else. After the right password the browser keeps a cookie for 180 days
+* The whole site is behind a password. A sign in page asks for the password and nothing else. After the right password the browser keeps a cookie for 400 days, the longest Chrome allows
 * The password is never in the code. Vercel keeps only its hash in the SITE_PASS_HASH setting. Changing that setting signs every browser out, which is how to lock someone out later
 * Only /data/players.json stays open, since the Yahoo scanner reads it from a Yahoo tab and it is just the public player list
 * Sign out at /__gate?out=1

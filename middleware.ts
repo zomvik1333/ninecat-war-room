@@ -10,7 +10,7 @@ declare const process: { env: Record<string, string | undefined> };
 const COOKIE = 'ncw_gate';
 const GATE = '/__gate';
 const OPEN = new Set(['/data/players.json', '/favicon.ico']);
-const DAYS = 180;
+const DAYS = 400;
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
