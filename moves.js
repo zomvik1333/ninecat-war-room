@@ -251,8 +251,8 @@ function project(p,scan){
   else if(line && p.m14!=null && p.g14>=3 && line.mp>5){ const r=p.m14/line.mp; const mp0=mpPlain==null?line.mp:(cur?mpPlain*(1-w)+cur.mp*w:mpPlain), r0=p.m14/mp0;
     if(Math.abs(r-1)>=0.15){ const f=Math.pow(clamp(r,0.6,1.5),0.9); line=scaleLine(line,f); line.mp=p.m14; p.jcMin=false; }
     if(Math.abs(r0-1)>=0.15) p.role=r0>1?'up':'down'; }
-  // the contract year bump, scaled by how good he is. A typical rostered player sits near the low end and a star at the top. Off unless data/contracts.json is switched on
-  p.cy=null; { const lv=line?cyOf(p.name):null; if(lv){ const sk=clamp((valOf(line)+2)/8,0,1), f=1+(lv==='deal'?0.07+0.03*sk:0.03+0.02*sk); line=cyBump(line,f); p.cy={level:lv,f}; } }
+  // the contract year bump. Playing for a deal is scaled by how good he is, a typical rostered player near 6 percent and a star at 7. Off unless data/contracts.json is switched on
+  p.cy=null; { const lv=line?cyOf(p.name):null; if(lv){ const sk=clamp((valOf(line)+2)/8,0,1), f=1+(lv==='deal'?0.06+0.01*sk:0.03); line=cyBump(line,f); p.cy={level:lv,f}; } }
   p.proj=line; p.w=w; p.gp=gp; p.prior=prior;
   p.basis=!line?'none':gp<2?pb:w>=0.75?'now':'blend';
   p.val=line?valOf(line):-12;
@@ -728,8 +728,8 @@ const KEEP=new Set(['rui hachimura']);
 // only in a slump or a long injury. Droppable players go for any clear upgrade, and a player on no list, such as a new pickup, counts as droppable.
 // review names the games after which a player's spot is checked again, with a note for anything else to watch
 const TTRADE=new Set(), TFLOAT=new Set(), TDROP=new Set(), REVIEW={};
-// contract years from data/contracts.json, used only while its on flag is true. Vikas's numbers from Oct 24 2026. A normal player in the last year of his deal
-// is counted 3 to 5 percent better, more for a better player, and one clearly playing for a new deal 7 to 10 percent. Turnovers and minutes are left alone
+// contract years from data/contracts.json, used only while its on flag is true. Vikas's numbers from Oct 24 2026, lowered the same night. A normal player in the last
+// year of his deal is counted 3 percent better, and one clearly playing for a new deal 6 to 7 percent, more for a better player. Turnovers and minutes are left alone
 const CY={};
 function loadCY(){ Object.keys(CY).forEach(k=>delete CY[k]); const j=D.cy; if(!j || j.on!==true || !j.p || typeof j.p!=='object') return;
   Object.keys(j.p).forEach(n=>{ const v=j.p[n], lv=typeof v==='string'?v:(v && typeof v==='object'?v.level:''); if(lv==='normal' || lv==='deal') CY[B.nkey(n)]=lv; }); }

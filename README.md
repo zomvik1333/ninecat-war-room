@@ -23,7 +23,7 @@ Live site at https://ninecatwarroom.vercel.app
 * review in data/plan.json names the games after which a player's spot is checked again, with a note for anything else to watch. The new My tiers tab under Pickups shows every player's group and review. A review says move down when the best long term free agent would add 1 point or more to the average week in his place. A droppable player earns a move up after 10 games once his box score rating matches the lowest on the trade only list, with 26 or more minutes
 * Rui left the keep list and is now droppable, as the first drop once Brandon Ingram is back
 * Streams that also last rank first. A stream now adds 30 percent of any rest of season lift to its week score
-* Contract years. data/contracts.json lists players whose deals can end after the season, from Hoops Rumors. A free agent or restricted free agent aged 27 or younger counts as playing for a deal, 7 to 10 percent better, everyone else 3 to 5 percent, more for a better player. Turnovers and minutes are left alone. It runs only while on is true in the file. Sell high adds Contract year, sell before he signs for a hot contract year player of yours
+* Contract years. data/contracts.json lists players whose deals can end after the season, from Hoops Rumors. A free agent or restricted free agent aged 27 or younger counts as playing for a deal, 6 to 7 percent better, more for a better player, and everyone else 3 percent. Turnovers and minutes are left alone. It runs only while on is true in the file. Sell high adds Contract year, sell before he signs for a hot contract year player of yours
 * The nightly summary has a tiers line with any review flags
 * Fallback branch fallback-v26-4-before-tiers
 
