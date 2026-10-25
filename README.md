@@ -17,7 +17,15 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.5 (branch main), Oct 24 2026, contract years on
+## Version 26.6 (branch main), Oct 24 2026
+
+* My tiers is now a small box of its own under The league, showing only floating and droppable players. Trade only players are left off
+* The long explanations on pickups, long term, trade chips, trades, By manager and the league table sit behind a closed How this works toggle
+* Sell high has three tabs, Sell high, Rising keep and Contract year, each with a count
+* The Teams tab shows every team's place, average week, top four chance and record, with each cat's chance in an average week, green 60 percent or better and red 40 or under, sorted strongest first. Your plan locks are marked. It follows the newest scan
+* Fallback branch fallback-v26-5-before-layout
+
+## Version 26.5, Oct 24 2026, contract years on
 
 * Roster tiers, set by Vikas. data/plan.json has tiers with three lists. trade is trade only, moved only in trades and dropped only when out for the season or, for a non top pick, out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream and dropped for a long term add only in a slump. drop goes for any clear upgrade. A pickup on no list counts as droppable
 * review in data/plan.json names the games after which a player's spot is checked again, with a note for anything else to watch. The new My tiers tab under Pickups shows every player's group and review. A review says move down when the best long term free agent would add 1 point or more to the average week in his place. A droppable player earns a move up after 10 games once his box score rating matches the lowest on the trade only list, with 26 or more minutes

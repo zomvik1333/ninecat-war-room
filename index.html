@@ -1312,24 +1312,31 @@ function renderBefore(now, to, onClock){
   $('btNote').textContent = rows.length ? rows.length+' picks '+(onClock?'after this one':'until yours') : '';
   el.innerHTML = rows.join('') || '<li class="empty">'+(onClock?'You pick again right after this.':'You are up next.')+'</li>';
 }
+// the Teams tab shows each team's place and cat chances from the Pickups and trades numbers once they are ready, sorted strongest first
+let TTRY=0, TTIMER=null;
 function renderTeams(now){
+  const LI=(window.NCWMoves && NCWMoves.teamsInfo)?NCWMoves.teamsInfo():null;
+  if(!LI && window.NCWMoves && TTRY<40){ TTRY++; clearTimeout(TTIMER); TTIMER=setTimeout(()=>{ if(S.tab==='teams') renderTeams(nowPick()); },1500); } else if(LI) TTRY=0;
   const R=rosters(); const clockSlot = now<=TEAMS*ROUNDS ? slotOfPick(now) : null;
   const used=usedPicks(); const pk={}, moved={}; S.order.forEach((id,i)=>{ pk[id]=pickNo(i); if(ownerSlot(i)!==slotOfPick(pickNo(i))) moved[id]=true; });
   const live=scanOn(); if(live){ for(const sl in R) R[sl].forEach(id=>{ moved[id]=pk[id]!=null && slotOfPick(pk[id])!==+sl; }); }
   const picksOf = sl=>{ const out=[]; for(let r=1;r<=ROUNDS;r++){ out.push((r-1)*TEAMS + (r%2===1 ? sl : TEAMS+1-sl)); } return out; };
   let h='';
-  for(let sl=1;sl<=TEAMS;sl++){
-    const ids=R[sl]||[]; const open=openSlots(ids); const prof=profileOf(ids);
+  const liOf=sl=>LI?LI.teams[teamName(sl)]||null:null;
+  const order=Array.from({length:TEAMS},(_,i)=>i+1); if(LI) order.sort((a,b)=>((liOf(a)||{}).pos||99)-((liOf(b)||{}).pos||99));
+  for(const sl of order){
+    const ids=R[sl]||[]; const open=openSlots(ids); const prof=profileOf(ids); const li=liOf(sl);
     const nextP=picksOf(sl).find(n=>n>=now && !used.has(n));
     const lst=ids.map(id=>'<li>'+(live&&pk[id]==null?'<span title="Added after the draft">Add</span>':'<span title="Pick '+pk[id]+'">R'+Math.ceil(pk[id]/TEAMS)+'</span>')+'<span>'+esc(byId(id).name)+(moved[id]?' <span class="small">swap</span>':'')+'</span><span>'+esc(byId(id).team)+' '+esc(byId(id).pos.replaceAll(',',' '))+'</span></li>').join('');
-    const cats = ids.length>=3 ? '<div class="tcats">'+prof.map(x=>'<span class="chip '+(x.st==='win'?'good':x.st==='lose'?'bad':'warn')+'">'+CATS[x.c]+'</span>').join('')+'</div>' : '';
+    const cats = li ? '<div class="small" style="margin-top:6px"><b>Rank '+li.pos+' of '+LI.n+'</b>, average week '+Math.round(100*li.week)+'%, top four '+Math.round(100*li.top4)+'%, record '+(li.rec.w||0)+' '+(li.rec.l||0)+' '+(li.rec.t||0)+'</div><div class="tcats">'+li.per.map((x,c)=>'<span class="chip '+(x>=0.6?'good':x<=0.4?'bad':'warn')+'" title="'+Math.round(100*x)+' percent to win '+CATS[c]+' in an average week">'+CATS[c]+' '+Math.round(100*x)+(li.me && LI.lock.includes(c)?' lock':'')+'</span>').join('')+'</div>'
+      : ids.length>=3 ? '<div class="tcats">'+prof.map(x=>'<span class="chip '+(x.st==='win'?'good':x.st==='lose'?'bad':'warn')+'">'+CATS[x.c]+'</span>').join('')+'</div>' : '';
     h+='<div class="tcard'+(sl===S.slot?' me':'')+(sl===clockSlot?' clock':'')+'"><div class="thead"><span class="tname">'+esc(teamName(sl))+'</span><span class="tslot">Slot '+sl+(nextP?', next '+nextP:'')+'</span></div>'+
        (ids.length?'<ul class="tlist">'+lst+'</ul>':'<p class="small">No picks yet.</p>')+
        '<div class="small">'+(open.length?'Open spots '+openText(open):'Starting spots full')+'</div>'+cats+'</div>';
   }
   $('tgrid').innerHTML=h;
   const named=Object.keys(S.teamNames||{}).length;
-  $('teamsNote').textContent = named ? 'names from Yahoo' : live ? 'Ball Lovers rosters from the Yahoo scan'+(SCN.day?', '+SCN.day:'') : S.league ? 'Ball Lovers rosters from Yahoo, Oct 2 2026' : (S.slot===LEAGUE_SLOT ? 'Ball Lovers draft order' : 'built from the picks as they happen');
+  $('teamsNote').textContent = (LI && live) ? 'rosters from the Yahoo scan'+(SCN.day?', '+SCN.day:'')+', strongest first. Green is 60 percent or better to win that cat in an average week, red is 40 or under' : named ? 'names from Yahoo' : live ? 'Ball Lovers rosters from the Yahoo scan'+(SCN.day?', '+SCN.day:'') : S.league ? 'Ball Lovers rosters from Yahoo, Oct 2 2026' : (S.slot===LEAGUE_SLOT ? 'Ball Lovers draft order' : 'built from the picks as they happen');
 }
 
 // Yahoo sync. Works on the Vercel site, where the /api helpers live.
