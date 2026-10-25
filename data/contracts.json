@@ -1,8 +1,8 @@
 {
  "made": "2026-10-24",
- "on": false,
+ "on": true,
  "src": "Hoops Rumors, 2027 NBA Free Agents, updated Oct 24 2026",
- "note": "Players whose contracts can end after the 2026 27 season, two way deals left out. level deal means a free agent or restricted free agent aged 27 or younger, playing for his next deal, counted 6 to 7 percent better. level normal is everyone else, including player, team and mutual options, counted 3 percent better. The bump is a trial for a player's first 5 games. From game 6 it stays only while his numbers this season are at or above his usual level. The bump only runs while on is true. Vikas reviews the list first.",
+ "note": "Players whose contracts can end after the 2026 27 season, two way deals left out. level deal means a free agent or restricted free agent aged 27 or younger, playing for his next deal, counted 6 to 7 percent better. level normal is everyone else, including player, team and mutual options, counted 3 percent better. The bump is a trial for a player's first 5 games. From game 6 it stays only while his numbers this season are at or above his usual level. The bump only runs while on is true. Vikas approved it on Oct 24 2026.",
  "p": {
   "Luguentz Dort": {
    "level": "deal",
