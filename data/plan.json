@@ -18,8 +18,52 @@
  "hold": {
   "Cameron Boozer": "2027-01-15"
  },
- "keep": [
-  "Rui Hachimura"
- ],
- "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them."
+ "keep": [],
+ "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them.",
+ "tiers": {
+  "trade": [
+   "VJ Edgecombe",
+   "Donovan Mitchell",
+   "Julius Randle",
+   "Trey Murphy III",
+   "Yaxel Lendeborg",
+   "Immanuel Quickley",
+   "Jayson Tatum",
+   "Cameron Boozer",
+   "Onyeka Okongwu",
+   "Neemias Queta"
+  ],
+  "float": [
+   "Moussa Diabate",
+   "Reed Sheppard"
+  ],
+  "drop": [
+   "Rui Hachimura",
+   "Naji Marshall",
+   "Bilal Coulibaly",
+   "Precious Achiuwa"
+  ]
+ },
+ "review": {
+  "Onyeka Okongwu": {
+   "games": 15,
+   "note": "whether his usage picks up as Atlanta's lead center, or a better center shows up on waivers"
+  },
+  "Neemias Queta": {
+   "games": 15,
+   "note": "his minutes, he is a trade piece for a center like Naz Reid and becomes droppable only if his minutes are cut"
+  },
+  "Moussa Diabate": {
+   "games": 15,
+   "note": "whether he passes Queta as Charlotte's lead center"
+  },
+  "Reed Sheppard": {
+   "games": 15,
+   "note": "his usage in the first two games after Fred VanVleet returns, a big drop makes him droppable and holding up makes him trade only"
+  },
+  "Rui Hachimura": {
+   "note": "Brandon Ingram's return, about Nov 8, after which he is the first drop"
+  }
+ },
+ "tiersNote": "Set by Vikas on Oct 24 2026. trade is trade only, never dropped unless out for the season or out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream. drop goes for any clear upgrade. A player on no list counts as droppable. review gives the games after which a spot is checked again and what else to watch. Streams should favor players who also last."
 }

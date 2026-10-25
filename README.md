@@ -17,7 +17,17 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.4 (branch main), Oct 22 2026
+## Version 26.5 (branch main), Oct 24 2026
+
+* Roster tiers, set by Vikas. data/plan.json has tiers with three lists. trade is trade only, moved only in trades and dropped only when out for the season or, for a non top pick, out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream and dropped for a long term add only in a slump. drop goes for any clear upgrade. A pickup on no list counts as droppable
+* review in data/plan.json names the games after which a player's spot is checked again, with a note for anything else to watch. The new My tiers tab under Pickups shows every player's group and review. A review says move down when the best long term free agent would add 1 point or more to the average week in his place. A droppable player earns a move up after 10 games once his box score rating matches the lowest on the trade only list, with 26 or more minutes
+* Rui left the keep list and is now droppable, as the first drop once Brandon Ingram is back
+* Streams that also last rank first. A stream now adds 30 percent of any rest of season lift to its week score
+* Contract years. data/contracts.json lists players whose deals can end after the season, from Hoops Rumors. A free agent or restricted free agent aged 27 or younger counts as playing for a deal, 7 to 10 percent better, everyone else 3 to 5 percent, more for a better player. Turnovers and minutes are left alone. It runs only while on is true in the file. Sell high adds Contract year, sell before he signs for a hot contract year player of yours
+* The nightly summary has a tiers line with any review flags
+* Fallback branch fallback-v26-4-before-tiers
+
+## Version 26.4, Oct 22 2026
 
 * Deals in talks. The notes file can list deals a manager has talked about, each marked yes, maybe or no, with a date and a short note. Any size works, three for three included, and every number comes from checkOffer
 * By manager shows an In talks section at the top for that manager, with your gain, your average week before and after, whether it keeps your locks, how it looks to him on box scores, and the chance it happens (about 80 percent for a yes in principle, about 55 for considering)

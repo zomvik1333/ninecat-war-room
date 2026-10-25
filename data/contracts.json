@@ -1,0 +1,1100 @@
+{
+ "made": "2026-10-24",
+ "on": false,
+ "src": "Hoops Rumors, 2027 NBA Free Agents, updated Oct 24 2026",
+ "note": "Players whose contracts can end after the 2026 27 season, two way deals left out. level deal means a free agent or restricted free agent aged 27 or younger, playing for his next deal, counted 7 to 10 percent better. level normal is everyone else, including player, team and mutual options, counted 3 to 5 percent better. The bump only runs while on is true. Vikas reviews the list first.",
+ "p": {
+  "Luguentz Dort": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "ATL",
+   "age": 27
+  },
+  "Mouhamed Gueye": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "ATL",
+   "age": 23
+  },
+  "Jock Landale": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "ATL",
+   "age": 30
+  },
+  "CJ McCollum": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "ATL",
+   "age": 35
+  },
+  "Mike Conley": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "BOS",
+   "age": 39
+  },
+  "Luka Garza": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "BOS",
+   "age": 27
+  },
+  "Paul George": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "BOS",
+   "age": 36
+  },
+  "Michael Porter Jr.": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "BKN",
+   "age": 28
+  },
+  "Noah Clowney": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "BKN",
+   "age": 22
+  },
+  "Julius Randle": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "BKN",
+   "age": 31
+  },
+  "Day'Ron Sharpe": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "BKN",
+   "age": 24
+  },
+  "Josh Minott": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "BKN",
+   "age": 23
+  },
+  "Moritz Wagner": {
+   "level": "normal",
+   "kind": "mutual option",
+   "team": "BKN",
+   "age": 29
+  },
+  "Keon Ellis": {
+   "level": "normal",
+   "kind": "mutual option",
+   "team": "BKN",
+   "age": 26
+  },
+  "Moussa Diabate": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "CHA",
+   "age": 24
+  },
+  "Grant Williams": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "CHA",
+   "age": 27
+  },
+  "Grayson Allen": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "CHA",
+   "age": 31
+  },
+  "Leonard Miller": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "CHI",
+   "age": 22
+  },
+  "Isaac Okoro": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "CHI",
+   "age": 25
+  },
+  "Jalen Smith": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "CHI",
+   "age": 26
+  },
+  "Buddy Hield": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "CHI",
+   "age": 33
+  },
+  "Norman Powell": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "CHI",
+   "age": 33
+  },
+  "Zach Collins": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "CHI",
+   "age": 28
+  },
+  "Tre Jones": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "CHI",
+   "age": 26
+  },
+  "Thomas Bryant": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "CLE",
+   "age": 29
+  },
+  "Mario Hezonja": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "CLE",
+   "age": 31
+  },
+  "Craig Porter Jr.": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "CLE",
+   "age": 26
+  },
+  "Nae'Qwan Tomlin": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "CLE",
+   "age": 25
+  },
+  "Dereck Lively II": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "DAL",
+   "age": 22
+  },
+  "Marcus Sasser": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "DAL",
+   "age": 26
+  },
+  "Kyrie Irving": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "DAL",
+   "age": 34
+  },
+  "Caleb Martin": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "DAL",
+   "age": 31
+  },
+  "Max Christie": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "DAL",
+   "age": 23
+  },
+  "Santi Aldama": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "DAL",
+   "age": 25
+  },
+  "Tarik Biberovic": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "DAL",
+   "age": 25
+  },
+  "Marvin Bagley III": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "DEN",
+   "age": 27
+  },
+  "DeMar DeRozan": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "DEN",
+   "age": 37
+  },
+  "Cameron Johnson": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "DEN",
+   "age": 30
+  },
+  "Tyus Jones": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "DEN",
+   "age": 30
+  },
+  "Alpha Diallo": {
+   "level": "normal",
+   "kind": "restricted free agent",
+   "team": "DEN",
+   "age": 29
+  },
+  "Julian Strawther": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "DEN",
+   "age": 24
+  },
+  "Nikola Jokic": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "DEN",
+   "age": 31
+  },
+  "Zeke Nnaji": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "DEN",
+   "age": 25
+  },
+  "Javonte Green": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "DET",
+   "age": 33
+  },
+  "Taurean Prince": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "DET",
+   "age": 32
+  },
+  "Paul Reed": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "DET",
+   "age": 27
+  },
+  "Daniss Jenkins": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "DET",
+   "age": 25
+  },
+  "Tolu Smith": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "DET",
+   "age": 26
+  },
+  "Isaiah Joe": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "DET",
+   "age": 27
+  },
+  "Charles Bassey": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "GSW",
+   "age": 25
+  },
+  "Jimmy Butler": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "GSW",
+   "age": 37
+  },
+  "Draymond Green": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "GSW",
+   "age": 36
+  },
+  "Georges Niang": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "GSW",
+   "age": 33
+  },
+  "Gary Payton II": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "GSW",
+   "age": 33
+  },
+  "Brandon Williams": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "GSW",
+   "age": 26
+  },
+  "Kristaps Porzingis": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "GSW",
+   "age": 31
+  },
+  "Al Horford": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "GSW",
+   "age": 40
+  },
+  "De'Anthony Melton": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "GSW",
+   "age": 28
+  },
+  "Bogdan Bogdanovic": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "HOU",
+   "age": 34
+  },
+  "Jae'Sean Tate": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "HOU",
+   "age": 30
+  },
+  "Fred VanVleet": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "HOU",
+   "age": 32
+  },
+  "Kevin Durant": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "HOU",
+   "age": 38
+  },
+  "Marcus Smart": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "HOU",
+   "age": 32
+  },
+  "Larry Nance Jr.": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "IND",
+   "age": 33
+  },
+  "Ben Sheppard": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "IND",
+   "age": 25
+  },
+  "Jarace Walker": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "IND",
+   "age": 23
+  },
+  "Jay Huff": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "IND",
+   "age": 29
+  },
+  "Johnny Furphy": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "IND",
+   "age": 21
+  },
+  "Kris Dunn": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "LAC",
+   "age": 32
+  },
+  "Derrick Jones Jr.": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "LAC",
+   "age": 29
+  },
+  "Brook Lopez": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "LAC",
+   "age": 38
+  },
+  "Max Strus": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "LAC",
+   "age": 30
+  },
+  "Gradey Dick": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "LAC",
+   "age": 22
+  },
+  "Brandon Ingram": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "LAC",
+   "age": 29
+  },
+  "Bradley Beal": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "LAC",
+   "age": 33
+  },
+  "Rui Hachimura": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "LAC",
+   "age": 28
+  },
+  "Jake LaRavia": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "LAL",
+   "age": 24
+  },
+  "Kevon Looney": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "LAL",
+   "age": 30
+  },
+  "Matisse Thybulle": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "LAL",
+   "age": 29
+  },
+  "Ziaire Williams": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "LAL",
+   "age": 25
+  },
+  "Jarred Vanderbilt": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "LAL",
+   "age": 27
+  },
+  "Collin Sexton": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "LAL",
+   "age": 27
+  },
+  "Jaden Hardy": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "LAL",
+   "age": 24
+  },
+  "Bronny James": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "LAL",
+   "age": 22
+  },
+  "Adou Thiero": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "LAL",
+   "age": 22
+  },
+  "GG Jackson II": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "MEM",
+   "age": 21
+  },
+  "Olivier-Maxence Prosper": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "MEM",
+   "age": 24
+  },
+  "Taylor Hendricks": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "MEM",
+   "age": 22
+  },
+  "Kris Murray": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "MEM",
+   "age": 26
+  },
+  "Jerami Grant": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MEM",
+   "age": 32
+  },
+  "Ty Jerome": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MEM",
+   "age": 29
+  },
+  "Isaiah Stewart": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "MEM",
+   "age": 25
+  },
+  "Scotty Pippen Jr.": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "MEM",
+   "age": 25
+  },
+  "Jaylen Wells": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "MEM",
+   "age": 23
+  },
+  "Simone Fontecchio": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIA",
+   "age": 30
+  },
+  "Tim Hardaway Jr.": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIA",
+   "age": 34
+  },
+  "Davion Mitchell": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIA",
+   "age": 28
+  },
+  "Nick Richards": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIA",
+   "age": 28
+  },
+  "Giannis Antetokounmpo": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MIA",
+   "age": 31
+  },
+  "Bobby Portis": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MIA",
+   "age": 31
+  },
+  "Klay Thompson": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MIA",
+   "age": 36
+  },
+  "Dru Smith": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "MIA",
+   "age": 28
+  },
+  "Tyler Herro": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "MIL",
+   "age": 26
+  },
+  "Kyle Kuzma": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIL",
+   "age": 31
+  },
+  "Caris LeVert": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIL",
+   "age": 32
+  },
+  "Jericho Sims": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "MIL",
+   "age": 27
+  },
+  "Jaime Jaquez Jr.": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "MIL",
+   "age": 25
+  },
+  "Ryan Rollins": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MIL",
+   "age": 24
+  },
+  "Donte DiVincenzo": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIN",
+   "age": 29
+  },
+  "Bones Hyland": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "MIN",
+   "age": 26
+  },
+  "Trey Lyles": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "MIN",
+   "age": 30
+  },
+  "Rudy Gobert": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MIN",
+   "age": 34
+  },
+  "Jonathan Kuminga": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "MIN",
+   "age": 24
+  },
+  "AJ Johnson": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "NOP",
+   "age": 21
+  },
+  "Jordan Poole": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "NOP",
+   "age": 27
+  },
+  "Trendon Watford": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "NOP",
+   "age": 25
+  },
+  "Karlo Matkovic": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "NOP",
+   "age": 25
+  },
+  "Dejounte Murray": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "NOP",
+   "age": 30
+  },
+  "Bennedict Mathurin": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "NOP",
+   "age": 24
+  },
+  "Bryce McGowens": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "NOP",
+   "age": 23
+  },
+  "Jordan Clarkson": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "NYK",
+   "age": 34
+  },
+  "Andre Drummond": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "NYK",
+   "age": 33
+  },
+  "Miles McBride": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "NYK",
+   "age": 26
+  },
+  "James Wiseman": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "NYK",
+   "age": 25
+  },
+  "Karl-Anthony Towns": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "NYK",
+   "age": 30
+  },
+  "Josh Hart": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "NYK",
+   "age": 31
+  },
+  "Tyler Kolek": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "NYK",
+   "age": 25
+  },
+  "Kenrich Williams": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "OKC",
+   "age": 31
+  },
+  "Jaylin Williams": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "OKC",
+   "age": 24
+  },
+  "Ajay Mitchell": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "OKC",
+   "age": 24
+  },
+  "Goga Bitadze": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "ORL",
+   "age": 27
+  },
+  "Jamal Cain": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "ORL",
+   "age": 27
+  },
+  "Jevon Carter": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "ORL",
+   "age": 31
+  },
+  "Jonathan Isaac": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "ORL",
+   "age": 29
+  },
+  "Nikola Vucevic": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "ORL",
+   "age": 35
+  },
+  "Anthony Black": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "ORL",
+   "age": 22
+  },
+  "Dominick Barlow": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "PHI",
+   "age": 23
+  },
+  "Kentavious Caldwell-Pope": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "PHI",
+   "age": 33
+  },
+  "Jabari Walker": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "PHI",
+   "age": 24
+  },
+  "Ariel Hukporti": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "PHI",
+   "age": 24
+  },
+  "Anfernee Simons": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "PHI",
+   "age": 27
+  },
+  "LeBron James": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "PHI",
+   "age": 41
+  },
+  "Justin Edwards": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "PHI",
+   "age": 22
+  },
+  "Adem Bona": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "PHI",
+   "age": 23
+  },
+  "Jamaree Bouyea": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "PHX",
+   "age": 27
+  },
+  "Miles Bridges": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "PHX",
+   "age": 28
+  },
+  "Jalen Green": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "PHX",
+   "age": 24
+  },
+  "Luke Kennard": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "PHX",
+   "age": 30
+  },
+  "Branden Carlson": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "POR",
+   "age": 27
+  },
+  "Sidy Cissoko": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "POR",
+   "age": 22
+  },
+  "Micah Potter": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "POR",
+   "age": 28
+  },
+  "Scoot Henderson": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "POR",
+   "age": 22
+  },
+  "Jrue Holiday": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "POR",
+   "age": 36
+  },
+  "Damian Lillard": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "POR",
+   "age": 36
+  },
+  "Vit Krejci": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "POR",
+   "age": 26
+  },
+  "De'Andre Hunter": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "SAC",
+   "age": 28
+  },
+  "Zach LaVine": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "SAC",
+   "age": 31
+  },
+  "Ben Simmons": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "SAC",
+   "age": 30
+  },
+  "Malik Monk": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "SAC",
+   "age": 28
+  },
+  "Maxime Raynaud": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "SAC",
+   "age": 23
+  },
+  "Harrison Barnes": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "SAS",
+   "age": 34
+  },
+  "Keldon Johnson": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "SAS",
+   "age": 27
+  },
+  "Jordan McLaughlin": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "SAS",
+   "age": 30
+  },
+  "Kyle Anderson": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "TOR",
+   "age": 33
+  },
+  "RJ Barrett": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "TOR",
+   "age": 26
+  },
+  "Trayce Jackson-Davis": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "TOR",
+   "age": 26
+  },
+  "Jamison Battle": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "TOR",
+   "age": 25
+  },
+  "Tony Bradley": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "UTA",
+   "age": 28
+  },
+  "Josh Green": {
+   "level": "deal",
+   "kind": "unrestricted free agent",
+   "team": "UTA",
+   "age": 25
+  },
+  "Brice Sensabaugh": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "UTA",
+   "age": 22
+  },
+  "Jaxson Hayes": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "UTA",
+   "age": 26
+  },
+  "Josh Okogie": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "UTA",
+   "age": 28
+  },
+  "Svi Mykhailiuk": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "UTA",
+   "age": 29
+  },
+  "Mo Bamba": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "UTA",
+   "age": 28
+  },
+  "Kyle Filipowski": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "UTA",
+   "age": 22
+  },
+  "Deandre Ayton": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "WAS",
+   "age": 28
+  },
+  "Anthony Gill": {
+   "level": "normal",
+   "kind": "unrestricted free agent",
+   "team": "WAS",
+   "age": 34
+  },
+  "Bilal Coulibaly": {
+   "level": "deal",
+   "kind": "restricted free agent",
+   "team": "WAS",
+   "age": 22
+  },
+  "Anthony Davis": {
+   "level": "normal",
+   "kind": "player option",
+   "team": "WAS",
+   "age": 33
+  },
+  "Tre Mann": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "WAS",
+   "age": 25
+  },
+  "Justin Champagnie": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "WAS",
+   "age": 25
+  },
+  "Tristan Vukcevic": {
+   "level": "normal",
+   "kind": "team option",
+   "team": "WAS",
+   "age": 23
+  }
+ }
+}
