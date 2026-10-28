@@ -277,7 +277,8 @@ const isGTD=p=>/^(GTD|DTD)$/i.test(p.status||'');
 // a tag this code does not know is read as questionable, never as healthy
 // a player the news lists as out with a return date counts as out on every day before that date
 const outYet=(p,day)=>!!(p.ret && day && day<p.ret);
-const pNow=(p,day)=>outYet(p,day)||isIL(p)||isOut(p)?0:!p.status?0.96:/^P$/i.test(p.status)?0.9:isDoubt(p)?0.25:isGTD(p)?0.75:0.6;
+// an out player with a return date, from the news or the two day rule, counts from that date at 75 percent, since a first game back can still be missed
+const pNow=(p,day)=>outYet(p,day)||isIL(p)||(isOut(p)&&!p.ret)?0:isOut(p)?0.75:!p.status?0.96:/^P$/i.test(p.status)?0.9:isDoubt(p)?0.25:isGTD(p)?0.75:0.6;
 // Pickups take a further cut for a tag, for the risk that the add is wasted while he sits. It is the cut for a one week stream. A keep takes half of it.
 // A tag this code does not know is cut like questionable. Probable and out take none. Out is handled by the return date instead
 const tagCut=p=>!p.status||/^P$/i.test(p.status)||isOut(p)?0:isDoubt(p)?0.60:isGTD(p)?0.10:0.25;
@@ -617,6 +618,11 @@ function build(scan,opt){
     if(m.type==='trade'){ const o=m.withTeam; if(!ctx.ros[o]) continue; m.give.forEach(id=>{ const p=ctx.U[id]; if(p&&p.own===ME){ ctx.ros[ME]=ctx.ros[ME].filter(x=>x!==p); p.own=o; p.slot='BN'; ctx.ros[o].push(p); } }); m.get.forEach(id=>{ const p=ctx.U[id]; if(p&&p.own===o){ ctx.ros[o]=ctx.ros[o].filter(x=>x!==p); p.own=ME; p.slot='BN'; ctx.ros[ME].push(p); } });
       if(m.cut){ const c=ctx.U[m.cut]; if(c && c.own===o){ ctx.ros[o]=ctx.ros[o].filter(x=>x!==c); c.own=null; c.slot=''; c.fa='W'; ctx.avail.push(c); } } }
   }
+  // Vikas, Oct 28 2026. A player tagged out with no return date in the news is counted out for the next two days only, then back. News with a date always wins,
+  // and a note that says the season is over is never shortened
+  { const d=new Date(today0+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+2); const d2=d.toISOString().slice(0,10);
+    Object.values(ctx.U).forEach(p=>{ const txt=String((p.news&&p.news.note)||'')+' '+String((p.news&&p.news.part)||'');
+      if(!p.ret && /^(O|OUT|INJ)$/i.test(p.status||'') && !/out for the (rest of the )?season|season[ -]ending/i.test(txt)){ p.ret=d2; p.retGuess=true; } }); }
   let gsum=0, gn=0;
   Object.values(ctx.U).forEach(p=>{ p.b=boardOf(p.name); project(p,scan); if(p.own){ gsum+=p.gp; gn++; } });
   ctx.avgGP=gn?gsum/gn:0;
@@ -1357,7 +1363,7 @@ function pickupWhy(ctx,pk,r){
   if(r.built.length) s1+=' For the plan he builds '+listWords(r.built.map(c=>CATWORD[c]))+'.';
   if(r.away) s1+=' He is out until about '+niceLong(p.ret)+', so he is a keep and never a stream. He has no week of his own, so the score is the whole rest of season lift, counted from the day he is due back'+(r.drop?', less 40 percent of what the drop costs '+wkPlain:'')+'.';
   else s1+=r.kind==='stream'?' This is a one week add. The score comes from this week alone.':' This is a hold. The score is 40 percent this week and 60 percent rest of season.';
-  if(r.cut0>0){ s1+=' He is tagged '+statusWord(p.status)+', so each of his games counts '+tagPct(p)+' percent'+(p.ret?' from '+nice(p.ret)+', the day the news has him back':'')+'.';
+  if(r.cut0>0){ s1+=' He is tagged '+statusWord(p.status)+', so each of his games counts '+tagPct(p)+' percent'+(p.ret?' from '+nice(p.ret)+(p.retGuess?', two days out since the news gives no date':', the day the news has him back'):'')+'.';
     s1+=Math.round(100*r.cut)>=1?' The score is cut a further '+Math.round(100*r.cut)+' percent for the risk that he sits'+(r.kind==='stream'?'':', half of what a stream would lose')+(r.share<1?', and less than usual because he ranks about '+Math.round(p.seenRank):'')+'.':' There is no further cut, because a player ranked about '+Math.round(p.seenRank)+' is worth the wait.'; }
   a.push(s1);
   let s2=r.away?'':'He has '+r.gl+' game'+(r.gl===1?'':'s')+(wkWord==='this week'?' left this week':' '+wkWord)+' and about '+r1(r.use)+' fit in your lineup. ';
@@ -1383,7 +1389,7 @@ function pickupWhy(ctx,pk,r){
 const partWord=x=>{ const w=String(x||'').toLowerCase().trim(); if(!w) return ''; if(w==='rest') return ' for rest'; if(w==='undisclosed') return ' for a reason that was not given'; if(w==='personal') return ' for a personal reason'; if(w==='illness') return ' with an illness'; return ' with '+(/^[aeiou]/.test(w)?'an ':'a ')+w+' issue'; };
 const niceLong=iso=>nice(iso)+(iso.slice(0,4)!==String(nowDate().getUTCFullYear())?' '+iso.slice(0,4):'');
 function newsLine(p){ const n=p.news; if(!n) return ''; const a=[];
-  if(n.st==='Out') a.push('ESPN lists him as out'+partWord(n.part)+(n.ret?', back around '+niceLong(n.ret):'')+'.'+(p.ret?' He is counted as out until then.':''));
+  if(n.st==='Out') a.push('ESPN lists him as out'+partWord(n.part)+(n.ret?', back around '+niceLong(n.ret):'')+'.'+(p.ret?(p.retGuess?' With no return date he is counted as out for two days, until '+niceLong(p.ret)+'.':' He is counted as out until then.'):''));
   else if(n.st) a.push('ESPN lists him as day to day'+partWord(n.part)+'.');
   if(n.note) a.push((n.pre?'Preseason note. ':'')+String(n.note).replace(/\.+$/,'')+'.'+(n.tagSrc?' Source '+n.tagSrc+(n.tagAt?', '+nice(n.tagAt):'')+'.':''));
   return a.join(' '); }
@@ -1813,7 +1819,7 @@ function planCheck(ctx,pl,pt,pk){
     const fx=TR&&TR.list?TR.list.filter(t=>t.dme[r.c]>=2).sort((x,y)=>y.dme[r.c]-x.dme[r.c])[0]:null, fp=pk&&pk.list?pk.list.filter(x=>x.ds && x.ds[r.c]>=1).sort((x,y)=>y.ds[r.c]-x.ds[r.c])[0]:null;
     if(fx) s+=' The best trade fix below is '+fx.get.map(p=>p.name).join(' and ')+' for '+fx.give.map(p=>p.name).join(' and ')+'.'; if(fp) s+=' The best pickup fix is '+fp.p.name+'.'; if(!fx && !fp) s+=' Nothing on the lists fixes it today.'; a.push(s); });
   const fixDots=x=>oneDot([x])[0];
-  ctx.ros[ME].forEach(p=>{ if(p.ret) a.push(p.name+' is listed as out until around '+niceLong(p.ret)+' by ESPN, so every number here counts him as out until then.'); else if(p.news && p.news.note && p.news.dir==='bad') a.push(p.name+'. '+String(p.news.note).replace(/\.+$/,'')+'.'); });
+  ctx.ros[ME].forEach(p=>{ if(p.ret) a.push(p.retGuess?p.name+' is tagged out with no return date in the news, so every number here counts him as out for two days, until '+niceLong(p.ret)+'.':p.name+' is listed as out until around '+niceLong(p.ret)+' by ESPN, so every number here counts him as out until then.'); else if(p.news && p.news.note && p.news.dir==='bad') a.push(p.name+'. '+String(p.news.note).replace(/\.+$/,'')+'.'); });
   if(pt.set) a.push('Enough build cats are on target, so they are now guarded like locks and the last build cat is free to swing.');
   if(pt.critical) a.push('The plan is in trouble. '+(pt.week<0.5?'Your plan week is down to '+pc(pt.week)+' percent. ':'')+(pt.risk.length>=2?pt.risk.length+' locks are at risk. ':'')+'A full rebuild may show under Pivots.');
   if(TR && TR.lead && ST.lead && ST.lead!==TR.lead.join(',')){ const old=ST.lead.split(',').map(Number).filter(c=>c>=0&&c<9); if(old.length) a.push('The leading route changed since you last looked. It was '+routeName(old)+' and is now '+routeName(TR.lead)+'.'); }

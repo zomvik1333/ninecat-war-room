@@ -17,7 +17,15 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.8 (branch main), Oct 28 2026, steadier week forecast
+## Version 26.9 (branch main), Oct 28 2026, out with no date
+
+* Vikas's rule. A player Yahoo tags out with no return date in the news counts as out for the next two days only, then back. A date in the news always wins and a season ending note is never shortened
+* An out player with a return date now counts from that date at 75 percent in the week matchup. Before, anyone tagged out was zero for the whole week even when the news had him back midweek
+* Cards and the plan check say when a date is the two day rule rather than the news
+* Audit the same night, 59 trades across Best trades, Pivots and By manager all match checkOffer, and no player in them projects minutes or points outside his season or last season
+* Fallback branch fallback-v26-9-before-out-rule
+
+## Version 26.8, Oct 28 2026, steadier week forecast
 
 * Found by replaying every saved scan from weeks 1 and 2. Around midnight Pacific Yahoo has added last night's minutes to the two week split but not the game, so anyone who played last night read a third to a half too many minutes (LaVine 47.7 at 12.05 am, 36.0 at 1.54 am). That one glitch moved the week 2 forecast from 65 to 48 and back
 * scan/ingest.js now sets a two week line that disagrees with the season line back to the season line while every game a player has played is inside the two weeks, and warns when any two week line shows more than 44 minutes
