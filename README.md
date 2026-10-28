@@ -17,7 +17,15 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.7 (branch main), Oct 28 2026, fixes from the full test run
+## Version 26.8 (branch main), Oct 28 2026, steadier week forecast
+
+* Found by replaying every saved scan from weeks 1 and 2. Around midnight Pacific Yahoo has added last night's minutes to the two week split but not the game, so anyone who played last night read a third to a half too many minutes (LaVine 47.7 at 12.05 am, 36.0 at 1.54 am). That one glitch moved the week 2 forecast from 65 to 48 and back
+* scan/ingest.js now sets a two week line that disagrees with the season line back to the season line while every game a player has played is inside the two weeks, and warns when any two week line shows more than 44 minutes
+* The nightly scan moves from 12.05 am to 2.05 am Pacific, after Yahoo finishes
+* Replayed with the guard, week 2 reads 65, 64, 79, 83 instead of 65, 48, 77, 83. What is left is real, Anthony Edwards going on IL, a strong Tuesday and the Watson pickup
+* Fallback branch fallback-v26-8-before-mid-update-guard
+
+## Version 26.7, Oct 28 2026, fixes from the full test run
 
 * No projection goes above 40 minutes a game. A short two week sample with overtime games had Austin Reaves, Zach LaVine and six others at 42 to 48 minutes, which inflated every trade with them
 * A player whose waiver date is today still shows as a waiver claim, not a free agent. The nightly scan runs before Yahoo clears claims and another manager may claim him first. Pickups, the waiver list and trade chips all follow this

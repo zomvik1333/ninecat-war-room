@@ -69,6 +69,15 @@ if(H){
   { const zs=s=>{ const g=i=>s[i]||0, fga=g(4), fta=g(6), pts=g(8), fgp=fga>0?100*g(3)/fga:48.5, ftp=fta>0?100*g(5)/fta:80.5;
       return 0.010226*(fgp-48.5)*pts+0.008824*(fgp-48.5)-0.12296+0.0075475*(ftp-80.5)*pts-0.0061865*(ftp-80.5)+0.02054+1.004*g(7)-1.689+0.169*pts-2.850+0.440*g(9)-2.621+0.495*g(10)-1.872+2.823*g(11)-3.004+2.065*g(12)-1.446-1.274*g(13)+2.406; };
     const gap=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[1]>0 && (s[14]==null || s[14]<s[1]); });
+    // Vikas, Oct 28 2026. Around midnight Pacific Yahoo has already added last night's minutes to the two week split but not yet the game, so its minutes a game read
+    // a third to a half too high for anyone who played (LaVine 47.7 at 12.05 am, 36.0 at 1.54 am). While every game a player has played is inside the two weeks
+    // the two lines must match, so a two week line that disagrees with the season line is set back to the season line
+    const mid=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[1]>0 && s[14]===s[1] && s[15]!=null && s[2]!=null && Math.abs(s[15]-s[2])>0.6; });
+    mid.forEach(i=>{ const s=scan.stats[i]; s[15]=s[2]; s[16]=Math.round(10*zs(s))/10; });
+    if(mid.length) say.push('WARNING, Yahoo was still adding last night\'s games for '+mid.length+' players, their two week minutes did not match their season line and were set back to it. A scan after about 1.30 am Pacific reads them right.');
+    // later in the season the two lines differ for real, so the check above no longer applies. Nobody averages more than 44 minutes over two weeks, so a number above it means the same mid update
+    const hi=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[15]!=null && s[15]>44; });
+    if(hi.length) say.push('WARNING, '+hi.length+' players show more than 44 minutes a game over the last two weeks, so Yahoo was probably still adding last night\'s games. Scan again after about 1.30 am Pacific.');
     if(gap.length && scan.week && scan.week<=2){ gap.forEach(i=>{ const s=scan.stats[i]; s[14]=s[1]; s[15]=s[2]; s[16]=Math.round(10*zs(s))/10; }); say.push('NOTE, Yahoo had not finished its two week numbers for '+gap.length+' players, so their season line was used, which is the same thing in week '+scan.week+'.'); }
     else if(gap.length>0.1*Object.keys(scan.stats).length) say.push('WARNING, '+gap.length+' of '+Object.keys(scan.stats).length+' players have no two week numbers from Yahoo. Yahoo was probably still updating. A scan an hour later should have them.'); }
   // checks on the shape of the scan. A scan can carry valid checksums and still be wrong, so all of these run before anything is written
