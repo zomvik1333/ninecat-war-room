@@ -30,14 +30,12 @@
    "Immanuel Quickley",
    "Jayson Tatum",
    "Cameron Boozer",
-   "Onyeka Okongwu",
-   "Neemias Queta"
+   "Onyeka Okongwu"
   ],
   "float": [
    "Moussa Diabate",
    "Reed Sheppard",
    "Alex Caruso",
-   "Naji Marshall",
    "Bobby Portis Jr."
   ],
   "drop": [
@@ -49,13 +47,9 @@
    "games": 15,
    "note": "whether his usage picks up as Atlanta's lead center, or a better center shows up on waivers"
   },
-  "Neemias Queta": {
-   "games": 15,
-   "note": "his minutes, he is a trade piece for a center like Naz Reid and becomes droppable only if his minutes are cut"
-  },
   "Moussa Diabate": {
    "games": 15,
-   "note": "whether he passes Queta as Charlotte's lead center"
+   "note": "whether he holds Charlotte's lead center job"
   },
   "Reed Sheppard": {
    "games": 15,
@@ -65,16 +59,13 @@
    "games": 5,
    "note": "his minutes now that Jalen Williams is out, a real jump makes him a keeper and no jump makes him droppable"
   },
-  "Naji Marshall": {
-   "note": "hold until Dallas is back to full health with Flagg playing, then decide"
-  },
   "Bobby Portis Jr.": {
    "games": 10,
    "note": "his minutes, droppable if still under 25 a game and Josh has not moved him up, more if Bam or Giannis sits"
   },
   "Precious Achiuwa": {
-   "note": "starting for the Kings for now, the first drop once VJ Edgecombe or Naji Marshall needs a spot"
+   "note": "starting for the Kings while Keegan Murray is out, the first drop when a spot is needed"
   }
  },
- "tiersNote": "Set by Vikas on Oct 24 2026, updated Oct 26 2026. trade is trade only, never dropped unless out for the season or out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream. drop goes for any clear upgrade. A player on no list counts as droppable. review gives the games after which a spot is checked again and what else to watch. Streams should favor players who also last."
+ "tiersNote": "Set by Vikas on Oct 24 2026, updated Oct 26 and Oct 28 2026. trade is trade only, never dropped unless out for the season or out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream. drop goes for any clear upgrade. A player on no list counts as droppable. review gives the games after which a spot is checked again and what else to watch. Streams should favor players who also last."
 }

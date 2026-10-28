@@ -17,7 +17,19 @@ Live site at https://ninecatwarroom.vercel.app
 * Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.6 (branch main), Oct 24 2026
+## Version 26.7 (branch main), Oct 28 2026, fixes from the full test run
+
+* No projection goes above 40 minutes a game. A short two week sample with overtime games had Austin Reaves, Zach LaVine and six others at 42 to 48 minutes, which inflated every trade with them
+* A player whose waiver date is today still shows as a waiver claim, not a free agent. The nightly scan runs before Yahoo clears claims and another manager may claim him first. Pickups, the waiver list and trade chips all follow this
+* Sell high no longer lists injured or IL players, and each card says what really changed, a move into the starting five, minutes up or down, or same minutes and role
+* checkOffer warns when you get more players than you send, since the drop you would need is not counted in the gain yet
+* Names in the plan tiers or reviews who are no longer on your roster are flagged in My tiers and in the summary
+* A lock a hair under its floor shows 59.9 and just under, never 60
+* An empty pickups list says why
+* data/plan.json, Naji Marshall and Neemias Queta taken out of the tiers and reviews after they were dropped
+* Fallback branch fallback-v26-7-before-test-fixes
+
+## Version 26.6, Oct 24 2026
 
 * My tiers is now a small box of its own under The league, showing only floating and droppable players. Trade only players are left off
 * The long explanations on pickups, long term, trade chips, trades, By manager and the league table sit behind a closed How this works toggle
