@@ -92,10 +92,12 @@ U.forEach((u,i)=>{ const at='Entry '+(i+1); if(!u || typeof u!=='object' || Arra
 // read in date order, then file order, so a move is applied to the rank that stood before it
 rows.sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:a.i-b.i);
 const live=Object.create(null);
+// Vikas, Nov 4 2026. Moves stack, so a run of small moves can carry a player far past anything Josh said. Past 40 places since his last named rank it is flagged
+const STACK=40, stack=Object.create(null);
 rows.forEach(r=>{ const cur=live[r.k], was=cur?cur.rank:(base[r.k]||null);
-  if(r.clear){ delete live[r.k]; return; }
+  if(r.clear){ delete live[r.k]; stack[r.k]=0; return; }
   let rank=r.rank;
-  if(r.move!==undefined){ if(!was){ bad.push('Entry '+(r.i+1)+', '+r.who+', a move needs a rank to move from and he has none. Give a rank.'); return; } rank=Math.max(1,Math.min(RMAX,was+r.move)); }
+  if(r.move!==undefined){ if(!was){ bad.push('Entry '+(r.i+1)+', '+r.who+', a move needs a rank to move from and he has none. Give a rank.'); return; } rank=Math.max(1,Math.min(RMAX,was+r.move)); stack[r.k]=(stack[r.k]||0)+r.move; } else stack[r.k]=0;
   const e={n:r.who,rank,at:r.at}; if(was) e.was=was; if(base[r.k]) e.base=base[r.k]; if(r.show) e.show=r.show; if(r.note) e.note=r.note; if(r.soft) e.soft=true; live[r.k]=e; });
 if(bad.length){ bad.forEach(x=>console.log(x)); stop('josh NOT saved. '+bad.length+(bad.length===1?' entry needs':' entries need')+' fixing. Nothing written.'); }
 
@@ -105,6 +107,7 @@ const oldP=Object.create(null); if(old && old.p && typeof old.p==='object' && !A
 const changed=keys.filter(k=>!oldP[k] || oldP[k].rank!==live[k].rank || oldP[k].at!==live[k].at || (oldP[k].note||'')!==(live[k].note||'')), gone=Object.keys(oldP).filter(k=>!live[k]);
 keys.forEach(k=>{ const e=live[k]; if(changed.indexOf(k)>=0) console.log((e.n+'                         ').slice(0,26)+' '+(e.was?String(e.was):'none')+' to '+e.rank+(e.base && e.base!==e.was?', draft day '+e.base:'')+', '+e.at+(e.show?', '+e.show:'')); });
 gone.forEach(k=>console.log((String(oldP[k].n||k)+'                         ').slice(0,26)+' back to his draft day rank'));
+keys.forEach(k=>{ if(Math.abs(stack[k]||0)>STACK) console.log('WARNING, '+live[k].n+' has moved '+Math.abs(stack[k])+' places '+(stack[k]>0?'down':'up')+' through moves alone since his last named rank, now '+live[k].rank+'. Check that this matches what Josh said, and give a rank if it does not.'); });
 if(!srcRuns) console.log('WARNING, no transcripts were given with --src, so the notes were not checked against them.');
 if(opt.dry){ console.log('josh check passed, '+keys.length+' players on file, '+changed.length+' new or changed, '+gone.length+' cleared. Dry run, nothing written.'); process.exit(0); }
 try{ fs.mkdirSync(OUT,{recursive:true}); const tmp=path.join(OUT,'josh_live.json.tmp'); fs.writeFileSync(tmp,JSON.stringify(out)); fs.renameSync(tmp,path.join(OUT,'josh_live.json')); }catch(e){ stop('josh NOT saved. The file could not be written. '+String(e.message).slice(0,120)); }

@@ -191,11 +191,11 @@ function project(p,scan){
     const st=B.STATS[b.name]; const zk=!!(st&&st.z&&!st.rookie); const av0=clamp(b.av||0.85,0.45,0.96);
     const useRef=!!pr && pr[0]>=20 && !b.rookie && !(st&&st.rookie) && (!st || st.src==='2025 26');
     const mp=st&&st.line&&(st.line.match(/([\d.]+) min/)||[])[1];
-    // the board moves each player 70 percent of the way to Josh's rank. Carry that same change in value over here.
-    // A higher or lower rank is read first as more or fewer games played, then as a small change in per game volume, so stat lines stay believable.
+    // the board moves each player 50 percent of the way to Josh's rank (70 before Nov 4 2026). Carry that same change in value over here,
+    // as a small change in per game volume, so stat lines stay believable.
     // The board reaches a spot by scaling or shifting his nine numbers. Scaling makes a sum that is below zero more negative, so the plain sum can read a move up as a move down.
     // The board value itself always moves the right way, so the direction is read from it and the size stays what the nine numbers say.
-    // A rank can lift the games share by 15 points at most, the same room it has to lower it, so a player the board expects to miss time is not handed a full season
+    // Since Nov 4 2026 a rank no longer changes the games share at all, see below
     const ezs1=b.ez.reduce((a,v)=>a+v,0);
     const v1=(b.ezs0!=null && b.bv0!=null && b.bv1!=null)?b.ezs0+(b.bv1>b.bv0?1:b.bv1<b.bv0?-1:0)*Math.abs(ezs1-b.ezs0):ezs1;
     if(useRef || zk){
@@ -205,9 +205,11 @@ function project(p,scan){
       const blend=!useRef && !!st && st.src==='blend', jmp=blend && jc && jc.mp>0;
       if(blend && !mp && !jmp) mpSoft=true;
       const base0=useRef?lineOfPrior(pr):lineFromZ(st.z,mp?+mp:(jmp?jc.mp:(pr?pr[1]:28)));
-      // games played come from the rank alone, exactly as before the category calls existed, so a call never moves how many games a player is given
+      // a category call never moves how many games a player is given
       const Z0=zk?st.z.reduce((a,v)=>a+v,0):valOf(base0);
-      let av=av0; if(Z0+2.25>0.5) av=clamp((v1+2.25)/(Z0+2.25),Math.max(0.5,av0-0.15),Math.max(av0,Math.min(0.93,av0+0.15)));
+      // Vikas, Nov 4 2026. The share of games comes from the games he really plays, never from where Josh ranks him. A rank above or below his numbers now moves
+      // only his per game volume, inside the same limits as before. This season's games played are blended in once the league is built, in build()
+      const av=av0;
       const Z1=(v1+2.25*(1-av))/av;
       const dvOf=l=>Math.max(5,1.004*l.tpm+0.169*l.pts+0.440*l.reb+0.495*l.ast+2.823*l.stl+2.065*l.blk-1.274*l.to);
       // a minutes number from Josh widens how far the rank may move the volume, toward his number and no further. Only for a real last season
@@ -242,8 +244,12 @@ function project(p,scan){
   // its season numbers, so when it is missing or shows fewer games, the season line stands in for it
   if(cur && seasonAge(scan)<=14 && (p.g14==null || p.g14<gp)){ p.g14=gp; p.m14=cur.mp; p.v14=valOf(cur); p.l14fill=true; }
   let w=0, line=null, mpReal=false;
-  // a real last season counts like 12 games, an older season like 9, a rookie guess like 6
-  if(cur){ const pp=prior||REPL_LINE; w=gp/(gp+(!prior?6:pb==='est'?6:pb==='older'?9:12)); line=mixLine(pp,cur,w); if(mpSoft && cur.mp>5){ line.mp=cur.mp; mpSoft=false; mpReal=true; }
+  // Vikas, Nov 4 2026. This season counts more. A real last season now counts like 7 games (was 12), an older one like 6 (was 9) and a rookie guess like 4 (was 6),
+  // so by game 7 this season is half of a veteran's line. Shooting percentages are mostly luck over a few games, so FG% and FT% lean on the old line twice as long
+  if(cur){ const pp=prior||REPL_LINE, K=!prior?4:pb==='est'?4:pb==='older'?6:7; w=gp/(gp+K); line=mixLine(pp,cur,w);
+    { const wp=gp/(gp+2*K), sh=(m,a)=>{ if(!(line[a]>0) || !(pp[a]>0) || !(cur[a]>0)) return; const want=line[a]*((pp[m]/pp[a])*(1-wp)+(cur[m]/cur[a])*wp), d=want-line[m]; line[m]=want; line.pts+=(m==='fgm'?2:1)*d; };
+      sh('fgm','fga'); sh('ftm','fta'); if(line.pts<0) line.pts=0; }
+    if(mpSoft && cur.mp>5){ line.mp=cur.mp; mpSoft=false; mpReal=true; }
     // minutes settle much faster than per minute rates, so real minutes count from the first game, a game weighing like a quarter of the starting guess
     if(!mpReal && cur.mp>5 && line.mp>5 && pp.mp>5){ const wm=gp/(gp+3), want=pp.mp*(1-wm)+cur.mp*wm, r=clamp(want/line.mp,0.75,1.25);
       if(Math.abs(r-1)>=0.03){ const m0=line.mp; line=scaleLine(line,Math.pow(r,0.9)); line.mp=m0*r; } } } else line=prior;
@@ -628,6 +634,14 @@ function build(scan,opt){
   ctx.now=etParts(nowDate()); const gone0=myRecentDrops(ctx);
   const fas=ctx.avail.filter(p=>p.proj&&!isOut(p)&&!gone0.has(p.id)).sort((a,b)=>b.val-a.val).slice(2,10); const rl=zeroT(); if(fas.length>=4) fas.forEach(p=>addT(rl,p.proj,1/fas.length)); else addT(rl,REPL_LINE,1);
   ctx.repl=rl; ctx.fillR={rho:0.8,line:rl}; ctx.fillW={rho:0.5,line:rl};
+  // Vikas, Nov 4 2026. This season's share of games joins his games share for the rest of the season, slowly, like 25 games of the old figure. A player out with
+  // a return date already counts zero until then, so his missed games here count half, so one injury is not counted twice
+  { const sday=(()=>{ const t=Date.parse(ctx.scan.at); return isFinite(t)?etParts(new Date(t)).date:''; })(), most={}, tg={};
+    Object.values(ctx.U).forEach(p=>{ const s=ctx.scan.stats&&ctx.scan.stats[p.id], g=s?(s[1]||0):0; if(g>(most[p.team]||0)) most[p.team]=g; });
+    Object.keys(most).forEach(t=>{ const sc=D.sched&&D.sched.games&&Array.isArray(D.sched.games[t])?D.sched.games[t]:null, n=sc&&sday?sc.filter(d=>d<sday).length:0; tg[t]=n>0?n:most[t]; });
+    Object.values(ctx.U).forEach(p=>{ const s=ctx.scan.stats&&ctx.scan.stats[p.id], gp=s?(s[1]||0):0; if(!(gp>=1) || !isFinite(p.av)) return;
+      const tgN=Math.max(gp,tg[p.team]||gp), miss=tgN-gp, share=clamp((p.ret||isOut(p))?(gp+0.5*miss)/tgN:gp/tgN,0.3,1);
+      p.av0=p.av; p.av=clamp((p.av*25+share*tgN)/(25+tgN),0.45,0.96); }); }
   Object.values(ctx.U).forEach(p=>{ if(p.proj) p.eff=effLine(p,pROS(p),ctx.fillR); });
   timeline(ctx);
   seenValues(ctx); faceValues(ctx); Object.values(ctx.U).forEach(p=>{ p.jv=vj(p,ctx); });
@@ -713,9 +727,56 @@ function weekProj(ctx,ros,tid,days,act){ const r=totalsOver(ros,days,pNow,ctx.fi
 function thisWeek(ctx){
   if(!ctx.opp || !ctx.ros[ctx.opp] || !ctx.ros[ME]) return null;
   const me=weekProj(ctx,ctx.ros[ME],ME,ctx.days,ctx.act), op=weekProj(ctx,ctx.ros[ctx.opp],ctx.opp,ctx.days,ctx.act);
-  const probs=catProbs(me,op,ctx.u,ctx.up);
-  return {me,op,probs,win:pWin5(probs),fav:probs.filter(x=>x>0.5).length,exp:probs.reduce((a,b)=>a+b,0)};
+  const raw=catProbs(me,op,ctx.u,ctx.up), probs=calP(raw);
+  return {me,op,raw,probs,win:pWin5(probs),fav:probs.filter(x=>x>0.5).length,exp:probs.reduce((a,b)=>a+b,0)};
 }
+
+/* Vikas, Nov 4 2026. The week forecast, steady and checked against real results.
+   It is always a forecast for Sunday night, the live score plus every day left. The Monday call is the same forecast worked out from the first scan of
+   the week (data/starts.json), with only the news known by then, so it stays put all week and today's number shows how far things have moved from it.
+   Every finished week is checked. The Monday calls for all five matchups in the league are compared with the final scores in data/results.json, and one
+   factor is fitted that makes the chances as sure as they have really been. While there are few results the factor is held close to 1 */
+// CALV is the code version. The past week checks are kept in this browser under it, so change it with any change to how players are projected
+const CALV='26.10', CALKEY='ncw_cal_'+CALV, CAL0=90;
+let CAL={s:1,fit:1,n:0,weeks:[],hit:0,calls:0}, WK0=null;
+const PINV=p=>Math.log(p/(1-p))/1.702;
+const calP=pr=>CAL.s===1?pr.slice():pr.map(p=>PHI(PINV(clamp(p,1e-4,1-1e-4))/CAL.s));
+// who wins each cat between two score lines. 1 the first, 0 the second, null a tie
+function catWin(a,b){ const r=(x,y)=>x>y?1:x<y?0:null, pct=(m,t)=>t>0?m/t:0;
+  return [r(pct(a.fgm,a.fga),pct(b.fgm,b.fga)),r(pct(a.ftm,a.fta),pct(b.ftm,b.fta)),r(a.tpm,b.tpm),r(a.pts,b.pts),r(a.reb,b.reb),r(a.ast,b.ast),r(a.stl,b.stl),r(a.blk,b.blk),r(b.to,a.to)]; }
+// cats you lead on the live score right now
+function leadNow(ctx){ const a=ctx.act; if(!a || !a[ME] || !ctx.opp || !a[ctx.opp]) return null; const w=catWin(a[ME],a[ctx.opp]); return {lead:w.filter(x=>x===1).length,trail:w.filter(x=>x===0).length,w}; }
+// build the league as it stood at an older scan, with the clock and the news set back to that moment
+function atScan(sc,fn){ const keepNow=window.NCW_NOW, keepNews=D.news;
+  try{ window.NCW_NOW=sc.at;
+    if(D.news && D.news.p){ const day=etParts(new Date(sc.at)).date, p={}; Object.keys(D.news.p).forEach(i=>{ const n=D.news.p[i]; const okN=!n.at || n.at<=day, okT=!!(n.tagAt && n.tagAt<=day);
+        if(okN || okT) p[i]=Object.assign({},n,okN?{}:{st:null,fs:null,ret:null,part:null,at:null},okT?{}:{dir:null,note:null,tagAt:null,tagSrc:null}); }); D.news=Object.assign({},D.news,{p}); }
+    return fn(build(sc)); }
+  finally{ window.NCW_NOW=keepNow; D.news=keepNews; } }
+function weekCalls(){
+  WK0=null; CAL={s:1,fit:1,n:0,weeks:[],hit:0,calls:0};
+  const st=(D.starts&&D.starts.weeks)||{}, rs=(D.results&&D.results.weeks)||{}, now=CTX&&CTX.wk?CTX.wk.n:0;
+  let cache={}; try{ cache=JSON.parse(localStorage.getItem(CALKEY)||'{}')||{}; }catch(e){ cache={}; }
+  const recs=[];
+  Object.keys(st).map(Number).filter(w=>w<now && rs[w] && Object.keys(rs[w]).length===10 && st[w] && !st[w].late).sort((a,b)=>a-b).forEach(w=>{
+    const sc=st[w], key=w+'|'+sc.at+'|'+(D.results.updated||''); let r=cache[w]&&cache[w].k===key&&Array.isArray(cache[w].r)?cache[w].r:null;
+    if(!r){ r=[]; try{ atScan(sc,c=>{ if(!c.wk || c.wk.n!==w) return; const days=dayList(c.wk.start,c.wk.end);
+        c.wk.games.forEach(g=>{ const a=String(g[0]), b=String(g[1]); if(!c.ros[a] || !c.ros[b] || !rs[w][a] || !rs[w][b]) return;
+          const pr=catProbs(weekProj(c,c.ros[a],a,days,null),weekProj(c,c.ros[b],b,days,null),c.u,c.up), y=catWin(rs[w][a],rs[w][b]);
+          pr.forEach((p,k)=>{ if(y[k]!=null) r.push([Math.round(p*1e4)/1e4,y[k]]); }); }); }); }catch(e){ r=[]; }
+      cache[w]={k:key,r}; }
+    if(r.length){ CAL.weeks.push(w); r.forEach(x=>recs.push(x)); } });
+  try{ localStorage.setItem(CALKEY,JSON.stringify(cache)); }catch(e){}
+  if(recs.length){ const ll=s=>recs.reduce((a,x)=>{ const p=clamp(PHI(PINV(clamp(x[0],1e-4,1-1e-4))/s),1e-4,1-1e-4); return a-(x[1]?Math.log(p):Math.log(1-p)); },0);
+    let best=1, bl=ll(1); for(let s=0.5;s<=2.5001;s+=0.02){ const l=ll(s); if(l<bl){ bl=l; best=s; } }
+    CAL.fit=best; CAL.n=recs.length; CAL.s=Math.exp(Math.log(best)*recs.length/(recs.length+CAL0));
+    const called=recs.filter(x=>Math.abs(x[0]-0.5)>=0.1); CAL.calls=called.length; CAL.hit=called.filter(x=>(x[0]>0.5)===(x[1]===1)).length; }
+  const sw=st[now];
+  if(sw){ try{ WK0=atScan(sw,c=>{ if(!c.wk || c.wk.n!==now) return null; const w=thisWeek(c); return w?{win:w.win,probs:w.probs,fav:w.fav,at:sw.at,late:!!sw.late}:null; }); }catch(e){ WK0=null; } }
+}
+function calWords(){ if(!CAL.n) return 'No finished week has been checked yet, so the chances are as the model gives them.';
+  const d=CAL.s>1.02?'the raw chances were too sure, so they are pulled toward even':CAL.s<0.98?'the raw chances were not sure enough, so they are pushed further out':'the raw chances were about right';
+  return 'Checked against '+CAL.n+' cat results from week'+(CAL.weeks.length>1?'s ':' ')+listWords(CAL.weeks.map(String))+' across the league, '+d+'. Cats it called at 60 percent or more went its way '+CAL.hit+' of '+CAL.calls+' times.'; }
 
 /* pickups */
 function myProtected(ctx){
@@ -823,6 +884,20 @@ function pickups(ctx){
   const base=mk(mine,ctx.addDay), bp=catProbs(base,opT,ctx.u,ctx.up), bw=pWin5(bp), bwW=pWin5(wPr(bp,WP));
   out.base={probs:bp,win:bw};
   const myCn=active.filter(isC).length, pl=planOf(), b0p=planWeekOf(ctx,ctx.view0.prs,pl,false), rts=routeSets(pl); out.plan=pl;
+  // Vikas, Nov 4 2026. A player on IL who is no longer tagged out counts for nothing until he is moved back, and Yahoo may block adds while he sits there.
+  // For each one, the drop the rules allow that costs the least over the season, then the week chance with all of them back
+  out.ilBack=[]; out.ilBackWin=null;
+  { const back=mine.filter(p=>isIL(p) && !isOut(p) && !isDoubt(p) && !outYet(p,ctx.now.date)).sort((a,b)=>(b.val||0)-(a.val||0));
+    if(back.length){ const used=new Set(); let cn=myCn, nAct=active.length;
+      const seasonLoss=d=>{ const T=scaleT(seasonTotals(ctx,ME,[d],[]),1/ctx.tweeks), v=myView(ctx,T); return 100*(planWeekOf(ctx,v.prs,pl,false)-b0p); };
+      back.forEach(b=>{ let best=null; const room=nAct<15; if(room) nAct++;
+        // a return from IL forces a spot, the way Vikas planned it on Nov 2 (Sheppard for Caruso, Portis for Kyrie), so a floating player may go here too. Trade only, never, keep and hold may not
+        if(!room) active.forEach(d=>{ if(used.has(d.id) || prot.has(d.id)) return; if(isC(d) && !isC(b) && cn<=3) return; const k=dropOK(ctx,d,'long',false); if(!k.ok && !TFLOAT.has(B.nkey(d.name))) return;
+          const l=seasonLoss(d); if(!best || l>best.l) best={d,l}; });
+        if(best){ used.add(best.d.id); if(isC(best.d) && !isC(b)) cn--; }
+        out.ilBack.push({p:b,drop:best?best.d:null,loss:best?best.l:0,blocked:!room && !best}); });
+      const ros=mine.filter(p=>!used.has(p.id)).map(p=>back.indexOf(p)>=0?Object.assign({},p,{slot:'BN'}):p);
+      const t=mk(ros,ctx.addDay), pr=catProbs(t,opT,ctx.u,ctx.up); out.ilBackWin={win:pWin5(pr),probs:pr}; } }
   // the rest of season lift, with your daily lineups set again for the changed roster, so a player who cannot get into your lineup adds little.
   // It is counted the way the game plan counts cats, so the punt earns nothing here. The week part below uses the real scoreboard against that week's opponent
   const rosLift=(inP,outP)=>{ const T=scaleT(seasonTotals(ctx,ME,outP?[outP]:[],[inP]),1/ctx.tweeks), v=myView(ctx,T); return {g:100*(planWeekOf(ctx,v.prs,pl,false)-b0p),ds:v.per.map((x,c)=>100*(x-ctx.view0.per[c]))}; };
@@ -1600,8 +1675,10 @@ function render(){
   let h='<div class="mv'+(ST.showSkip?' showskip':'')+(ST.showMine?' showmine':'')+(ST.small?' showsmall':'')+'">';
   h+='<div class="panel">'+scanLine(ctx);
   h+='<div class="mvcells">';
-  h+='<div class="mvc"><div class="k">Week '+ctx.wk.n+' win chance</div><div class="v">'+(wk?pc(wk.win)+'%':'none')+'</div><div class="s">'+(wk?'vs '+esc(oppName)+(ctx.partial?', days left only':''):'no matchup')+'</div></div>';
-  h+='<div class="mvc"><div class="k">'+(ctx.act?'Cats you lead':'Cats you are favored in')+'</div><div class="v">'+(wk?wk.fav:0)+' of 9</div><div class="s">you need 5</div></div>';
+  // Vikas, Nov 4 2026. Both numbers are a forecast for Sunday night. The Monday call stays put all week, and the cats you lead right now are shown apart
+  const ln=leadNow(ctx);
+  h+='<div class="mvc"><div class="k">Week '+ctx.wk.n+' win chance</div><div class="v">'+(wk?pc(wk.win)+'%':'none')+'</div><div class="s">'+(wk?'vs '+esc(oppName)+(ctx.partial?', days left only':'')+(WK0?', Monday call '+pc(WK0.win)+'%':''):'no matchup')+'</div></div>';
+  h+='<div class="mvc"><div class="k">Cats on track by Sunday</div><div class="v">'+(wk?wk.fav:0)+' of 9</div><div class="s">'+(ln?'leading '+ln.lead+' of 9 right now, ':'')+'you need 5</div></div>';
   { const pt0=planTable(ctx,planOf()); h+='<div class="mvc"><div class="k">Plan cats on target</div><div class="v">'+pt0.hit+' of '+pt0.of+'</div><div class="s">at '+pc(TARGET)+' percent or better</div></div>'; }
   h+='<div class="mvc"><div class="k">Average week</div><div class="v">'+pc(me.week)+'%</div><div class="s">rest of season, ranks '+mine.pos+' of 10</div></div>';
   h+='<div class="mvc"><div class="k">Top four chance</div><div class="v">'+pc(mine.top4)+'%</div><div class="s">about '+r1(mine.wins)+' wins by week 18</div></div>';
@@ -1618,9 +1695,13 @@ function render(){
 function goalLine(ctx,wk,pk){
   if(!wk) return 'No matchup found for this week.';
   const need=5-wk.fav; const top=pk.list[0];
-  // before the week has a score nobody leads anything yet, so the words say favored. A swing cat is the same thing everywhere on this page, a cat between 42 and 58 percent
-  const lead=ctx.act?'lead':'are favored in';
-  let s=wk.fav>=5?'You '+lead+' '+wk.fav+' of 9 cats against '+esc((ctx.teams[ctx.opp]||{}).name||'')+'. '+(ctx.act?'Hold the lead':'Keep it that way')+' and protect the close ones.':'You '+lead+' only '+wk.fav+' of 9 cats, so you need '+need+' more. Keep adding and trading until this reads 5 or more.';
+  // Vikas, Nov 4 2026. wk.fav is the cats you are on track to win by Sunday, never the cats you lead now. The live lead is said apart. A swing cat is the same thing
+  // everywhere on this page, a cat between 42 and 58 percent
+  const ln=leadNow(ctx), on=esc((ctx.teams[ctx.opp]||{}).name||'');
+  const now=ln?(ln.lead>=5?'You lead '+ln.lead+' of 9 cats right now. ':'You lead '+ln.lead+' of 9 cats right now'+(ln.lead+ln.trail<9?', with '+(9-ln.lead-ln.trail)+' tied':'')+'. '):'';
+  let s=now+(wk.fav>=5?'With the games left you are on track to win '+wk.fav+' of 9 against '+on+' by Sunday. '+(ln&&ln.lead>=5?'Hold the lead':'Keep it that way')+' and protect the close ones.':'With the games left you are on track for only '+wk.fav+' of 9 against '+on+', so you need '+need+' more. Keep adding and trading until this reads 5 or more.');
+  if(WK0){ const mv=wk.probs.map((p,c)=>[p-WK0.probs[c],c]).filter(x=>Math.abs(x[0])>=0.1).sort((a,b)=>Math.abs(b[0])-Math.abs(a[0])).slice(0,2);
+    const d=Math.round(100*(wk.win-WK0.win)); s+=' The Monday call was '+pc(WK0.win)+' percent'+(Math.abs(d)<2?', about where it is now.':', now '+pc(wk.win)+(mv.length?', mostly from '+listWords(mv.map(x=>CATS[x[1]]+' '+(x[0]>0?'up':'down')+' from '+pc(WK0.probs[x[1]])+' to '+pc(wk.probs[x[1]])))+'.':'.')); }
   const close=wk.probs.map((p,c)=>[Math.abs(p-0.5),c,p]).filter(x=>x[0]<=0.08).sort((a,b)=>a[0]-b[0]).slice(0,3).map(x=>CATS[x[1]]);
   if(close.length) s+=close.length===1?' The close cat is '+close[0]+'.':' The close cats are '+listWords(close)+'.';
   if(top) s+=(ctx.noAdds?' You have no adds left this week. Best pickup for week '+pk.week.n+' is ':' Best pickup now is ')+esc(top.p.name)+' at '+top.need+'.';
@@ -1631,11 +1712,12 @@ function weekPanel(ctx,wk){
   const oppName=(ctx.teams[ctx.opp]||{}).name||''; const live=!!ctx.act; const fm=(t,c)=>c===0?(t.fga>0?(100*t.fgm/t.fga).toFixed(1):'0'):c===1?(t.fta>0?(100*t.ftm/t.fta).toFixed(1):'0'):String(r0(t[CK[c-2]]));
   let h='<div class="panel"><h2>Week '+ctx.wk.n+' vs '+esc(oppName)+' <span>'+nice(ctx.wk.start)+' to '+nice(ctx.wk.end)+'</span></h2>';
   h+='<div class="mvbig">'+pc(wk.win)+'%<small>chance to win 5 or more cats'+(ctx.partial?' over the days left':'')+', about '+r1(wk.exp)+' cats expected</small></div>';
+  h+='<p style="margin:4px 0 8px;color:var(--muted)">'+esc((WK0?'Monday call '+pc(WK0.win)+' percent, worked out from the first scan of the week. ':'')+calWords())+'</p>';
   if(ctx.partial) h+='<div class="switch">The last scan holds no score for this week, so the days already played are missing. These numbers cover only the games from '+nice(ctx.from)+' on and are not the real state of the week. Run a fresh scan to see it.</div>';
   h+='<p class="small">'+(live?'Live score from the scan plus the games still to come. ':ctx.partial?'Projected totals for the days left. ':'Projected totals for the week. ')+'Your lineup has '+r0(wk.me.rest.s)+(r0(wk.me.rest.s)===1?' player start ':' player starts ')+(live||ctx.partial?'left':'planned')+', theirs has '+r0(wk.op.rest.s)+'.</p>';
   wk.probs.forEach((p,c)=>{ const col=p>=0.5?'var(--good)':'var(--bad)'; const w=Math.abs(p-0.5)*100; const left=p>=0.5?50:50-w;
     h+='<div class="mvrow"><span class="cn">'+CATS[c]+'</span><span class="bar"><span class="mid"></span><span class="fill" style="left:'+left+'%;width:'+w+'%;background:'+col+'"></span></span><span class="tv">'+fm(wk.me.tot,c)+' vs '+fm(wk.op.tot,c)+'</span><span class="pv" style="color:'+col+'">'+pc(p)+'</span></div>'; });
-  h+='<p class="small">The number on the right is your chance to win that cat. Green means you are ahead.</p></div>';
+  h+='<p class="small">The number on the right is your chance to win that cat by Sunday night. Green means you are on track to win it, which is not the same as leading it right now.</p></div>';
   return h;
 }
 // the long explanations sit behind a small toggle, closed, so the page shows only what changes from day to day. Vikas, Oct 24 2026
@@ -1789,6 +1871,8 @@ function pickPanel(ctx,pk){
   if(pk.standIn) h+='<div class="switch">No matchup is set for that week yet, so these scores use '+esc((ctx.teams[pk.opp]||{}).name||'the strongest team')+' as a stand in.</div>';
   h+=how('Week is how many points the move adds to your chance to win this week. Season is the same for the rest of the season, counted the way your plan counts cats. A red tag means the drop costs you for the season, and a stream now pays that cost in full. Drops follow your rules. Your trade only and floating players are never dropped for a stream, and players on your droppable list can go for any clear upgrade. Picks from rounds 1 to 12 are never dropped for a stream, a top pick goes only when out for the season, and a mid round pick goes for a long term add only when slumping or out long with no IL spot. A stream tops out at 80. Need score, 85 and up means add him now, and it needs a season lift of 1 or more, no loss this week, and proof in real games or a new role, unless it replaces a long term injury. Nothing but an injury fill in reaches 85 in the first two weeks. 65 to 84 means add him once he is a free agent. 50 to 64 helps but keep your waiver spot. Under 50, skip. Those stay hidden until you tick the box under the list. Solid cats count in full, FT% counts 90 percent and FG% 80 percent. Scores are for '+wkWord+' against '+esc((ctx.teams[pk.opp]||{}).name||'')+' and for the rest of the season. Each score takes the better of two readings. A hold counts 40 percent of the lift for that week and 60 percent of the lift to your average week for the rest of the season. The rest of season part follows your season plan, so your punt earns nothing there. The week part uses the real scoreboard against that week\'s opponent, every cat included, because any close cat can win a week. A one week stream counts 85 percent of that week\'s lift plus 30 percent of any rest of season lift, so a stream who also lasts ranks first. Read the rest of season line on the card before you drop someone for it. A stream whose add day is more than 3 days away is capped at 60. The top score is 99. An injury tag counts twice. Each game counts 75 percent for a game time call or day to day, 60 for questionable and 25 for doubtful. Then the score itself is cut, by 10, 25 or 60 percent for a stream and half of that for a keep, because an add is wasted while he sits. The better the player the smaller that cut. It is nothing inside the top 60 of the blended rank and all of it from 140 on. A player who is out is listed only as a keep, only when the news gives a return date, and only when he scores 50 or more. He has no week of his own, so his score is the whole rest of season lift, counted from the day he is due back, less 40 percent of what a drop costs that week when one is needed. A card says Stream for games when the week alone moves 2 points or more, Keep long term when your season gets better with him, and both when both are true. The label of the reading that gave the score is always shown.');
   if(ctx.noAdds) h+='<div class="switch">You have used all '+(D.league.adds||4)+' adds for week '+ctx.wk.n+', so Yahoo will not take another add this week. These pickups are scored for week '+pk.week.n+'.</div>';
+  if(pk.ilBack && pk.ilBack.length){ const nm=pk.ilBack.map(r=>esc(r.p.name)).join(' and '), one=pk.ilBack.length===1, drops=pk.ilBack.filter(r=>r.drop).map(r=>esc(r.drop.name));
+    h+='<div class="switch">'+nm+(one?' is':' are')+' no longer tagged out but still on IL, so '+(one?'he counts':'they count')+' for nothing this week. Move '+(one?'him':'them')+' back to your bench'+(drops.length?' and drop '+drops.join(' and ')+', the drop'+(drops.length>1?'s':'')+' the tier rules allow that cost'+(drops.length>1?'':'s')+' the least over the season':'')+'.'+(pk.ilBackWin?' Your week chance goes from '+pc(pWin5(calP(pk.base.probs)))+' to '+pc(pWin5(calP(pk.ilBackWin.probs)))+' percent.':'')+(pk.ilBack.some(r=>r.blocked)?' No drop the tier rules allow was found for one of them, so pick that drop yourself.':'')+' While a healthy player sits on IL Yahoo may refuse your adds.</div>'; }
   if(pk.ilMove && !pk.free) h+='<div class="switch">'+esc(pk.ilMove.name)+' is tagged '+statusWord(pk.ilMove.status)+'. Move him to IL and you can add someone without dropping anyone.</div>';
   if(pk.free) h+='<div class="switch">You have '+pk.free+' open roster spot'+(pk.free===1?'':'s')+', so an add needs no drop.</div>';
   const nSkip=pk.list.filter(r=>r.band==='skip').length;
@@ -2079,7 +2163,7 @@ function computeInner(redoTrades){
   if(ST.at!==D.scan.at && ST.marks.length){ ST.marks=[]; ST.at=D.scan.at; save(); }
   // a marked add must be a player the scan knows, so a damaged saved mark can never put a made up player on your roster or use up an add
   if(ST.marks.length){ const known=new Set(Object.keys(D.scan.avail||{})); Object.keys(D.scan.rosters||{}).forEach(t=>(D.scan.rosters[t]||[]).forEach(e=>known.add(String(e[0])))); const keep=ST.marks.filter(m=>m.type!=='add' || known.has(m.add)); if(keep.length!==ST.marks.length){ ST.marks=keep; save(); } }
-  CTX=build(D.scan); WK=thisWeek(CTX); PK=pickups(CTX); WV=waivers(CTX); CH=chips(CTX); RACE=race(CTX);
+  CTX=build(D.scan); try{ weekCalls(); }catch(e){ WK0=null; CAL={s:1,fit:1,n:0,weeks:[],hit:0,calls:0}; } WK=thisWeek(CTX); PK=pickups(CTX); WV=waivers(CTX); CH=chips(CTX); RACE=race(CTX);
   if(redoTrades || !TR){ TR=null; CTXW=build(weekTags(D.week,D.scan),{lag:TRADELAG}); render(); const run=++TRUN; trades(CTXW,res=>{ if(run!==TRUN) return; TR=res; try{ render(); }catch(e){ failed(e); return; } if(TR.lead){ const k=TR.lead.join(','); if(ST.lead!==k){ ST.lead=k; save(); } } },()=>run===TRUN); }
   else render();
 }
@@ -2088,7 +2172,7 @@ async function load(){
   const get=async f=>{ try{ const r=await fetch('data/'+f,{cache:'no-store'}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } };
   const files=['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json','josh_cats.json'];
   // news, ages, a saved plan and Josh's newest ranks are extras. The tab works without them, so a missing one is never an error
-  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json','prior2.json','scan_prev.json','contracts.json'];
+  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json','prior2.json','scan_prev.json','contracts.json','starts.json','results.json'];
   const all=await Promise.all(files.concat(extra).map(get)), a=all.slice(0,files.length), ex=all.slice(files.length);
   // every file but the weekly snapshot is needed for the numbers to be right. If one did not arrive, say so and draw nothing, because numbers built without it look normal and are wrong
   // A file that arrives but holds nothing useful is treated the same way, for example a scan with no players on your team or a schedule with no games
@@ -2101,7 +2185,7 @@ async function load(){
   D.miss=files.filter((f,i)=>!okShape[i](a[i]));
   if(D.miss.length){ D.loading=false; D.loaded=false; render(); return; }
   D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=(a[5]&&a[5].rosters)?a[5]:a[4]; D.jc=a[6]; loadJC();
-  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; if(D.plan) setRules(D.plan); D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; D.prior2=(obj(ex[5])&&obj(ex[5].p))?ex[5]:null; D.prev=(obj(ex[6])&&obj(ex[6].q))?ex[6]:null; D.cy=(obj(ex[7])&&obj(ex[7].p))?ex[7]:null; loadCY(); loadDepth(); loadMg();
+  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; if(D.plan) setRules(D.plan); D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; D.prior2=(obj(ex[5])&&obj(ex[5].p))?ex[5]:null; D.prev=(obj(ex[6])&&obj(ex[6].q))?ex[6]:null; D.cy=(obj(ex[7])&&obj(ex[7].p))?ex[7]:null; D.starts=(obj(ex[8])&&obj(ex[8].weeks))?ex[8]:null; D.results=(obj(ex[9])&&obj(ex[9].weeks))?ex[9]:null; loadCY(); loadDepth(); loadMg();
   D.gset={}; if(D.sched) Object.keys(D.sched.games).forEach(t=>D.gset[t]=new Set(D.sched.games[t]));
   D.loading=false; D.loaded=true;
   // Josh's newest ranks go to the board before anything is built from it. This comes after the load is marked done, because the board draws again and asks this tab for its numbers
@@ -2121,10 +2205,11 @@ function summary(){
   if(!CTX || !PK || !TR) return ERR?'error, '+ERR:'not ready';
   const c=CTX, me=RACE.rows.find(r=>r.tid===ME), o=[], pl=planOf(), pt=planTable(c,pl), nm=a=>a.map(p=>p.name).join(' and '), cl=a=>a.map(x=>CATS[x]).join(' ');
   o.push('scan '+c.scan.at+', week '+c.wk.n+' vs '+((c.teams[c.opp]||{}).name||'none'));
-  if(WK) o.push('week win chance '+pc(WK.win)+' percent, '+(c.act?'leading ':'favored in ')+WK.fav+' of 9 cats, cat chances '+WK.probs.map((p,i)=>CATS[i]+' '+pc(p)).join(', ')); else o.push('no matchup found for this week');
+  if(WK){ const ln=leadNow(c); o.push('week win chance '+pc(WK.win)+' percent'+(WK0?', Monday call '+pc(WK0.win)+' percent':'')+', on track for '+WK.fav+' of 9 cats by Sunday'+(ln?', leading '+ln.lead+' of 9 right now':'')+', cat chances '+WK.probs.map((p,i)=>CATS[i]+' '+pc(p)).join(', ')+', '+(CAL.n?'checked against '+CAL.n+' past cat results, factor '+CAL.s.toFixed(2):'no past weeks checked yet')); } else o.push('no matchup found for this week');
   o.push('average week '+pc(c.base[ME].week)+' percent, rank '+me.pos+' of 10, top four chance '+pc(me.top4)+' percent, record '+(me.rec.w||0)+' wins '+(me.rec.l||0)+' losses');
   o.push('plan'+(pl.start?'':' (changed)')+', locks '+cl(pl.lock)+', build pool '+cl(pl.build)+', punt '+(cl(pl.punt)||'none')+', plan cats on target '+pt.hit+' of '+pt.of+', plan week '+pc(pt.week)+' percent'+(pt.risk.length?', locks at risk '+cl(pt.risk.map(r=>r.c)):'')+(TR.lead?', leading route '+cl(TR.lead):''));
   o.push('adds left for week '+c.wk.n+' '+c.addsNow+(PK.week && PK.week.n!==c.wk.n?', pickups below are scored for week '+PK.week.n+' which has '+PK.adds+' adds left':', pickups below are scored for week '+c.wk.n)+', waiver spot '+((c.teams[ME]||{}).waiver||'unknown')+(PK.ilMove&&!PK.free?', IL move open for '+PK.ilMove.name:'')+(PK.free?', open roster spots '+PK.free:''));
+  if(PK.ilBack && PK.ilBack.length) o.push('back from IL, '+PK.ilBack.map(r=>r.p.name+' is no longer tagged out'+(r.drop?', drop '+r.drop.name:', no drop found')).join(', ')+(PK.ilBackWin?', week chance '+pc(pWin5(calP(PK.base.probs)))+' to '+pc(pWin5(calP(PK.ilBackWin.probs)))+' percent':'')+', Yahoo may refuse adds until they are moved');
   { const U=Object.values(c.U), dm=U.filter(p=>p.dep), fl=U.filter(p=>p.fill); o.push(DP?'depth chart '+DP.day+', '+dm.length+' lines moved by it'+(fl.length?', filling in '+fl.map(p=>p.name+' for '+p.fill.who.name).join(', '):', nobody filling in'):'no depth chart in use'); }
   PK.list.slice(0,4).forEach((r,i)=>o.push('pickup '+(i+1)+', need '+r.need+', '+r.p.name+(r.drop?', drop '+r.drop.name:', no drop')+', '+r.tag+', '+r.labels.join(' and ').toLowerCase()+(Math.round(100*r.cut)>=1?', tag cut '+Math.round(100*r.cut)+' percent':'')+(r.built.length?', builds '+cl(r.built):'')+', '+(r.wd?'waivers until '+nice(r.wd):r.waiver?'on waivers':'free agent')));
   if(CH) o.push('trade chips, '+(CH.list.length?CH.list.map(r=>r.p.name+' '+r.score+' '+(r.call==='grab'?'grab tonight':'watch')+(r.call==='grab'&&r.drop?' drop '+r.drop.name:'')+(r.call==='grab'?' bail under '+r.bail+' minutes':'')).join(', '):'none worth chasing'));

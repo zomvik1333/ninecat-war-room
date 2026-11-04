@@ -4,12 +4,13 @@
    Use: node scan/ingest.js raw1.txt [raw2.txt ...]
         node scan/ingest.js --partial players_only.txt     (skips the end of scan check, for player name lines only)
         node scan/ingest.js --force raw1.txt               (recovery only, loads a scan that is older than the one on file)
+        node scan/ingest.js --snapshot raw1.txt            (recovery only, also makes this scan the trade list's weekly snapshot)
    Every line carries a checksum. If any line is wrong nothing is written and the bad lines are listed.
    Every check runs first. The data files are written only at the very end, after all of them have passed. */
 const fs=require('fs'), path=require('path');
 const DIR=path.join(__dirname,'..','data');
 const ck=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return ('000'+((h>>>0)%1679616).toString(36)).slice(-4)};
-const args=process.argv.slice(2); const partial=args.includes('--partial'), force=args.includes('--force'); const files=args.filter(a=>a.indexOf('--')!==0);
+const args=process.argv.slice(2); const partial=args.includes('--partial'), force=args.includes('--force'), snapForce=args.includes('--snapshot'); const files=args.filter(a=>a.indexOf('--')!==0);
 if(!files.length){ console.log('give one or more raw scan text files'); process.exit(2); }
 const raw=files.map(f=>fs.readFileSync(f,'utf8')).join('\n');
 const lines=raw.split('~').map(s=>s.replace(/\s+/g,' ').trim()).filter(s=>/^[A-Z]\d?\|/.test(s));
@@ -54,6 +55,17 @@ if(K.length){
 }
 const saveK=()=>{ if(league){ wr('league.json',league); say.push('league schedule saved, '+league.weeks.length+' weeks'); } };
 
+// Vikas, Nov 4 2026. Final scores of finished weeks, every matchup, kept for the season in data/results.json so the week forecast can be checked against them
+const etDay=s=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(s));
+const FL=of('F'); let results=null;
+if(FL.length){ results=rd('results.json',{weeks:{}}); if(!results.weeks||typeof results.weeks!=='object') results.weeks={};
+  const lgT=(league||rd('league.json',{teams:{}})).teams||{}, nmT=s=>asc(s).toLowerCase().replace(/\s+/g,' ').trim(), seen={};
+  FL.forEach(f=>{ let tid=f[2]; if(!lgT[tid]){ const hit=Object.keys(lgT).filter(k=>nmT(lgT[k].name)===nmT(tid)); if(hit.length===1) tid=hit[0]; else { say.push('WARNING, a final score row came with the team "'+f[2]+'" that matches no team, it was left out.'); return; } }
+    const w=String(+f[1]); if(!(+w>=1)) return; (results.weeks[w]=results.weeks[w]||{})[tid]={fgm:n(f[3]),fga:n(f[4]),ftm:n(f[5]),fta:n(f[6]),tpm:n(f[7]),pts:n(f[8]),reb:n(f[9]),ast:n(f[10]),stl:n(f[11]),blk:n(f[12]),to:n(f[13])}; seen[w]=1; });
+  Object.keys(seen).forEach(w=>{ const k=Object.keys(results.weeks[w]).length; if(k!==10) say.push('WARNING, week '+w+' has final scores for '+k+' teams, not 10. Read that week again with NCWSCAN.run({mode:\'finals\',weeks:['+w+']}).'); });
+  results.updated=new Date().toISOString().slice(0,16)+'Z'; results.seen=Object.keys(seen); }
+const saveR=()=>{ if(results){ const s=results.seen; delete results.seen; wr('results.json',results); say.push('final scores saved for week '+s.join(' and ')+', '+Object.keys(results.weeks).length+' weeks on file'); } };
+
 // daily scan
 const H=partial?null:of('H')[0];
 if(H){
@@ -74,12 +86,13 @@ if(H){
     // the two lines must match, so a two week line that disagrees with the season line is set back to the season line
     const mid=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[1]>0 && s[14]===s[1] && s[15]!=null && s[2]!=null && Math.abs(s[15]-s[2])>0.6; });
     mid.forEach(i=>{ const s=scan.stats[i]; s[15]=s[2]; s[16]=Math.round(10*zs(s))/10; });
-    if(mid.length) say.push('WARNING, Yahoo was still adding last night\'s games for '+mid.length+' players, their two week minutes did not match their season line and were set back to it. A scan after about 1.30 am Pacific reads them right.');
+    if(mid.length){ scan.flag='mid update'; say.push('WARNING, Yahoo was still adding last night\'s games for '+mid.length+' players, their two week minutes did not match their season line and were set back to it. A scan after about 1.30 am Pacific reads them right.'); }
     // later in the season the two lines differ for real, so the check above no longer applies. Nobody averages more than 44 minutes over two weeks, so a number above it means the same mid update
     const hi=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[15]!=null && s[15]>44; });
+    if(hi.length) scan.flag='mid update';
     if(hi.length) say.push('WARNING, '+hi.length+' players show more than 44 minutes a game over the last two weeks, so Yahoo was probably still adding last night\'s games. Scan again after about 1.30 am Pacific.');
     if(gap.length && scan.week && scan.week<=2){ gap.forEach(i=>{ const s=scan.stats[i]; s[14]=s[1]; s[15]=s[2]; s[16]=Math.round(10*zs(s))/10; }); say.push('NOTE, Yahoo had not finished its two week numbers for '+gap.length+' players, so their season line was used, which is the same thing in week '+scan.week+'.'); }
-    else if(gap.length>0.1*Object.keys(scan.stats).length) say.push('WARNING, '+gap.length+' of '+Object.keys(scan.stats).length+' players have no two week numbers from Yahoo. Yahoo was probably still updating. A scan an hour later should have them.'); }
+    else if(gap.length>0.1*Object.keys(scan.stats).length && (scan.flag='two week gap')) say.push('WARNING, '+gap.length+' of '+Object.keys(scan.stats).length+' players have no two week numbers from Yahoo. Yahoo was probably still updating. A scan an hour later should have them.'); }
   // checks on the shape of the scan. A scan can carry valid checksums and still be wrong, so all of these run before anything is written
   const wrong=[], tid=scan.teams.map(t=>t.id), rid=of('R').map(f=>f[1]), dup=a=>a.filter((x,i)=>a.indexOf(x)!==i);
   const who=i=>(players.p[i]?players.p[i][0]+' ':'')+'(id '+i+')', nm=s=>asc(s).toLowerCase().replace(/\s+/g,' ').trim();
@@ -118,12 +131,21 @@ if(H){
   const missing=[...ids].filter(i=>!players.p[i]);
   if(missing.length) say.push('WARNING, no name on file for player ids '+missing.join(' ')+'. Run the scan again with NCWSCAN.run({all:true}) to get them.');
   const sig=s=>Object.keys(s.rosters).sort().map(t=>t+':'+s.rosters[t].map(x=>x[0]).sort().join('.')).join('|');
-  saveP(); saveK();
+  saveP(); saveK(); saveR();
   if(prev && prev.at!==scan.at) wr('scan_prev.json',prev);
   wr('scan.json',scan);
+  // Vikas, Nov 4 2026. The first scan of each fantasy week is kept in data/starts.json. The site works out the Monday call for the week from it, and checks past
+  // weeks' calls against the final scores. A first scan read while Yahoo was still updating is replaced by a clean one from the same day
+  if(scan.week){ const starts=rd('starts.json',{weeks:{}}); if(!starts.weeks||typeof starts.weeks!=='object') starts.weeks={};
+    const lg=league||rd('league.json',null), wo=lg&&Array.isArray(lg.weeks)?lg.weeks.find(w=>w.n===scan.week):null, cur=starts.weeks[scan.week], sd=etDay(scan.at);
+    if(!cur || (cur.flag && !scan.flag && etDay(cur.at)===sd) || (force && cur.at>scan.at)){ const s2=JSON.parse(JSON.stringify(scan)); if(wo && sd>wo.start) s2.late=true; starts.weeks[scan.week]=s2; wr('starts.json',starts);
+      say.push('first scan of week '+scan.week+' saved for the Monday call'+(s2.late?', but it was read after the week began, so it is not used to check the forecast':'')); } }
   const wk=rd('scan_week.json',null); let wmsg='trade list keeps this week\'s snapshot';
-  if(!wk || wk.week!==scan.week || sig(wk)!==sig(scan)){ wr('scan_week.json',scan); wmsg=!wk?'first weekly snapshot saved':wk.week!==scan.week?'new fantasy week, trade snapshot refreshed':'a roster changed in the league, trade snapshot refreshed'; }
+  // Vikas, Nov 4 2026. A scan read while Yahoo was still updating carries a flag. It still refreshes the snapshot when a roster changed, since the trade list needs the
+  // new rosters, but the flag goes with it and the next clean scan of the same week replaces it even with no roster change. --snapshot forces a refresh, recovery only
+  if(!wk || wk.week!==scan.week || sig(wk)!==sig(scan) || (wk.flag && !scan.flag) || snapForce){ wr('scan_week.json',scan); wmsg=!wk?'first weekly snapshot saved':wk.week!==scan.week?'new fantasy week, trade snapshot refreshed':sig(wk)!==sig(scan)?'a roster changed in the league, trade snapshot refreshed':snapForce?'trade snapshot refreshed on request':'the snapshot on file came from a scan Yahoo was still updating, so this clean scan replaces it';
+    if(scan.flag) wmsg+=', but this scan was read while Yahoo was still updating, so the next clean scan replaces the snapshot'; }
   const rostered=Object.values(scan.rosters).reduce((a,r)=>a+r.length,0);
   say.push('scan saved, '+scan.at+', week '+scan.week+', '+scan.mode+' mode, '+scan.teams.length+' teams, '+rostered+' rostered, '+Object.keys(scan.avail).length+' available, '+Object.keys(scan.stats).length+' stat lines, '+scan.tx.length+' transactions, '+newP+' new players. '+wmsg+'.');
-} else { saveP(); saveK(); if(!K.length) say.push('player names saved, '+of('P').length+' lines, '+newP+' new, no scan written'); }
+} else { saveP(); saveK(); saveR(); if(!K.length && !FL.length) say.push('player names saved, '+of('P').length+' lines, '+newP+' new, no scan written'); }
 done();

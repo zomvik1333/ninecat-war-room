@@ -12,4 +12,6 @@ if(!/^## main(\.\.\.origin\/main)?/.test(head)) bad.push('the folder is not on m
 if(/ahead \d+/.test(head)) bad.push('main is ahead of origin/main, so a commit is not pushed yet');
 lines.slice(1).forEach(l=>{ const f=l.slice(3).replace(/^"|"$/g,'').split(' -> ').pop(); if(!/^data\/[^/]+\.json$/.test(f)) bad.push('changed outside data, '+l.trim()); });
 if(bad.length){ console.log('deploy NOT ok. '+bad.join('. ')+'. Do not deploy. Say the scan is saved but not live and why.'); process.exit(1); }
+// Vikas, Nov 4 2026. plan.json holds his own calls, so say so when one goes live with the daily data
+if(lines.slice(1).some(l=>l.slice(3).replace(/^"|"$/g,'').split(' -> ').pop()==='data/plan.json')) console.log('NOTE, data/plan.json differs from main, so a plan or tier change goes live with this deploy. Name it in the report.');
 console.log('deploy ok, only data files differ from main');

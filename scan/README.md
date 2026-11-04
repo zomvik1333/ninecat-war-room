@@ -80,7 +80,8 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 13. Close the tab you opened
 14. Report to Vikas in a few short bullets
     * That the scan ran and what time Yahoo was read
-    * Week win chance and cats led or favored
+    * Week win chance with the Monday call, cats on track by Sunday and cats led right now, kept apart
+    * Any player the summary says is back from IL, with the drop it names
     * The season plan line from the summary. Plan cats on target, any lock at risk and the leading route
     * Any pickup with a need score of 85 or more, with who to drop
     * The top trade that stays on plan, with how hard the sell is. Any pivot the summary lists. Most days it will say no pivot beats the plan, and that is fine to report as is
@@ -88,6 +89,16 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
     * Any roster change in the league since yesterday, from the X lines of the scan
     * Anything that failed
     * Remind him the numbers are model estimates and that he makes every move himself
+
+## Added Nov 4 2026, version 26.10
+* The scanner now also reads the final score of every matchup last week, as F lines. Ingest saves them in data/results.json and says final scores saved. A WARNING that a week has fewer than 10 teams means read that week again with `window.__p=NCWSCAN.run({mode:'finals',weeks:[N]})`, copy its page the same way into a file in the raw scan folder and run `node scan/ingest.js --partial <that file>`
+* The first scan of each fantasy week is saved in data/starts.json for the Monday call, and ingest says first scan of week N saved. A first scan read while Yahoo was still updating is replaced by a clean one from the same day
+* A scan read while Yahoo was still updating is marked. It may refresh the trade snapshot when a roster changed, and the next clean scan replaces it. To make a clean scan the snapshot on purpose, recovery only, run `node scan/ingest.js --snapshot <page files>`
+* fetch-news.js prints a NOTE when it drops a tag about missed games because the player has played since. Take that tag out of news_tags.json too
+* josh-update.js prints a WARNING when one player's moves stack past 40 places since his last named rank. Give him a rank where Josh's words put him
+* check-deploy.js prints a NOTE when data/plan.json goes live with the deploy. Name the plan change in the report
+* The report's week line now reads like this, week win chance, Monday call, on track for N of 9 by Sunday, leading N of 9 right now. Never call the on track number cats you lead
+* After any change to how players are projected, change CALV in moves.js, so every browser checks the past weeks again with the new code
 
 ## The season plan file
 * data/plan.json holds the season plan for every device. It is a list of nine roles in the order FG%, FT%, 3PM, PTS, REB, AST, STL, BLK, TO. The roles are lock, build, bonus, low, punt and swing

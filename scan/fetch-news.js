@@ -178,6 +178,16 @@ async function get(url){
   // an empty feed on a live run would wipe every status and return date, so it is refused when the old file still holds several
   if(!opt.from && !Object.keys(p).some(id=>p[id].st)){ let had=0; try{ const o=readJson(path.join(OUT,'news.json')); had=Object.keys((o&&o.p)||{}).filter(id=>o.p[id]&&o.p[id].st).length; }catch(e){}
     if(had>=5) stop('news NOT saved. ESPN listed no player with a status, while the old news file has '+had+'. That looks like a fault in the feed. Nothing written.'); }
+  // Vikas, Nov 4 2026. A tag about a player missing games goes once he plays again. Each tag keeps the games he had played when it was first saved (tagGp).
+  // A tag that is not good news, whose note says he sat or was out, is dropped when data/scan.json shows more games than that. The note is named in a NOTE line
+  { let sc=null, old=null; try{ sc=readJson(path.join(DATA,'scan.json')); }catch(e){} try{ old=readJson(path.join(OUT,'news.json')); }catch(e){}
+    const gpOf=id=>{ const s=sc&&sc.stats&&sc.stats[id]; return Array.isArray(s)&&isFinite(+s[1])?+s[1]:null; };
+    const op=(old&&old.p&&typeof old.p==='object')?old.p:{};
+    const ABSENT=/\b(sat|sits|sitting|out|missed|misses|miss|sidelined|sideline|held out|ruled out|day to day|questionable|doubtful|not play|won't play)\b/i;
+    if(sc) Object.keys(use).forEach(id=>{ const t=use[id], o=op[id], now=gpOf(id);
+      const was=(o && o.tagAt===t.tagAt && o.note===t.note && isFinite(+o.tagGp) && o.tagGp!=null)?+o.tagGp:now;
+      if(t.dir!=='good' && t.note && ABSENT.test(t.note) && was!=null && now!=null && now>was){ say.push('NOTE, the tag for '+P[id][0]+' (id '+id+') said he was missing games and he has played '+(now-was)+' since, so it was left out. Take it out of the tags file too.'); delete use[id]; return; }
+      t.tagGp=was; }); }
   Object.keys(use).forEach(id=>{ if(!p[id]) p[id]={n:String(P[id][0]),st:null,fs:null,part:null,ret:null,at:null,dir:null,note:null,tagAt:null,tagSrc:null}; Object.assign(p[id],use[id]); });
   if(oldTags) say.push(oldTags+' tag'+(oldTags>1?'s are':' is')+' older than '+FRESH+' days and '+(oldTags>1?'were':'was')+' left out');
 

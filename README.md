@@ -14,10 +14,25 @@ Live site at https://ninecatwarroom.vercel.app
 * josh-teams.html is the Josh by team page, a plain page with no data files behind it. Since version 13 no tab links to it. The page is still there by its address.
 * data holds the numbers the tab reads. josh_cats.json holds Josh Lloyd's category calls. scan.json is the daily Yahoo scan, scan_week.json is the snapshot the trade list uses, players.json holds Yahoo player names, league.json holds the fantasy schedule, schedule.json holds the NBA schedule and prior.json holds last season's per game numbers.
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule, fetch-news.js writes the injury news file, fetch-ages.js writes the player ages file, josh-update.js writes Josh's newest ranks and README.md is the step by step procedure.
-* Four small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks. The tab still works if any of them is missing.
+* Six small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks, starts.json holds the first scan of each fantasy week for the Monday call and results.json holds the final score of every matchup in every finished week. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
-## Version 26.8 (branch main), Oct 28 2026, steadier week forecast
+## Version 26.10 (branch main), Nov 4 2026, fixes from the Nov 3 bug check
+
+* The week card no longer says Cats you lead for a forecast. It says Cats on track by Sunday, shows how many cats you lead right now apart from that, and says Hold the lead only when you really lead 5 or more. The nightly summary says the same
+* The Monday call. The first scan of each fantasy week is kept in data/starts.json, and the site works out the week forecast from it with only the news known by then. It stays put all week, and the page says how far today's number has moved from it and which cats moved it
+* The forecast learns. Each nightly scan reads the final score of every matchup last week into data/results.json. The site checks the Monday calls for all five matchups of every finished week against them and fits one factor for how sure the chances should be, held near 1 while results are few. Weeks 1 and 2 are on file, 89 cat results, and the raw chances were too sure, factor 1.21
+* A player on IL who is no longer tagged out is flagged at the top of Pickups and in the summary, with the drop the tiers allow that costs the least over the season (a floating player may go here) and the week chance with him back. Yahoo may refuse adds while he sits there
+* This season counts more. A player's line is half this season by game 7 (a real last season now counts like 7 games, was 12). FG% and FT% lean on the old line twice as long. Josh's pull on the board is cut from 70 to 50 percent of the way, so he is about a quarter of a line by game 7 and less after
+* Games played now come from games really played. Josh's rank no longer cuts a player's games share, and this season's share joins slowly, like 25 games of the old figure. Mitchell goes from 74 to 88 percent of games, Trey Murphy from 62 to 80, Quickley from 63 to 79
+* ingest.js marks a scan read while Yahoo was still updating. Such a scan never stays as the trade list's weekly snapshot, the next clean scan replaces it. --snapshot forces a refresh, recovery only
+* fetch-news.js drops a tag about missed games once the player has played again, and names it in a NOTE line
+* josh-update.js warns when one player's moves stack past 40 places since his last named rank
+* check-deploy.js prints a NOTE when data/plan.json goes live with a data deploy
+* data/plan.json, Devin Vassell and Kris Dunn floating, Pelle Larsson droppable, a review for Dunn at game 9
+* Fallback branch fallback-v26-10-before-bug-fixes
+
+## Version 26.8, Oct 28 2026, steadier week forecast
 
 * Found by replaying every saved scan from weeks 1 and 2. Around midnight Pacific Yahoo has added last night's minutes to the two week split but not the game, so anyone who played last night read a third to a half too many minutes (LaVine 47.7 at 12.05 am, 36.0 at 1.54 am). That one glitch moved the week 2 forecast from 65 to 48 and back
 * scan/ingest.js now sets a two week line that disagrees with the season line back to the season line while every game a player has played is inside the two weeks, and warns when any two week line shows more than 44 minutes

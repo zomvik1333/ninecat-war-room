@@ -85,6 +85,32 @@
     return out;
   }
 
+  // the final score of every matchup in a finished week, one F line per team. Read only, it opens the same matchup pages anyone in the league can see
+  async function finals(wn,teams,out){
+    st.step='finals week '+wn;
+    try{ const d=await get(BASE+'?matchup_week='+wn+'&module=matchups&lhst=matchups');
+      const pairs=[...new Set([...d.querySelectorAll('a[href*="/matchup?week="]')].map(a=>{const m=(a.getAttribute('href')||'').match(/week=(\d+)&mid1=(\d+)&mid2=(\d+)/);return m&&+m[1]===wn?m[2]+'v'+m[3]:''}).filter(Boolean))];
+      if(!pairs.length) st.log.push('no matchups found for week '+wn);
+      for(const pr of pairs){ const ab=pr.split('v');
+        const dm=await get(BASE+'/matchup?week='+wn+'&mid1='+ab[0]+'&mid2='+ab[1]);
+        const t=[...dm.querySelectorAll('table')].find(x=>x.rows.length&&/FGM\/A/.test(x.rows[0].textContent)&&/Team/.test(x.rows[0].textContent));
+        if(!t){ st.log.push('no score table week '+wn+' '+pr); continue; }
+        const hc=[...t.rows[0].cells].map(c=>c.textContent.replace(/\*/g,'').trim());
+        [...t.rows].slice(1,3).forEach(r=>{ const c=[...r.cells].map(x=>x.textContent.trim()); const g=k=>c[hc.indexOf(k)]||''; const fg=g('FGM/A').split('/'), ft=g('FTM/A').split('/');
+          const tm=teams.find(x=>x.nm===clean(c[0])); out.push(['F',wn,tm?tm.tid:clean(c[0]),digits(fg[0]),digits(fg[1]),digits(ft[0]),digits(ft[1]),digits(g('3PTM')),digits(g('PTS')),digits(g('REB')),digits(g('AST')),digits(g('ST')),digits(g('BLK')),digits(g('TO'))].join('|')); });
+        await sleep(250); }
+    }catch(e){ st.log.push('finals not read week '+wn); }
+  }
+  // finals only, for weeks already played. NCWSCAN.run({mode:'finals',weeks:[1,2]}) gives F lines that ingest takes with --partial
+  async function runFinals(opts){
+    const out=[]; const home=await get(BASE); const teams=[];
+    const stt=home.querySelector('#standingstable');
+    if(stt) [...stt.tBodies[0].rows].forEach(r=>{ const a=r.querySelector('a[href*="'+BASE+'/"]'); if(!a) return; const tid=((a.getAttribute('href')||'').match(/\/(\d+)$/)||[])[1]; if(!tid) return;
+      const hc=[...stt.querySelectorAll('thead th')].map(c=>c.textContent.replace(/\s+/g,' ').trim()), c=[...r.cells].map(x=>x.textContent.replace(/\s+/g,' ').trim()); teams.push({tid,nm:clean(c[hc.findIndex(h=>h.indexOf('Team')===0)])}); });
+    for(const wn of (opts.weeks||[])) await finals(+wn,teams,out);
+    return out;
+  }
+
   async function runDaily(opts){
     if(opts.season) SEASON=String(opts.season);
     const out=[]; const P={}, S={}, L={}, OWN={}, PCT={}, CUR={};
@@ -172,6 +198,8 @@
       }catch(e){ st.log.push('matchup not read'); }
     }
 
+    // Vikas, Nov 4 2026. The final score of every matchup last week, so the week forecast can be checked against what really happened
+    if(wk && +wk>1 && opts.finals!==false) await finals(+wk-1,teams,out);
     st.step='transactions';
     try{ const d=await get(BASE+'/transactions');
       const t=d.querySelector('table[class*="transaction"]')||d.querySelector('table');
@@ -211,7 +239,7 @@
   }
   async function run(opts){
     opts=opts||{}; st.done=false; st.err=''; st.log=[]; st.lines=[]; st.pages=[]; st.mode=opts.mode||'daily'; st.limit=opts.limit||9000;
-    try{ const body=st.mode==='sched'?await runSched():await runDaily(opts); finish(body); st.step='done'; }
+    try{ const body=st.mode==='sched'?await runSched():st.mode==='finals'?await runFinals(opts):await runDaily(opts); finish(body); st.step='done'; }
     catch(e){ st.err=String(e&&e.message||e); }
     st.done=true; return st.pages.length;
   }
