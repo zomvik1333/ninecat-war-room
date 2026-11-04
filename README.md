@@ -17,6 +17,19 @@ Live site at https://ninecatwarroom.vercel.app
 * Six small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks, starts.json holds the first scan of each fantasy week for the Monday call and results.json holds the final score of every matchup in every finished week. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
+## Version 26.11 (branch main), Nov 4 2026, trade engine rework
+
+* What if on your real roster. NCWMoves.setRoster([[id,slot,status],...]) rebuilds every number from your roster as Yahoo shows it today, the trade snapshot too. Nothing is saved, a reload goes back to the last scan. NCWMoves.whatIf([add ids],[drop ids]) scores a move for this week and the season without changing anything
+* Every trade card opens with The trade off, a game. What you give and what you get per game for all 9 cats and minutes, side by side, each cat marked lock, build, half weight, bonus or punt, with helps or costs. Each player's rank on the value scale, breakout and injury prone flags are under it. checkOffer returns the same table as perGame
+* Asking prices in data/plan.json under ask. A trade that sends one of these players must bring back a player ranked that high or better on the value scale. Lendeborg 30, Boozer 40. Trades below the price are never listed and checkOffer names it as a stop
+* The value scale is led by this season. This season's share is 85 percent of (1 minus e to the minus games over 11), about 40 at game 7, 63 at 15 and 79 at 30. The rest is Josh 47, last season 21, Yahoo's preseason rank 17 and draft spot 15. This season is three quarters the site's own rank and a quarter Yahoo's current rank once he has 5 games. A late pick still moves half its draft share to Josh and Yahoo
+* Breakout rule. A player 20 or more spots better than his draft spot, with 5 games and 26 minutes over two weeks, has his draft spot fade to nothing by 60 spots and last season by half. A player far below his draft spot loses it the same way after 5 games
+* Injury prone. Games over the last two seasons (60 and 40 percent) blended with this season. Under 65 of 82 is prone and is marked down up to 10 percent at 50 of 82. Taking on 2 or more prone players is a checkOffer stop and sits 30 percent lower in the list
+* A player who has played every one of his team's games has his games share learn faster, like 15 games of the old figure instead of 25. FG% and FT% lean on the old line one and a half times as long, was twice. Calibration restarts under CALV 26.11
+* By manager. managers.json may hold open, deals a manager offered himself, in the talks give and get order. They show under In talks as His own idea even when the value scale says light. A manager's page flags notes older than 14 days
+* Tested on the local copy. No console errors on any tab, checkOffer matches every listed card. Replay of the 12 logged talks at the Oct 22 scan, new scale 9 of 12 right, old 10 of 12, both miss the same two
+* Fallback branch fallback-v26-11-before-trade-rework
+
 ## Version 26.10 (branch main), Nov 4 2026, fixes from the Nov 3 bug check
 
 * The week card no longer says Cats you lead for a forecast. It says Cats on track by Sunday, shows how many cats you lead right now apart from that, and says Hold the lead only when you really lead 5 or more. The nightly summary says the same

@@ -54,7 +54,13 @@ function okMgr(j){
       tips:arr(t.tips,30)};
     // a yes in principle is also a deal in talks
     const tm=o.teams[id], same=(a,b)=>a.length===b.length && a.every(x=>b.indexOf(x)>=0);
-    tm.yes.forEach(y=>{ if(!tm.talks.some(z=>same(z.give,y.give) && same(z.get,y.get))) tm.talks.push({give:y.give,get:y.get,at:y.at,level:'yes',note:''}); }); });
+    tm.yes.forEach(y=>{ if(!tm.talks.some(z=>same(z.give,y.give) && same(z.get,y.get))) tm.talks.push({give:y.give,get:y.get,at:y.at,level:'yes',note:''}); });
+    // Vikas, Nov 4 2026. open is a deal the manager himself has said he would do, in the same give and get order as talks. What a manager says he wants
+    // beats the value scale, so it shows under In talks even when the scale says it is light for him
+    (Array.isArray(t.open)?t.open:[]).slice(0,10).filter(y=>y && typeof y==='object' && Array.isArray(y.give) && Array.isArray(y.get)).forEach(y=>{ const g=keys(y.give).slice(0,4), h=keys(y.get).slice(0,4); if(!g.length || !h.length || tm.talks.some(z=>same(z.give,g) && same(z.get,h))) return;
+      tm.talks.push({give:g,get:h,at:isDay(y.at)?y.at:'',level:'maybe',open:true,note:typeof y.note==='string'?y.note.trim().slice(0,200):'his own idea'}); });
+    // the newest date anywhere in his notes, so a page can say when they are getting old
+    tm.at=[isDay(t.at)?t.at:'',o.made].concat(tm.talks.map(z=>z.at)).filter(isDay).sort().pop()||''; });
   return Object.keys(o.teams).length?o:null; }
 function loadMg(){ MG=null; try{ MG=okMgr(JSON.parse(localStorage.getItem(MGKEY)||'null')); }catch(e){ MG=null; } }
 function setMg(text){ let j=null; try{ j=JSON.parse(text); }catch(e){ return 'That is not a valid notes file.'; } const m=okMgr(j); if(!m) return 'That file has no manager notes in it.'; try{ localStorage.setItem(MGKEY,JSON.stringify(j)); }catch(e){ return 'This browser would not save the notes.'; } MG=m; return ''; }
@@ -245,9 +251,9 @@ function project(p,scan){
   if(cur && seasonAge(scan)<=14 && (p.g14==null || p.g14<gp)){ p.g14=gp; p.m14=cur.mp; p.v14=valOf(cur); p.l14fill=true; }
   let w=0, line=null, mpReal=false;
   // Vikas, Nov 4 2026. This season counts more. A real last season now counts like 7 games (was 12), an older one like 6 (was 9) and a rookie guess like 4 (was 6),
-  // so by game 7 this season is half of a veteran's line. Shooting percentages are mostly luck over a few games, so FG% and FT% lean on the old line twice as long
+  // so by game 7 this season is half of a veteran's line. Shooting percentages are mostly luck over a few games, so FG% and FT% lean on the old line one and a half times as long (twice until v26.11)
   if(cur){ const pp=prior||REPL_LINE, K=!prior?4:pb==='est'?4:pb==='older'?6:7; w=gp/(gp+K); line=mixLine(pp,cur,w);
-    { const wp=gp/(gp+2*K), sh=(m,a)=>{ if(!(line[a]>0) || !(pp[a]>0) || !(cur[a]>0)) return; const want=line[a]*((pp[m]/pp[a])*(1-wp)+(cur[m]/cur[a])*wp), d=want-line[m]; line[m]=want; line.pts+=(m==='fgm'?2:1)*d; };
+    { const wp=gp/(gp+1.5*K), sh=(m,a)=>{ if(!(line[a]>0) || !(pp[a]>0) || !(cur[a]>0)) return; const want=line[a]*((pp[m]/pp[a])*(1-wp)+(cur[m]/cur[a])*wp), d=want-line[m]; line[m]=want; line.pts+=(m==='fgm'?2:1)*d; };
       sh('fgm','fga'); sh('ftm','fta'); if(line.pts<0) line.pts=0; }
     if(mpSoft && cur.mp>5){ line.mp=cur.mp; mpSoft=false; mpReal=true; }
     // minutes settle much faster than per minute rates, so real minutes count from the first game, a game weighing like a quarter of the starting guess
@@ -508,6 +514,7 @@ function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
     // the share of games he played. This season against his team's games so far, last season against 72, and a season before that counts as 6 games in 10
     p.avC=r.cur?clamp(r.gp/Math.max(1,tg[p.team]||r.gp),0.3,1):null;
     p.avL=r.prev?(r.pb!=='older' && r.lastG!=null?clamp(r.lastG/72,0.3,1):0.6):null;
+    p.prone=proneOf(p,tg[p.team]);
     // an older season and an old player both make a manager trust the numbers less
     let m=1, mc=1; const why=[], early=r.gp<20;
     if(r.pb==='older' || r.pb==='short'){ m*=1.15; if(early) why.push('his numbers come from before last season'); }
@@ -518,14 +525,21 @@ function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
   const rankBy=(vk,ak,rk)=>{ const have=all.filter(p=>p[vk]!=null); if(!have.length) return; const R=have.slice().sort((a,b)=>b[vk]-a[vk])[Math.min(have.length-1,139)][vk];
     have.forEach(p=>{ p.tv=p[vk]>R?R+(p[vk]-R)*p[ak]:p[vk]; }); have.sort((a,b)=>b.tv-a.tv||(a.id<b.id?-1:1)).forEach((p,i)=>{ p[rk]=i+1; }); };
   rankBy('lv0','avL','lastRank'); rankBy('cv0','avC','curRank');
-  const wy=clamp(ctx.avgGP/25,0,0.7);
-  all.forEach(p=>{ const k=B.nkey(p.name), b=p.b, parts=[], sg=seenOf(p.rl.gp), W=seenW(sg,pickOf[k]); p.seenS=sg;
-    if(p.curRank && W.cur>0) parts.push([W.cur,Math.min(260,p.curRank*p.seenMultC)]);
-    if(p.lastRank) parts.push([W.last,Math.min(260,p.lastRank*p.seenMult)]);
-    const pick=pickOf[k]; parts.push(pick?[W.draft,pick]:[W.draft/2,165]);
+  // Vikas, Nov 4 2026, version 26.11. How other managers see a player is led by this season. This season's share climbs fast and levels off,
+  // 85 percent of (1 minus e to the minus games over 11), so about 40 at game 7, 63 at 15 and 79 at 30. The rest is split Josh 47, last season 21,
+  // Yahoo's preseason rank 17 and draft spot 15. This season's piece is three quarters the site's own nine cat rank from this season's line and a quarter
+  // Yahoo's current rank once he has 5 games. A breakout, 20 or more spots above his draft spot with 5 games and 26 minutes over two weeks, fades the draft
+  // spot to nothing by 60 spots and last season by half, and that weight moves to this season. A player far below his draft spot loses it the same way
+  all.forEach(p=>{ const k=B.nkey(p.name), b=p.b, parts=[], gp=p.rl.gp||0, W=seenNew(gp,pickOf[k]); p.seenS=W.cur; p.breakout=null;
+    const yc=(p.cur && gp>=5)?p.cur:null;
+    const curR=(p.curRank && gp>=1)?Math.min(260,yc?0.75*p.curRank*p.seenMultC+0.25*yc:p.curRank*p.seenMultC):null;
+    const pick=pickOf[k]; let wc=W.cur, wd=W.draft, wl=W.last;
+    if(curR && pick && gp>=5){ const d=pick-curR, up=d>0; if(!up || (p.m14||0)>=26){ const bk=clamp((Math.abs(d)-20)/40,0,1); if(bk>0){ wc+=wd*bk+wl*0.5*bk; wd*=1-bk; wl*=1-0.5*bk; p.breakout={dir:up?'up':'down',by:Math.round(Math.abs(d)),share:bk}; } } }
+    if(curR && wc>0) parts.push([wc,curR]);
+    if(p.lastRank) parts.push([wl,Math.min(260,p.lastRank*p.seenMult)]);
+    parts.push(pick?[wd,pick]:[wd/2,165]);
     const jr=(b && b.josh)||p.jr||null; if(jr) parts.push([W.josh,jr]);
-    // Yahoo's rank for this season joins only once he has 5 games, before that it is one or two nights of noise
-    const yc=(p.cur && p.rl.gp>=5)?p.cur:null, y=(p.pre||yc)?(1-wy)*(p.pre||yc)+wy*(yc||p.pre):null; if(y) parts.push([W.yahoo,y]);
+    if(p.pre) parts.push([W.yahoo,p.pre]);
     const ws=parts.reduce((a,x)=>a+x[0],0); p.seenRank=parts.reduce((a,x)=>a+x[0]*x[1],0)/ws;
     const pts=p.proj?p.proj.pts:0;
     // the curve never reaches zero, so two bench players can not read as a blowout
@@ -534,8 +548,22 @@ function seenValues(ctx){ const all=Object.values(ctx.U), tg={}, most={};
     // a return date costs value by the share of the rest of the season it takes away, from nothing for a date before opening night to three quarters for a player who is done for the year
     const miss=(p.ret && ctx.tdays && ctx.tdays.length)?ctx.tdays.filter(d=>d<p.ret).length/ctx.tdays.length:0;
     if(miss>0) v*=1-0.75*miss; else if(isOut(p)) v*=0.75; else if(p.status && !/^P$/i.test(p.status)) v*=0.96;
+    // Vikas, Nov 4 2026. Injury prone, from games played over the last two seasons (last 60 percent, the one before 40) blended with this season.
+    // Under about 65 of 82 games is prone, and managers mark him down for it, up to 10 percent at 50 of 82 or fewer
+    const pr=p.prone; if(pr && pr.on) v*=1-0.10*clamp((PRONE0-pr.share)/0.29,0,1);
     p.mv=v; });
 }
+// the games share over two seasons and this one, and whether that makes a player injury prone. Kept on the player as p.prone
+const PRONE0=65/82;
+function proneOf(p,tg){ const pr=priorOf(p.name), k=B.nkey(p.name), P2=D.prior2&&D.prior2.p, p2=P2?(P2[k]||P2[PALIAS[k]]||null):null;
+  const g1=pr&&pr[0]!=null?+pr[0]:null, g2=p2&&p2[0]!=null?+p2[0]:null;
+  let share=null; if(g1!=null && g2!=null) share=(0.6*g1+0.4*g2)/82; else if(g1!=null) share=g1/82; else if(g2!=null) share=g2/82;
+  if(share==null) return null;
+  const gp=p.rl&&p.rl.gp||0, tgN=Math.max(gp,tg||gp); if(tgN>0){ const w=tgN/(tgN+25); share=share*(1-w)+(gp/tgN)*w; }
+  return {g1,g2,share:clamp(share,0,1),on:share<PRONE0}; }
+// a late pick, after 80 or not drafted, is one manager's reach, so half its draft weight moves to Josh and Yahoo, fully so from pick 100
+function seenNew(gp,pick){ const cur=0.85*(1-Math.exp(-(gp||0)/11)), r=1-cur, L=pick?clamp((pick-LATE0)/(LATE1-LATE0),0,1):1, mv=0.15*r*0.5*L;
+  return {cur,josh:0.47*r+0.6*mv,yahoo:0.17*r+0.4*mv,last:0.21*r,draft:0.15*r-mv}; }
 /* does an offer look fair to them. A is what they get, B is what they give, both on the value above. Small deals are judged by the gap, not the ratio,
    so the gap is measured against at least 40 points of value, about one good starter. Two bench players can then never read as a blowout.
    An offer has to look even or better to them. If they give the best player in the deal they expect to be paid for it.
@@ -641,7 +669,8 @@ function build(scan,opt){
     Object.keys(most).forEach(t=>{ const sc=D.sched&&D.sched.games&&Array.isArray(D.sched.games[t])?D.sched.games[t]:null, n=sc&&sday?sc.filter(d=>d<sday).length:0; tg[t]=n>0?n:most[t]; });
     Object.values(ctx.U).forEach(p=>{ const s=ctx.scan.stats&&ctx.scan.stats[p.id], gp=s?(s[1]||0):0; if(!(gp>=1) || !isFinite(p.av)) return;
       const tgN=Math.max(gp,tg[p.team]||gp), miss=tgN-gp, share=clamp((p.ret||isOut(p))?(gp+0.5*miss)/tgN:gp/tgN,0.3,1);
-      p.av0=p.av; p.av=clamp((p.av*25+share*tgN)/(25+tgN),0.45,0.96); }); }
+      // Vikas, Nov 4 2026. A player who has played every one of his team's games has shown he is healthy, so his record counts faster, like 15 games of the old guess instead of 25
+      const K0=miss===0?15:25; p.av0=p.av; p.av=clamp((p.av*K0+share*tgN)/(K0+tgN),0.45,0.96); }); }
   Object.values(ctx.U).forEach(p=>{ if(p.proj) p.eff=effLine(p,pROS(p),ctx.fillR); });
   timeline(ctx);
   seenValues(ctx); faceValues(ctx); Object.values(ctx.U).forEach(p=>{ p.jv=vj(p,ctx); });
@@ -737,7 +766,7 @@ function thisWeek(ctx){
    Every finished week is checked. The Monday calls for all five matchups in the league are compared with the final scores in data/results.json, and one
    factor is fitted that makes the chances as sure as they have really been. While there are few results the factor is held close to 1 */
 // CALV is the code version. The past week checks are kept in this browser under it, so change it with any change to how players are projected
-const CALV='26.10', CALKEY='ncw_cal_'+CALV, CAL0=90;
+const CALV='26.11', CALKEY='ncw_cal_'+CALV, CAL0=90;
 let CAL={s:1,fit:1,n:0,weeks:[],hit:0,calls:0}, WK0=null;
 const PINV=p=>Math.log(p/(1-p))/1.702;
 const calP=pr=>CAL.s===1?pr.slice():pr.map(p=>PHI(PINV(clamp(p,1e-4,1-1e-4))/CAL.s));
@@ -816,7 +845,13 @@ function setRules(j){ if(!j || typeof j!=='object') return; Object.keys(TNAME).f
   if(tr) [[TTRADE,tr.trade],[TFLOAT,tr.float],[TDROP,tr.drop]].forEach(x=>{ const n=names(x[1]); if(n){ x[0].clear(); n.forEach(k=>x[0].add(k)); } });
   if(j.review && typeof j.review==='object' && !Array.isArray(j.review)){ Object.keys(REVIEW).forEach(k=>delete REVIEW[k]);
     Object.keys(j.review).forEach(n=>{ const r=j.review[n]; if(!r || typeof r!=='object') return; const g=Number.isInteger(r.games) && r.games>0 && r.games<=82?r.games:null;
-      REVIEW[B.nkey(n)]={games:g,note:typeof r.note==='string'?r.note.replace(/[<>]/g,'').slice(0,160):''}; }); } }
+      REVIEW[B.nkey(n)]={games:g,note:typeof r.note==='string'?r.note.replace(/[<>]/g,'').slice(0,160):''}; }); }
+  if(j.ask && typeof j.ask==='object' && !Array.isArray(j.ask)){ Object.keys(ASK).forEach(k=>delete ASK[k]); Object.keys(j.ask).forEach(n=>{ const v=+j.ask[n]; if(Number.isFinite(v) && v>=1 && v<=200) ASK[B.nkey(n)]=Math.round(v); }); } }
+/* Vikas, Nov 4 2026. Asking prices from data/plan.json, ask maps a player to a rank. A trade that sends him must bring back at least one player who ranks
+   that high or better on the value scale, which is how the other managers see players. Cameron Boozer 40 is a round four player or better */
+const ASK={};
+function askOK(give,get){ for(const p of give){ const a=ASK[B.nkey(p.name)]; if(a && !get.some(x=>x.seenRank!=null && x.seenRank<=a)) return false; } return true; }
+function askMiss(give,get){ return give.filter(p=>{ const a=ASK[B.nkey(p.name)]; return a && !get.some(x=>x.seenRank!=null && x.seenRank<=a); }).map(p=>p.name+' needs a player ranked '+ASK[B.nkey(p.name)]+' or better back'); }
 // names in the plan's tiers or reviews who are no longer on your roster, Vikas Oct 28 2026
 const staleTiers=ctx=>{ const on=new Set(((ctx&&ctx.ros&&ctx.ros[ME])||[]).map(p=>B.nkey(p.name))); return Object.keys(TNAME).filter(k=>!on.has(k)).map(k=>TNAME[k]); };
 const tierOf=p=>{ const k=pickOf[B.nkey(p.name)]; return !k?'pickup':k<=TIER_TOP?'top':k<=TIER_MID?'mid':'late'; };
@@ -1140,6 +1175,7 @@ function* scoreOffers(ctx,pl,env,opps){
         if(myCs-give.filter(isCA).length+get.filter(isCA).length<3) continue;
         if(thCs-get.filter(isCA).length+give.filter(isCA).length<2) continue;
         if(joshSide(give,get)==='lose') continue;
+        if(!askOK(give,get)) continue;
         seen++;
         if(clock()-t0>40){ yield seen; t0=clock(); }
         // every offer that gets this far is scored exactly, with both teams' daily lineups set again for the new rosters. No shortcut decides what is dropped
@@ -1235,6 +1271,8 @@ function trades(ctx,done,live){
     // listed by your gain. A hard sell is marked down by half so it sits lower, a fair ask by 10 percent. Position balance moves the score 5 to 8 percent.
     // Value you hand over beyond an even deal counts a little against a trade, and value you get back beyond it counts a little for it, so of two equal gains the cheaper one leads
     t.over=t.fair.A-t.fair.B; t.score=(t.myGain-0.03*t.over)*(t.sell==='easy'?1:t.sell==='fair'?0.9:0.5)*t.bal.mult;
+    // Vikas, Nov 4 2026. Taking on two or more injury prone players is a real risk the season numbers do not fully show, so such a deal sits 30 percent lower
+    t.prone=t.get.filter(p=>p.prone && p.prone.on).length; if(t.prone>=2) t.score*=0.7;
   };
   // two trades with two different teams, scored together exactly
   const both=(a,b)=>{ const give=a.give.concat(b.give), get=a.get.concat(b.get), k=(a.two?1:0)+(b.two?1:0);
@@ -1339,7 +1377,7 @@ function trades(ctx,done,live){
           seen+=m.seen; for(const t of m.out){ t.give=t.give.map(id=>ctx.U[id]); t.get=t.get.map(id=>ctx.U[id]); t.cut=t.cut?ctx.U[t.cut]:null; if(t.give.some(x=>!x) || t.get.some(x=>!x)){ fail(); return; } out.push(t); }
           if(--left===0){ dead=true; stop(); res.how='workers '+ws.length; try{ finish(); }catch(e2){ failed(e2); } } };
         wk.onerror=()=>fail();
-        wk.postMessage({ctx,opps:part,roles:pl.roles,league:D.league,gset:D.gset,nk,pickOf,spotV:env.spotV,pin:env.pin,rules:{never:[...NEVER],hold:Object.assign({},HOLD),keep:[...KEEP],tiers:{trade:[...TTRADE],float:[...TFLOAT],drop:[...TDROP]}}}); });
+        wk.postMessage({ctx,opps:part,roles:pl.roles,league:D.league,gset:D.gset,nk,pickOf,spotV:env.spotV,pin:env.pin,rules:{never:[...NEVER],hold:Object.assign({},HOLD),keep:[...KEEP],tiers:{trade:[...TTRADE],float:[...TFLOAT],drop:[...TDROP]},ask:Object.assign({},ASK)}}); });
     }catch(e){ fail(); }
     return true; };
   if(!inWorkers()) onPage();
@@ -1508,12 +1546,13 @@ function tradeForYou(ctx,t){
   return {head:oneDot([s])[0],rows:tc.up.map(row).concat(tc.dn.map(row))};
 }
 /* the blend behind how a player looks, in words, at the league's average games played */
-function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=SEENW(seenOf(ctx.avgGP||0)), W={}, n=x=>x;
+function seenWords(ctx){ const g=Math.round(ctx.avgGP||0), W0=seenNew(ctx.avgGP||0,1), W={}, n=x=>x;
   // whole percents that add to 100. Each share is rounded down and the points left over go to the shares that were closest to the next whole number
   { const ks=Object.keys(W0); let left=100; ks.forEach(k=>{ W[k]=Math.floor(100*W0[k]+1e-9); left-=W[k]; }); ks.slice().sort((a,b)=>(100*W0[b]-W[b])-(100*W0[a]-W[a])).slice(0,left).forEach(k=>{ W[k]++; }); }
-  const late=' A player drafted after pick 80, or not drafted at all, leans less on the draft and more on Josh and Yahoo, fully so from pick 100, because a late pick is one manager\'s reach and not the league\'s view.';
-  if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is this league\'s draft 45 percent, Josh\'s rank 25, last season 20 and Yahoo\'s rank 10.'+late+' From pick 100 on it is Josh 40 and 20 each for the draft, last season and Yahoo. Once games start, this season\'s numbers take a growing share, fastest early. About 17 percent by his 10th game, 30 by his 20th and 40 by his 41st. Games missed count against him.';
-  return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, this league\'s draft '+n(W.draft)+', Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+' and Yahoo\'s rank '+n(W.yahoo)+'.'+late+' It moves with each player\'s own games until his 41st, when it is this season 40, Josh 20, draft 15, last season 15 and Yahoo 10 for everyone. Games missed count against him.'; }
+  const late=' A player drafted after pick 80, or not drafted at all, moves half his draft share to Josh and Yahoo, fully so from pick 100, because a late pick is one manager\'s reach and not the league\'s view.';
+  const brk=' A player 20 or more spots better than his draft spot, with 5 games and 26 minutes a night over two weeks, is a breakout. His draft spot fades to nothing by 60 spots and last season by half, and that share moves to this season. A player far below his draft spot loses it the same way. Players who missed a lot of games over the last two seasons are marked down up to 10 percent as injury prone.';
+  if(g<1) return 'How a player looks to them is a blend of ranks. Before any games it is Josh\'s rank 47 percent, last season 21, Yahoo\'s preseason rank 17 and this league\'s draft 15.'+late+' Once games start, this season takes a share that climbs fast and then levels off. About 40 percent by his 7th game, 63 by his 15th and 79 by his 30th, never more than 85.'+brk;
+  return 'How a player looks to them is a blend of ranks. For a player with '+g+(g===1?' game':' games')+', about the league average today, it is this season '+n(W.cur)+' percent, Josh\'s rank '+n(W.josh)+', last season '+n(W.last)+', Yahoo\'s preseason rank '+n(W.yahoo)+' and this league\'s draft '+n(W.draft)+'. This season is three quarters the site\'s own rank from his line this season and a quarter Yahoo\'s rank this season once he has 5 games.'+late+' This season climbs with each player\'s own games, about 63 percent by his 15th and 79 by his 30th, never more than 85.'+brk; }
 /* how the offer looks from their side, and by Josh's ranks from mine */
 function tradeFair(ctx,t){
   const f=t.fair, fc=t.face||faceOf(t.give,t.get);
@@ -1955,6 +1994,23 @@ function meTable(cw,t){ const pl=TR.plan, per=cw.view0.per, rows=[];
   let h='<p>Plan gain '+r1(t.myGain)+'. Average week '+pc(cw.view0.weekN)+' to '+pc(t.after)+' percent. Favored in '+per.filter(x=>x>0.5).length+' of 9 cats now, '+t.per.filter(x=>x>0.5).length+' after.'+(t.two?' Opens a roster spot for a streamer.':'')+(t.o===cw.opp?' This is this week\'s opponent, but the trade barely changes this week.':'')+'</p>';
   h+='<div class="mvtbl"><table><thead><tr><th>Cat</th><th class="num">Now</th><th class="num">After</th><th class="num">Change</th><th>What it means</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+CATS[r[0]]+'</b></td><td class="num">'+pc(r[2])+'%</td><td class="num">'+pc(r[3])+'%</td><td class="num">'+updn(r[4])+'</td><td>'+r[5]+'</td></tr>').join('')+'</tbody></table></div><p class="small">Chance to win each cat in an average week. Locks always show, other cats when they move 1.5 or more.</p>';
   return h; }
+/* Vikas, Nov 4 2026. The trade off at a glance. What you give and what you get a game, side by side, from the same lines the trade search uses,
+   with each cat marked lock, build or punt from your plan. Turnovers are better when lower */
+const PGK=[['pts','PTS'],['reb','REB'],['ast','AST'],['stl','STL'],['blk','BLK'],['tpm','3PM'],['to','TO']];
+function perGame(give,get){ const sum=ps=>{ const T={mp:0,fgm:0,fga:0,ftm:0,fta:0}; PGK.forEach(k=>T[k[0]]=0); ps.forEach(p=>{ const l=p.proj; if(!l) return; Object.keys(T).forEach(k=>{ T[k]+=l[k]||0; }); }); return T; };
+  const G=sum(give), R=sum(get), pct=(m,a)=>a>0?100*m/a:null, rows=PGK.map(k=>({k:k[1],give:r1(G[k[0]]),get:r1(R[k[0]]),d:r1(R[k[0]]-G[k[0]])}));
+  rows.unshift({k:'FT%',give:r1(pct(G.ftm,G.fta)),get:r1(pct(R.ftm,R.fta)),d:r1((pct(R.ftm,R.fta)||0)-(pct(G.ftm,G.fta)||0))});
+  rows.unshift({k:'FG%',give:r1(pct(G.fgm,G.fga)),get:r1(pct(R.fgm,R.fga)),d:r1((pct(R.fgm,R.fga)||0)-(pct(G.fgm,G.fga)||0))});
+  rows.push({k:'MIN',give:r1(G.mp),get:r1(R.mp),d:r1(R.mp-G.mp)});
+  return rows; }
+function pgTable(t){ const pl=TR.plan, rows=perGame(t.give,t.get), ci=k=>CATS.indexOf(k), nm=a=>a.map(p=>esc(p.name.split(' ').slice(-1)[0])).join(' and ');
+  const role=k=>{ const c=ci(k); if(c<0) return ''; const r=pl.roles[c]; return r==='lock'?'Lock':r==='build'?'Build':r==='punt'?'Punt':r==='low'?'Half weight':r==='bonus'?'Bonus':r==='swing'?'Swing':''; };
+  const good=(k,d)=>k==='TO'?d<0:d>0;
+  let h='<div class="mvtbl"><table><thead><tr><th>Per game</th><th class="num">You give<br><span class="small">'+nm(t.give)+'</span></th><th class="num">You get<br><span class="small">'+nm(t.get)+'</span></th><th class="num">Change</th><th>Plan</th></tr></thead><tbody>';
+  h+=rows.map(r=>{ const d=r.d||0, big=Math.abs(d)>=(r.k==='FG%'||r.k==='FT%'?1:r.k==='PTS'||r.k==='MIN'?1.5:0.3); return '<tr><td><b>'+r.k+'</b></td><td class="num">'+(r.give==null?'none':r.give)+'</td><td class="num">'+(r.get==null?'none':r.get)+'</td><td class="num">'+(big?'<b>':'')+(d>0?'+':'')+d+(big?'</b>':'')+'</td><td>'+role(r.k)+(big && role(r.k) && role(r.k)!=='Punt'?(good(r.k,d)?', helps':', costs'):'')+'</td></tr>'; }).join('');
+  h+='</tbody></table></div>';
+  const fl=t.give.concat(t.get).map(p=>{ const a=[]; if(p.seenRank!=null) a.push('seen as about the '+ordW(Math.round(p.seenRank))+' player'); if(p.breakout) a.push(p.breakout.dir==='up'?'a breakout, '+p.breakout.by+' spots above his draft spot':p.breakout.by+' spots below his draft spot, so his draft spot counts less'); if(p.prone && p.prone.on) a.push('injury prone, about '+Math.round(82*p.prone.share)+' of 82 games a season lately'); return a.length?p.name+', '+a.join(', ')+'.':''; }).filter(Boolean);
+  return h+'<p class="small">'+esc(fl.join(' '))+' Each line is his projection for the rest of the season. Two players are added together, and FG% and FT% are worked out from the made and tried shots.</p>'; }
 // what the other team gains, said about that team by name
 function sellFor(cw,t){ const N=(cw.teams[t.o]||{}).name||'They', fc=t.face||faceOf(t.give,t.get), a=[];
   const sum=ps=>{ const T={pts:0,reb:0,ast:0}; ps.forEach(p=>{ const l=p.fvBase; if(l){ T.pts+=l.pts; T.reb+=l.reb; T.ast+=l.ast; } }); return T; }, G=sum(t.give), R=sum(t.get);
@@ -1974,6 +2030,7 @@ function newsRisk(t){ const a=[];
   t.get.forEach(p=>{ const f=[]; const w=getWarn(p); if(w) f.push(w.replace(p.name+' ','')); else if(p.status) f.push('tagged '+statusWord(p.status));
     if(p.age>=33) f.push('is '+p.age); if(p.fvSrc==='two') f.push('missed most of last season'); if(p.ds!=null && p.ds>=1 && !p.fill) f.push('comes off the bench');
     if(p.fill) f.push('is filling in for '+p.fill.who.name);
+    if(p.prone && p.prone.on) f.push('has played about '+Math.round(82*p.prone.share)+' of 82 games a season over the last two years, so plan on missed games');
     if(f.length) a.push(p.name+' '+listWords(f)+'.'); });
   if(t.cut) a.push('They would have to drop '+t.cut.name+'.');
   t.get.concat(t.give).forEach(p=>{ const n=p.news; if(!n) return; let s=n.st==='Out'?'out'+(n.ret?' until about '+nice(n.ret):''):n.st?'day to day':''; if(n.note && !n.pre){ const one=String(n.note).split(/[.,]/)[0].trim(); s=(s?s+'. ':'')+one; } if(s) a.push(p.name+', '+s.charAt(0).toLowerCase()+s.slice(1)+'.'); });
@@ -1991,9 +2048,11 @@ function tradeCard(cw,t,i,grp){
     +(tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip warn">Costs '+tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
     +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.face.need-t.face.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">'+(t.mview.lateCap>0.001?'Little credit for ':'No credit for ')+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
-    +t.get.map(p=>{ const w=getWarn(p); return w?'<span class="chip bad">'+esc(w)+'</span>':''; }).join('')+t.get.map(newsChip).join('')+'</span></span></summary>';
+    +t.get.map(p=>{ const w=getWarn(p); return w?'<span class="chip bad">'+esc(w)+'</span>':''; }).join('')+t.get.map(newsChip).join('')
+    +t.get.filter(p=>p.prone&&p.prone.on).map(p=>'<span class="chip '+(t.prone>=2?'bad':'warn')+'">'+esc(p.name.split(' ').slice(-1)[0])+' injury prone</span>').join('')
+    +t.get.filter(p=>p.breakout&&p.breakout.dir==='up').map(p=>'<span class="chip good">'+esc(p.name.split(' ').slice(-1)[0])+' breakout</span>').join('')+'</span></span></summary>';
   const g=mgOf(t);
-  h+='<div class="mvbody"><div><span class="lab">What it does for me</span>'+meTable(cw,t)+'</div>'
+  h+='<div class="mvbody"><div><span class="lab">The trade off, a game</span>'+pgTable(t)+'</div><div><span class="lab">What it does for me</span>'+meTable(cw,t)+'</div>'
     +'<div><span class="lab">How to sell it to '+esc(oName)+'</span><ul>'+sellFor(cw,t).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
     // what the other manager will say is only shown once there is a profile on him, since without one it is a guess
     +(g?'<div><span class="lab">What '+esc(g.m.name)+' will say</span>'+((grp==='t'||grp==='s'||grp==='h') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes.</p>':'<p>About '+pc(g.chance)+' percent he says yes.</p>')+(g.why.length?'<ul>'+g.why.slice(0,4).map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(kit.alt?'<p class="small">'+esc(kit.alt)+'</p>':'')+'</div>':'')
@@ -2063,6 +2122,9 @@ function mgrPage(cw,inner){
   const opps=Object.keys(TR.byTeam), o=opps.indexOf(ST.tteam)>=0?ST.tteam:opps[0], r=teamRank(o), tn=x=>((cw.teams[x]||{}).name||('Team '+x)), mn=x=>MG && MG.teams[x]?MG.teams[x].name:'';
   h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap"><button class="btn" type="button" id="mvtprev" aria-label="Previous manager">Prev</button><select id="mvtsel" class="btn" aria-label="Manager" style="flex:1;min-width:0">'+opps.map(x=>'<option value="'+esc(x)+'"'+(x===o?' selected':'')+'>'+(mn(x)?esc(mn(x))+', ':'')+esc(tn(x))+'</option>').join('')+'</select><button class="btn" type="button" id="mvtnext" aria-label="Next manager">Next</button></div>';
   const m=r.m;
+  // Vikas, Nov 4 2026. Notes go stale. Past 14 days the page says so, since a manager's needs and his roster move every week
+  if(m){ const old=m.at?Math.round((Date.parse(cw.now.date+'T12:00:00Z')-Date.parse(m.at+'T12:00:00Z'))/864e5):null;
+    if(old==null || old>14) h+='<p class="small" style="margin-top:8px"><span class="chip warn">Old notes</span> '+(old==null?'Your notes on '+esc(m.name)+' have no date.':'Your newest note on '+esc(m.name)+' is from '+esc(nice(m.at))+', '+old+' days ago.')+' Ask him what he needs now before you lean on them.</p>'; }
   if(m && m.tips.length) h+='<details class="mvteam" style="margin-top:8px"><summary class="small"><b>Your notes on '+esc(m.name)+'</b>, '+m.tips.length+' tips</summary><ul class="mvlist">'+m.tips.map(x=>'<li>'+esc(x.replace(/\.+$/,''))+'.</li>').join('')+'</ul></details>';
   const tk=talkRows(cw,o); if(tk.length){ h+='<h2 style="margin-top:10px">In talks <span>deals '+esc(m.name)+' has talked about with you, from your notes</span></h2>'; tk.forEach(x=>{ h+=talkCard(cw,x); }); }
   h+=how(''+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+(m.noLate?((m.byDraft||m.pairs)?', and':'')+' gives no credit for players taken after pick '+LATEPICK+' or picked up after the draft':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.');
@@ -2096,11 +2158,12 @@ function talkRows(cw,only){ const out=[]; if(!MG) return out;
 function talkCard(cw,x){
   if(x.stale) return '<p class="small">'+esc(x.m.name)+' talked about a deal'+(x.y.at?' on '+nice(x.y.at):'')+' whose players have moved since, so it no longer applies.</p>';
   const nm=a=>a.map(p=>esc(p.name)).join(' and '), oName=(cw.teams[x.o]||{}).name||'', r=x.r, up=r.planGain>=0, N=esc(x.m.name);
-  const lv=x.y.level==='yes'?'<span class="chip good">Said yes in principle</span>':'<span class="chip gem">Considering it</span>';
+  const lv=x.y.level==='yes'?'<span class="chip good">Said yes in principle</span>':x.y.open?'<span class="chip good">His own idea</span>':'<span class="chip gem">Considering it</span>';
   const keeps=r.broke.length?'<span class="chip bad">Gives up '+esc(r.broke.join(' '))+'</span>':'<span class="chip good">Keeps your locks</span>';
   const watch=(r.stops||[]).filter(z=>!/^(the search only|plan gain under|fails |overpays )/.test(z));
   return '<details class="mvcard"><summary><span class="mvn '+(r.planGain>=1?'strong':'helps')+'">'+bsg(r.planGain)+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(x.get)+'</b> <span class="sub">for '+nm(x.give)+', with '+esc(oName)+'</span><span class="meta">'+lv+keeps+'<span class="chip muted">About '+pc(x.c)+' percent to happen</span></span></span></summary>'
-    +'<ul class="mvlist"><li>'+N+(x.y.level==='yes'?' said yes in principle':' is considering it')+(x.y.at?' since '+nice(x.y.at):'')+'.'+(x.y.note?' '+esc(x.y.note.replace(/\.+$/,''))+'.':'')+'</li>'
+    +'<ul class="mvlist"><li>'+N+(x.y.level==='yes'?' said yes in principle':x.y.open?' said he is open to this, so what he wants counts ahead of the value scale':' is considering it')+(x.y.at?' since '+nice(x.y.at):'')+'.'+(x.y.note?' '+esc(x.y.note.replace(/\.+$/,''))+'.':'')+'</li>'
+    +(r.perGame?'<li>A game you give '+esc(r.perGame.filter(z=>['PTS','REB','AST','STL','3PM','TO'].indexOf(z.k)>=0).map(z=>z.give+' '+z.k).join(', '))+' and get '+esc(r.perGame.filter(z=>['PTS','REB','AST','STL','3PM','TO'].indexOf(z.k)>=0).map(z=>z.get+' '+z.k).join(', '))+'.</li>':'')
     +'<li>Your average week goes from '+r.nineCatBefore+' to '+r.nineCatAfter+' percent, and your plan moves '+(up?'up ':'down ')+Math.abs(r.planGain)+' points.</li>'
     +'<li>On box scores '+N+' gets about '+r.face+' percent of what he gives.</li>'
     +(x.get.length>x.give.length?'<li>You get more players than you send, so you would have to drop someone, and that drop is not counted in the gain yet.</li>':'')
@@ -2205,6 +2268,7 @@ function summary(){
   if(!CTX || !PK || !TR) return ERR?'error, '+ERR:'not ready';
   const c=CTX, me=RACE.rows.find(r=>r.tid===ME), o=[], pl=planOf(), pt=planTable(c,pl), nm=a=>a.map(p=>p.name).join(' and '), cl=a=>a.map(x=>CATS[x]).join(' ');
   o.push('scan '+c.scan.at+', week '+c.wk.n+' vs '+((c.teams[c.opp]||{}).name||'none'));
+  if(D.live) o.push('your roster was set by hand at '+D.live.at+(D.live.added.length?', added '+D.live.added.map(i=>(c.U[i]||{}).name||i).join(' and '):'')+(D.live.dropped.length?', dropped '+D.live.dropped.map(i=>(c.U[i]||{}).name||i).join(' and '):''));
   if(WK){ const ln=leadNow(c); o.push('week win chance '+pc(WK.win)+' percent'+(WK0?', Monday call '+pc(WK0.win)+' percent':'')+', on track for '+WK.fav+' of 9 cats by Sunday'+(ln?', leading '+ln.lead+' of 9 right now':'')+', cat chances '+WK.probs.map((p,i)=>CATS[i]+' '+pc(p)).join(', ')+', '+(CAL.n?'checked against '+CAL.n+' past cat results, factor '+CAL.s.toFixed(2):'no past weeks checked yet')); } else o.push('no matchup found for this week');
   o.push('average week '+pc(c.base[ME].week)+' percent, rank '+me.pos+' of 10, top four chance '+pc(me.top4)+' percent, record '+(me.rec.w||0)+' wins '+(me.rec.l||0)+' losses');
   o.push('plan'+(pl.start?'':' (changed)')+', locks '+cl(pl.lock)+', build pool '+cl(pl.build)+', punt '+(cl(pl.punt)||'none')+', plan cats on target '+pt.hit+' of '+pt.of+', plan week '+pc(pt.week)+' percent'+(pt.risk.length?', locks at risk '+cl(pt.risk.map(r=>r.c)):'')+(TR.lead?', leading route '+cl(TR.lead):''));
@@ -2244,13 +2308,45 @@ function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map
   if(ctx.ros[ME].filter(isCA).length-give.filter(isCA).length+get.filter(isCA).length<3) stops.push('leaves you under 3 centers');
   if(ctx.ros[o].filter(isCA).length-get.filter(isCA).length+give.filter(isCA).length<2) stops.push('leaves them under 2 centers');
   const js=joshSide(give,get); if(js==='lose') stops.push('you lose by Josh ranks');
+  askMiss(give,get).forEach(s=>stops.push('below your asking price, '+s));
+  const prone=get.filter(p=>p.prone && p.prone.on); if(prone.length>=2) stops.push('you would take on '+prone.length+' injury prone players, '+listWords(prone.map(p=>p.name)));
   const two=give.length>get.length; let cut=null; if(two){ const worst=ctx.ros[o].filter(p=>p.proj).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0)); cut=worst.find(p=>!get.includes(p))||null; }
   const Tm=scaleT(seasonTotals(ctx,ME,give,get),1/ctx.tweeks); if(two) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
   const To=scaleT(seasonTotals(ctx,o,cut?get.concat([cut]):get,give),1/ctx.tweeks); const over={}; over[o]=To; const v=myView(ctx,Tm,over);
   const gain=100*(planWeekOf(ctx,v.prs,pl,false)-env.basePlan)-(two?env.spotV:0); const broke=env.guard.filter(c=>env.hit(c,v.per[c],v.fav[c]));
   if(gain<0.3) stops.push('plan gain under 0.3'); if(broke.length) stops.push('breaks '+broke.map(c=>CATS[c]).join(' ')+', so at best a pivot');
   const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To;
-  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,listed:!stops.length,stops}; }
+  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(strength(ctx,o,typ).week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get),listed:!stops.length,stops}; }
+/* Vikas, Nov 4 2026. What if, on the roster you really have now.
+   setRoster takes your roster as Yahoo shows it today, a list of [player id, slot, status], and rebuilds every number on it, the trade snapshot too.
+   Nothing is saved. A reload goes back to the last scan. whatIf scores adds and drops on top of the roster in use, for this week and the season, without changing anything */
+function liveRows(rows){ if(!Array.isArray(rows) || !rows.length) return null; const out=[];
+  for(const r of rows){ if(!Array.isArray(r) || r[0]==null) return null; out.push([String(r[0]),typeof r[1]==='string'?r[1]:'BN',typeof r[2]==='string'?r[2]:'']); }
+  return new Set(out.map(r=>r[0])).size===out.length?out:null; }
+function swapRoster(sc,rows){ const old=sc.rosters[ME]||[], now=new Set(rows.map(r=>r[0])), U=(CTX&&CTX.U)||{};
+  old.forEach(e=>{ const id=String(e[0]); if(!now.has(id) && sc.avail && !sc.avail[id]){ const p=U[id]; sc.avail[id]=[(p&&p.pos)||'',e[2]||'']; } });
+  rows.forEach(r=>{ if(sc.avail && sc.avail[r[0]]) delete sc.avail[r[0]]; Object.keys(sc.rosters).forEach(t=>{ if(t!==ME) sc.rosters[t]=sc.rosters[t].filter(e=>String(e[0])!==r[0]); }); });
+  sc.rosters[ME]=rows.map(r=>r.slice()); }
+function setRoster(rows){ const R=liveRows(rows); if(!R) return {err:'give a list of [player id, slot, status], one per player, no repeats'};
+  const known=new Set(Object.keys(D.scan.avail||{})); Object.keys(D.scan.rosters||{}).forEach(t=>(D.scan.rosters[t]||[]).forEach(e=>known.add(String(e[0]))));
+  const bad=R.filter(r=>!known.has(r[0])).map(r=>r[0]); if(bad.length) return {err:'the scan does not know player '+bad.join(', ')};
+  const was=(D.scan.rosters[ME]||[]).map(e=>String(e[0])), now=R.map(r=>r[0]);
+  [...new Set([D.scan,D.week])].forEach(sc=>swapRoster(sc,R));
+  D.live={at:new Date().toISOString(),added:now.filter(i=>was.indexOf(i)<0),dropped:was.filter(i=>now.indexOf(i)<0)};
+  compute(true); const nm=i=>{ const p=CTX&&CTX.U[i]; return p?p.name:i; };
+  return {ok:true,added:D.live.added.map(nm),dropped:D.live.dropped.map(nm),week:WK?pc(WK.win):null}; }
+function whatIf(adds,drops){ adds=(adds||[]).map(String); drops=(drops||[]).map(String);
+  const sc=JSON.parse(JSON.stringify(D.scan)), mine=(sc.rosters[ME]||[]).map(e=>[String(e[0]),e[1],e[2]||'']);
+  const miss=drops.filter(i=>!mine.some(r=>r[0]===i)); if(miss.length) return {err:'not on your roster '+miss.join(', ')};
+  const free=adds.filter(i=>!(sc.avail&&sc.avail[i])); if(free.length) return {err:'not a free agent in the scan '+free.join(', ')};
+  if(mine.length-drops.length+adds.length>mine.length) return {err:'the roster would be over the limit, add a drop for each add'};
+  const rows=mine.filter(r=>drops.indexOf(r[0])<0).concat(adds.map(i=>[i,'BN',(sc.avail[i]&&sc.avail[i][1])||'']));
+  swapRoster(sc,rows); const ctx=build(sc), wk=thisWeek(ctx), pl=planOf(), a=planTable(CTX,pl), b=planTable(ctx,pl), wk0=WK||thisWeek(CTX);
+  const nm=(c,i)=>{ const p=c.U[i]; return p?p.name:i; };
+  return {adds:adds.map(i=>nm(ctx,i)),drops:drops.map(i=>nm(CTX,i)),
+    week:{before:pc(wk0.win),after:pc(wk.win),cats:CATS.map((c,i)=>({cat:c,before:pc(wk0.probs[i]),after:pc(wk.probs[i])}))},
+    season:{planWeekBefore:pc(a.week),planWeekAfter:pc(b.week),nineCatBefore:pc(a.weekN),nineCatAfter:pc(b.weekN),onTargetBefore:a.hit,onTargetAfter:b.hit,
+      cats:a.rows.map((r,i)=>({cat:CATS[r.c],role:ROLEWORD[r.role],before:pc(r.p),after:pc(b.rows[i].p)}))}}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={summary,teamsInfo,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{waivers,chips,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf}};
+window.NCWMoves={setRoster,whatIf,summary,teamsInfo,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer, _fn:{waivers,chips,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,sellKit,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,seenOf,acceptOf,teamRank,setMg,mgrPage,mgView,SEENW,SEENWL,seenW,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK}};
 })();

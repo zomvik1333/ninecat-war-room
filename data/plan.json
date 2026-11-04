@@ -19,6 +19,11 @@
   "Cameron Boozer": "2027-01-15"
  },
  "keep": [],
+ "ask": {
+  "Yaxel Lendeborg": 30,
+  "Cameron Boozer": 40
+ },
+ "askNote": "Asking prices set by Vikas on Nov 4 2026. A trade that sends one of these players must bring back at least one player ranked this high or better on the value scale, which is how other managers see players. 30 is a round three player, 40 is round four.",
  "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them.",
  "tiers": {
   "trade": [
