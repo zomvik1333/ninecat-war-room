@@ -17,6 +17,18 @@ Live site at https://ninecatwarroom.vercel.app
 * Six small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks, starts.json holds the first scan of each fantasy week for the Monday call and results.json holds the final score of every matchup in every finished week. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
+## Version 26.15 (branch main), Nov 6 2026, no selling points to fix a lock
+
+Vikas saw Yaxel and Mitchell for Murray and Hart listed first at plus 3.7 and asked why. The engine was giving up 8 points a game because PTS already sat at a 30 percent chance and is cheap on the win curve, and Hart was bolted on only to keep the STL lock. The fixes below are on his yes. Production stays the room's business, a deal that gives up points is judged by the room band and not turned into a pivot, since he is not chasing points, he only needs the league not to veto. Projections and the week forecast did not change, CALV stays 26.13.
+
+* No filler. In a two for two each swap has to stand on its own. When the lesser player you give is worth 25 percent or more above the lesser player you get on the box score, the deal is never listed, and checkOffer names the swap and what share comes back
+* Asking price per player. Each priced player you give needs his own match at or above the price on the other side. Yaxel at 30 is no longer satisfied by Murray being in the deal while Yaxel goes for Hart
+* By manager shows that manager's pivots under their own heading, fair to him, gain 1.5 or more, each costs one cat, with the notes applied the same way as the fair deals. The empty message says pivots below when there are any
+* The room counts steals at three quarters and threes at a quarter, nothing for turnovers or percentages, this season at about 58 percent by game 7 (the value scale stays slow), and a top 10 draft pick carries 10 percent. The Nov 5 veto replays at 118, the Hart deal at 117
+* Every trade card shows up on last season or down on last season for the players you get, a buy low chip for a player out with a return date whose last season line was solid, and buying high now costs a deal 15 percent of its place in the list
+* Tested on the local copy on the Nov 6 data. Every listed card matches checkOffer, workers and page score the same 3031 offers, no console errors, no dash or colon in page text on the trades and By manager tabs with the notes loaded
+* Fallback branch fallback-v26-15-before-plan-gain-fixes
+
 ## Version 26.14 (branch main), Nov 5 2026, the room judges every trade
 
 On Nov 5 the league vetoed Mitchell and Randle for Murray and Robinson as unfair to Vikas, a deal the site had listed as fair for his build. The room judges a trade like a points league, points, rebounds and assists, plus the name, and this version judges every deal that way too. Nothing about projections, the plan cats, locks, pickups or the week forecast changed, so CALV stays 26.13.
