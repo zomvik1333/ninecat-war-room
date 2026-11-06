@@ -17,6 +17,20 @@ Live site at https://ninecatwarroom.vercel.app
 * Six small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks, starts.json holds the first scan of each fantasy week for the Monday call and results.json holds the final score of every matchup in every finished week. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
+## Version 26.14 (branch main), Nov 5 2026, the room judges every trade
+
+On Nov 5 the league vetoed Mitchell and Randle for Murray and Robinson as unfair to Vikas, a deal the site had listed as fair for his build. The room judges a trade like a points league, points, rebounds and assists, plus the name, and this version judges every deal that way too. Nothing about projections, the plan cats, locks, pickups or the week forecast changed, so CALV stays 26.13.
+
+* Room score for every player. Points plus rebounds plus assists a game, nothing for turnovers, percentages, threes, steals or blocks. It starts from last season the same way face value does and this season moves it the same way. Name status on top. A top 10 player on that line last season or this season counts 15 percent more than his line, top 25 counts 10 more, top 50 counts 5 more, a top 40 draft pick or a legend 6 more. Age and missed games cut it as they cut face value. Each teammate due back from injury cuts a role player 8 percent, up to 16. A top 50 name is not cut for that
+* Room look on every deal, what they get over what they give with the best player weighted most, the same as face value, judged on the whole number the card shows. Fair is 94 to 106 both ways. Easy sell needs 100 to 106 on the room look and on the box score. Over 106 their way on either is an Overpay, its own tag with the chip Overpay, room may veto, never called fair or easy, scored at 40 percent so it sits low. From 112 the room vetoes it and the deal is never scored. Under 94 it is light to the room and at best a hard sell, under 86 it is never scored. Star for parts, the biggest name in the deal (a top 50 name) going for players none of whom is within 85 percent of him, is never scored, whichever side gives the star
+* The box score cap drops from 120 to 110 percent their way. Easy sell on the box score is now 100 to 106, not 106 and up
+* Every trade card, stretch card and talk card carries a Room chip with the number, a Light to the room chip under 94, and the sell lines say how the room sees it in its own words. Talk cards say veto, may veto, star for parts or light, and a deal the room would veto shows a third of its chance to happen. tradeFair names the top 50 names in a deal and any teammate markdown
+* checkOffer returns room, roomFair, roomEasy and roomWhy, and a deal that fails the room is a stop. The Nov 5 veto replayed on the Nov 5 data comes out at 127 percent their way, veto, and Randle for Naz Reid at 142, veto
+* Wins on fit needs the room to agree as well as the box score. summary says overpay, room may veto, and prints the room number on each trade
+* How this works on the trades tab explains the room lens. NCWMoves._fn exports roomOf, roomValues, faceOf and the room constants
+* Tested on the local copy on the Nov 5 data. Every listed card matches checkOffer, workers and page score the same 2850 offers and list the same deals, no console errors, no dash or colon in page text on the trades and By manager tabs with the manager notes loaded
+* Fallback branch fallback-v26-14-before-room-fairness
+
 ## Version 26.13 (branch main), Nov 5 2026, fixes from the Nov 5 deep audit
 
 The audit report is bug_reports\audit_2026-11-05.md in the notes folder. Every item in it was fixed on Vikas's yes. Nothing about the plan cats, locks or how out players are counted this week changed.
