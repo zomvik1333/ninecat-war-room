@@ -80,7 +80,9 @@ if(H){
   // From week 3 on a gap is only reported, because the two lines really differ then
   { const zs=s=>{ const g=i=>s[i]||0, fga=g(4), fta=g(6), pts=g(8), fgp=fga>0?100*g(3)/fga:48.5, ftp=fta>0?100*g(5)/fta:80.5;
       return 0.010226*(fgp-48.5)*pts+0.008824*(fgp-48.5)-0.12296+0.0075475*(ftp-80.5)*pts-0.0061865*(ftp-80.5)+0.02054+1.004*g(7)-1.689+0.169*pts-2.850+0.440*g(9)-2.621+0.495*g(10)-1.872+2.823*g(11)-3.004+2.065*g(12)-1.446-1.274*g(13)+2.406; };
-    const gap=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[1]>0 && (s[14]==null || s[14]<s[1]); });
+    // Vikas, Nov 5 2026, version 26.13. From the 15th day of the season a player who played in the first days has fewer two week games than season games, and that is
+    // normal, not a gap. So in weeks 1 and 2 a two week line that is missing or short counts as a gap, and from week 3 on only a line Yahoo left empty does
+    const gap=Object.keys(scan.stats).filter(i=>{ const s=scan.stats[i]; return s[1]>0 && (s[14]==null || (scan.week && scan.week<=2 && s[14]<s[1])); });
     // Vikas, Oct 28 2026. Around midnight Pacific Yahoo has already added last night's minutes to the two week split but not yet the game, so its minutes a game read
     // a third to a half too high for anyone who played (LaVine 47.7 at 12.05 am, 36.0 at 1.54 am). While every game a player has played is inside the two weeks
     // the two lines must match, so a two week line that disagrees with the season line is set back to the season line

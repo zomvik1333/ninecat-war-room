@@ -89,7 +89,11 @@ select, input[type="search"] { background: var(--panel); border: 1px solid var(-
 
 /* layout */
 .grid { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } .tabs { margin-left: 0; flex-wrap: wrap; } .tab { white-space: nowrap; } }
+@media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } .tabs { margin-left: 0; flex-wrap: wrap; } .tab { white-space: nowrap; } #viewBoard .rail { order: 2; } }
+/* Vikas, Nov 5 2026, version 26.13. Once the draft is done the draft cells, the quick bar and the draft panels go, and the Teams tab hides the draft controls. On a phone the board comes before the rail and inputs stay at 16px so Safari does not zoom */
+body.season .score .cells, body.season #quick, body.season #pStrategy, body.season #pRecs, body.season #pBefore, body.season #fSlot, body.season #undo, body.season #reset, body.season #league { display: none !important; }
+body.teams .controls .field, body.teams .controls > .btn { display: none; }
+@media (max-width: 700px) { input, select, .qrow input { font-size: 16px; } .mini { min-height: 40px; } }
 .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
 .panel h2 { font-size: 20px; text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -146,7 +150,6 @@ select, input[type="search"] { background: var(--panel); border: 1px solid var(-
 .pn-cats { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .plog { margin: 8px 0 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
 .rec .fit small { font-family: var(--body); font-size: 11px; color: var(--muted); }
-.lean { margin-top: 12px; font-size: 13px; color: var(--muted); }
 .switch { margin-top: 10px; border: 1px solid var(--warn); background: var(--warn-bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; display: flex; flex-direction: column; gap: 8px; }
 
 /* my roster */
@@ -192,16 +195,9 @@ tr.hasnote td { border-bottom: 0; }
 .mini { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 3px 6px; font-size: 11px; font-weight: 600; min-height: 28px; }
 .mini.mine { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .mini:hover { border-color: var(--accent); }
-.fitbar { display: inline-block; width: 42px; height: 6px; background: var(--panel-2); border-radius: 3px; vertical-align: middle; margin-right: 6px; overflow: hidden; border: 1px solid var(--line); }
-.fitbar i { display: block; height: 100%; background: var(--accent); }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
 
 /* plan */
-.plan { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-.plan .panel h3 { font-size: 19px; text-transform: uppercase; margin-bottom: 6px; }
-.plan ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
-.plan p { margin: 6px 0; max-width: 65ch; }
-.plan .span { grid-column: 1 / -1; }
 .tgtline { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
 .small { font-size: 12.5px; color: var(--muted); }
 /* teams */
@@ -282,7 +278,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
   </div>
 
   <div class="controls">
-    <div class="field"><label for="slot">Your draft slot</label>
+    <div class="field" id="fSlot"><label for="slot">Your draft slot</label>
       <select id="slot"></select></div>
     <div class="field"><label for="build">Game plan</label>
       <select id="build"></select></div>
@@ -300,22 +296,21 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tabBoard" aria-selected="true" type="button">Draft board</button>
       <button class="tab" role="tab" id="tabTeams" aria-selected="false" type="button">Teams</button>
-      <button class="tab" role="tab" id="tabPlan" aria-selected="false" type="button" hidden>Game plan</button>
       <button class="tab" role="tab" id="tabMoves" aria-selected="false" type="button">Pickups and trades</button>
     </div>
   </div>
 
   <section id="viewBoard" class="grid">
     <aside class="rail">
-      <div class="panel">
+      <div class="panel" id="pStrategy">
         <h2>Strategy now <span>updates after every pick</span></h2>
         <div id="strategy"></div>
       </div>
-      <div class="panel">
+      <div class="panel" id="pRecs">
         <h2>Pick now <span id="recFor">for your turn</span></h2>
         <div class="recs" id="recs"></div>
       </div>
-      <div class="panel">
+      <div class="panel" id="pBefore">
         <h2>Before your turn <span id="btNote"></span></h2>
         <ul class="bt" id="beforeTurn"></ul>
       </div>
@@ -358,178 +353,6 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
 
   <section id="viewMoves" hidden></section>
 
-  <section id="viewPlan" class="plan" hidden>
-    <div class="panel span">
-      <h3>The goal</h3>
-      <p>Head to head categories is won one week at a time. Win 5 of the 9 cats and you win the week. So you do not need to be good at everything. You need to be clearly better than an average team in 5 or 6 cats and you can let 2 or 3 go on purpose. That is what a punt is. The board scores every player for the plan you pick and the left rail shows which cats you are winning after each pick.</p>
-      <p>Ball Lovers settings, read from Yahoo on Oct 1. 10 teams, live draft with 1 minute per pick, roster of PG, SG, G, SF, PF, F, C, C, 2 Util plus 5 bench and 2 IL, so 15 picks. Max 4 adds a week, playoffs are 8 teams in weeks 19 to 21, trade deadline March 4.</p>
-    </div>
-
-    <div class="panel">
-      <h3>Plan A, Punt FT% bigs</h3>
-      <div class="tgtline"><span class="chip good">Win PTS</span><span class="chip good">Win REB</span><span class="chip good">Win AST</span><span class="chip good">Win STL</span><span class="chip good">Win BLK</span><span class="chip warn">Bonus FG%</span><span class="chip bad">Give up FT%</span><span class="chip muted">Ignore TO</span></div>
-      <p>My default for a 10 team league. The strongest cheap pool is bigs who shoot badly at the line, and nobody else in your room wants them.</p>
-      <ul>
-        <li>Anchors Giannis, Amen Thompson, Sengun, Jalen Johnson, Scottie Barnes</li>
-        <li>Middle rounds Mobley, Duren, Kessler, Dyson Daniels, Clingan, Gobert, Zion</li>
-        <li>Late Ausar Thompson, Claxton, Jarrett Allen, Queta, Day'Ron Sharpe, Gafford, Maluach</li>
-        <li>Grab one real assist guard by round 6 so AST is one of your five</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Plan B, Punt FG% and TO guards</h3>
-      <div class="tgtline"><span class="chip good">Win PTS</span><span class="chip good">Win 3PM</span><span class="chip good">Win REB</span><span class="chip good">Win AST</span><span class="chip good">Win STL</span><span class="chip warn">Bonus FT%</span><span class="chip bad">Give up FG%</span><span class="chip bad">Give up TO</span></div>
-      <p>Best if you open with Luka, Maxey, Edwards, Curry or Trae. High usage guards bring bad FG% and turnovers together, so you drop both.</p>
-      <ul>
-        <li>Anchors Luka, Maxey, Edwards, Trae Young, LaMelo, Harden, Jamal Murray</li>
-        <li>Middle rounds Derrick White, Keyonte George, Nickeil Alexander Walker, Knueppel, Garland, Herro</li>
-        <li>Late Pritchard, Quickley, Ryan Rollins, Reed Sheppard, Grayson Allen, Cason Wallace</li>
-        <li>Take one stretch big like Myles Turner or Jaren Jackson Jr. so BLK does not go to zero</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Plan C, Punt AST</h3>
-      <div class="tgtline"><span class="chip good">Win 3PM</span><span class="chip good">Win REB</span><span class="chip good">Win BLK</span><span class="chip good">Win STL</span><span class="chip good">Win TO</span><span class="chip warn">Swing PTS</span><span class="chip warn">Bonus FG% and FT%</span><span class="chip bad">Give up AST</span></div>
-      <p>The backup plan when the room takes guards early. Stretch bigs and 3 and D wings keep turnovers low for free.</p>
-      <ul>
-        <li>Anchors Wembanyama, Karl Anthony Towns, Durant, Chet Holmgren, Markkanen</li>
-        <li>Middle rounds Jaren Jackson Jr., Trey Murphy, Knueppel, Michael Porter Jr., Anunoby, Buzelis</li>
-        <li>Late Myles Turner, Jabari Smith Jr., Jay Huff, Mikal Bridges, Julian Champagnie</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Balanced</h3>
-      <p>Use this for your first two picks, or all draft long if the board keeps falling your way. Aim for 6 winning cats, but count on the counting cats. FG% and FT% are a bonus, not part of your five. Turnovers count a bit less and points, rebounds and assists a bit more, because those three hold steady week to week while steals, blocks and the percentages swing.</p>
-    </div>
-
-    <div class="panel span">
-      <h3>What changed after Josh Lloyd's research</h3>
-      <ul>
-        <li>The board follows Josh's rankings from his 2026 shows. Every player he ranks sits 50 percent of the way from our stats spot to his (70 percent until Nov 4 2026). His top 25 is his own head to head 9 cat list. Spots with a ≈ sign in the Josh column are read from his tier shows, the numbers he states and his category mock picks. A spot that rests on one passing remark counts 40 percent.</li>
-        <li>Up the board against the old table. Garland, Nurkic, Keegan Murray and Norman Powell.</li>
-        <li>Down the board against the old table. Dybantsa, Lendeborg, Gui Santos, Trey Murphy, Paul George, Edey, Claxton and Holmgren. Kevin Porter Jr., Reed Sheppard and Vucevic now have a Josh spot, and it is a low one.</li>
-        <li>Role changes are built into the stats. More usage for Coby White, Kuminga, Buzelis, Murray Boyles, Ingram, Randle, Maluach and Jalen Green. Less for Maxey, Jaylen Brown, Vucevic, Mathurin, Aldama, MPJ, Jrue, Morant and Sarr.</li>
-        <li>Your playoffs, weeks 19 to 21. Minnesota plays only 2 games the week of Mar 15 and Cleveland only 2 the week of Mar 22, your finals. Boston, New York, Philly, Toronto, Memphis, Houston, Golden State, Portland and Denver have 3 back to backs. Miami has none. The Playoffs column shows it, and it only moves early round picks.</li>
-        <li>Punting means ignoring a cat, not chasing bad players in it. Assists and turnovers move together, and blocks, rebounds and FG% move together.</li>
-        <li>Josh's first rule is value. Take a player who is clearly better than his draft spot even if he does not fit your build, and let the plan adjust. Builds can change three times in a draft.</li>
-        <li>Your league sends 8 of 10 teams to the playoffs, so getting in is easy. Build a team that wins 5 or 6 cats in March rather than one that wins 7 in November.</li>
-        <li>Your calls. Kyrie and Lillard go above Dyson Daniels on the pick cards, unless your team is losing steals or they are a toss up. Kyrie also goes above Derrick White.</li>
-        <li>The board ranks picks by your chance to win the week, meaning at least 5 of the 9 cats, not by total cats. Five sure wins beat four sure wins plus a few coin flips.</li>
-        <li>Centers are scarce, and an empty center spot on a game day is stats left on the table. Do not reach for one in round 1 or 2, but the board pushes hard for a center at your 6th pick if you have none, a second by your 9th and a third by your 11th.</li>
-        <li>Your rule. Count on five counting cats, points, threes, rebounds, assists, steals, blocks or turnovers, and treat a percentage as a bonus sixth. Josh agrees FG% and FT% bounce around the most from game to game, which is why he likes them as punts. He also says FT% gets scarce early, so grab it early if you want it. Yahoo counts the week as one win, so five sure cats is all you need.</li>
-        <li>Josh ignores turnovers when he drafts for head to head. He says you can still win them some weeks without trying.</li>
-        <li>Josh says points, assists and FT% dry up early in a draft, while threes are easy to find on the waiver wire.</li>
-        <li>Josh expects much less tanking this season because of the new lottery rules, with heavy resting only in the last week to 10 days. That is why he now ends his leagues on March 28, the same day yours ends.</li>
-        <li>The board takes a 15 percent second opinion from Fantasy Edge on every player it lists. A player it does not list has 9 spots added. No player is pinned to a spot by hand. Every spot comes from that blend. When the top two cards are within 0.2 cats, take the scorer or passer unless your plan has already given up points or assists.</li>
-      </ul>
-    </div>
-
-    <div class="panel span">
-      <h3>Opening by draft slot</h3>
-      <ul>
-        <li>Slots 1 to 3. Take Jokic first. Wembanyama and SGA are nearly tied, last season Wemby edged ahead in 9 cat because of 3.1 blocks a game. They fit any plan. Stay balanced through round 2, then commit.</li>
-        <li>Slots 4 to 7. Josh would take Tatum or Giannis here, then Cade, Edwards or Durant. Skip Maxey, Mitchell and Harden in round 1. Your first two picks do not need to fit together, value wins.</li>
-        <li>Slots 8 to 10. You get two picks close together. Durant, Flagg, Reaves, Amen and Jamal Murray are the turn targets. Jalen Johnson and Mitchell are not first rounders to Josh.</li>
-        <li>Rounds 4 to 8 are where the plan is won. Fit beats ADP here. Make sure you have real sources of STL, BLK and AST by round 8.</li>
-        <li>Rounds 11 to 15. Swing on upside, the board adds an upside bonus here. In a 10 team league the waiver wire is deep, so streaming beats holding a safe 130th player.</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>When someone takes your guy</h3>
-      <ul>
-        <li>First look for a same tier player with the same cats. The board groups tiers for you.</li>
-        <li>If that tier is empty, drop a tier but stay in your plan.</li>
-        <li>Only switch plans when the room has changed the market, for example 4 bigs gone in a row. The rail will show a switch banner when your roster leans toward another plan.</li>
-        <li>Never switch because of one missed pick. Switching costs picks you already made.</li>
-        <li>If the top pick has a high Survive number, take the one that will not come back first.</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Injury watch, as of Sept 29</h3>
-      <ul>
-        <li>Out long. Donte DiVincenzo until at least April, Shaedon Sharpe until at least March, Mark Williams until at least February. Do not draft.</li>
-        <li>Jimmy Butler out until at least December 1. Brandon Ingram out until about Christmas or January with a partially torn Achilles.</li>
-        <li>Day to day with camp knocks. Jaren Jackson Jr. (knee), Herro (foot), Knueppel (hamstring), Sarr (foot), Anthony Davis (finger), Trae Young (quad), Edey (ankle), Hartenstein (ankle), Kevin Porter Jr. (knee).</li>
-        <li>Returning from long injuries with no restrictions in camp. Haliburton, Tatum, Kyrie, Lillard and VanVleet. Their grades use their last healthy season.</li>
-        <li>Brandon Miller had shoulder surgery in May. The Hornets GM said on Sept 28 he is ready for opening night, so he is cleared but carries some risk.</li>
-        <li>On Yahoo only players tagged OUT can go on IL. GTD, questionable and doubtful players cannot.</li>
-        <li>Recheck news the morning of the draft. Ask me and I will update it.</li>
-      </ul>
-    </div>
-
-    <div class="panel span">
-      <h3>How Auto keeps the strategy live</h3>
-      <ul>
-        <li>After every pick you mark, the board replays the rest of the draft 8 ways, once for each plan. Other teams are assumed to take the best player left by ADP, and you take the best fit for that plan.</li>
-        <li>Each replay gives your finished team a win chance in all 9 cats against an average team. The plan with the best chance to win 5 of the 9 cats is the one you follow.</li>
-        <li>Picks 1 and 2 are pure value. After pick 2 it commits to a plan.</li>
-        <li>It only switches when another plan beats the current one by 3 points of that chance, or 4 points after your 6th pick, so one missed player never flips your whole draft.</li>
-        <li>Every switch is written in the Strategy panel with what it gains and gives up.</li>
-        <li>The Best pick card is the player who gives you the best chance to win 5 of the 9 cats, not just the highest ranked name.</li>
-        <li>If you lock a plan yourself, it still tells you when another plan would win more cats.</li>
-        <li>Punt guard. A plan that leaves 4 or more cats as give ups is marked down, so Auto never drifts into a 4 cat punt.</li>
-        <li>Kawhi and Kyrie are pushed down the list before pick 40, Embiid before pick 50. They can still show on a card.</li>
-        <li>From round 11 on, upside players get a bonus and injury risk counts half as much.</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Positions</h3>
-      <ul>
-        <li>Yahoo starts PG, SG, G, SF, PF, F, C, C and 2 Util. The two C slots are the hardest to fill, so have 2 real centers by round 7.</li>
-        <li>Plan A fills C for free. Plan B has to grab 2 centers on purpose, Myles Turner, Jaren Jackson Jr., Okongwu, Naz Reid and Kel'el Ware fit best.</li>
-        <li>Players with 2 or 3 positions get a small bonus on the board because they make weekly lineups easier.</li>
-        <li>After pick 6 the board pushes players who fill an open slot and cools players who would only sit on your bench.</li>
-        <li>Yahoo can change eligibility. Glance at the position shown in the Yahoo draft room before you click.</li>
-        <li>Do not trust Yahoo's own draft room ranks. They mix points league logic into cats.</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Offseason moves that matter</h3>
-      <ul>
-        <li>Giannis to Miami. Herro, Ware and Jaquez to Milwaukee, where Ryan Rollins and Ware get big roles.</li>
-        <li>LaMelo to Minnesota. Coby White now runs Charlotte, and Naz Reid and Grayson Allen joined him.</li>
-        <li>LeBron and Jaylen Brown to Philadelphia with Maxey and Embiid, so everyone's shots shrink.</li>
-        <li>Kawhi to Toronto. Ingram to the Clippers. Paul George and Mitchell Robinson to Boston.</li>
-        <li>Walker Kessler to the Lakers next to Luka. Ja Morant to Portland. Miles Bridges to Phoenix.</li>
-        <li>Claxton to Chicago, which opens the Brooklyn center job for Day'Ron Sharpe.</li>
-        <li>Rookies with real roles. Dybantsa in Washington, Boozer in Memphis, Caleb Wilson in Chicago, Acuff in Sacramento, Lendeborg in Golden State.</li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Sleepers for rounds 10 to 15</h3>
-      <ul>
-        <li>Day'Ron Sharpe and Khaman Maluach. Starting center jobs nobody is drafting.</li>
-        <li>Keon Ellis. Elite steals per minute, now with real minutes in Brooklyn.</li>
-        <li>Collin Murray Boyles. Minutes and usage going up in Toronto, one of Josh's late targets.</li>
-        <li>Yaxel Lendeborg. Summer League MVP, minutes open with Butler and Moody out. Josh likes pairing him with Gui Santos off waivers, one of them wins the job.</li>
-        <li>Cedric Coward and Ryan Rollins. Big usage on rebuilding teams.</li>
-        <li>Cason Wallace and Reed Sheppard. Cheap steals for Plan B. Sheppard has a wide range with VanVleet back.</li>
-        <li>Pick Sleepers only in the Board view menu to see them all.</li>
-      </ul>
-    </div>
-
-    <div class="panel span">
-      <h3>How to run the mock, then the real draft</h3>
-      <ul>
-        <li>Set your draft slot and a starting plan. Balanced is fine for the first two picks.</li>
-        <li>Type the name of each pick in the quick bar and press Enter. The board already knows whose turn it was, so every team's roster builds itself. If a player is not on the board, type his first and last name and press Enter to add him, so no pick is ever skipped.</li>
-        <li>Undo on any row takes just that pick out. Its pick number stays open and the next player you mark fills it, so nobody else moves.</li>
-        <li>The Before your turn panel shows every team picking ahead of you, what they still need, and who they will probably take. The Teams tab shows all 10 rosters.</li>
-        <li>On your turn read the three cards on the left and the one line call under them.</li>
-        <li>After the mock, tap Reset draft and it is clean for the real one. Your picks save in this browser, so a refresh keeps them. Load league draft brings back the real Ball Lovers draft at any time.</li>
-        <li>Stuck on a pick, paste the board situation to me in chat and I will make the call.</li>
-      </ul>
-      <p class="small">Category grades are my estimates built from last season's per game numbers, current rankings from RotoWire and FantasyGoats, Yahoo and ESPN ADP, and Josh Lloyd's Locked On Fantasy Basketball shows from August and September 2026. Treat them as a guide, not gospel.</p>
-    </div>
-  </section>
 </div>
 
 <script>
@@ -838,7 +661,12 @@ let FRESH = true;
 try { const saved = JSON.parse(localStorage.getItem(KEY)||'null'); if (saved){ S = Object.assign(S, saved, {search:''}); FRESH = false; } } catch(e) {}
 // picks are also saved by name, so a saved board still points at the right players after the player list changes
 function save(){ try { S.onames=S.order.map(id=>PLAYERS[id]?PLAYERS[id].name:null); localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
-['order','opick','oslot','stubs','hist'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; }); ['teamNames','ykeys'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
+['order','opick','oslot','stubs','hist','mine','taken','log'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; }); ['teamNames','ykeys'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
+// Vikas, Nov 5 2026, version 26.13. A damaged saved value can never blank the page. Each piece is checked by itself and reset to its default when it is the wrong shape
+S.stubs=S.stubs.filter(st=>st && typeof st==='object' && typeof st.name==='string' && st.name.trim());
+if(typeof S.build!=='string' || (S.build!=='auto' && !BUILDS[S.build])) S.build='auto';
+if(!Number.isInteger(S.slot) || S.slot<1 || S.slot>TEAMS) S.slot=6; // his league slot, LEAGUE_SLOT is set further down
+['search','notes','pos','hide'].forEach(k=>{ if(typeof S[k]!=='string') S[k]=k==='search'?'':k==='pos'?'All':k==='hide'?'1':'0'; });
 
 // names from Yahoo are matched to the board by a loose key, accents, dots, dashes and Jr or III removed
 const nkey = str => String(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/-/g,' ').replace(/\b(jr|sr|ii|iii|iv)\b/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
@@ -862,7 +690,6 @@ const $ = id => document.getElementById(id);
 function myPickNumbers(){
   const out=[]; for(let r=1;r<=ROUNDS;r++){ out.push((r-1)*TEAMS + (r%2===1 ? S.slot : TEAMS+1-S.slot)); } return out;
 }
-function pickLabel(n){ const r=Math.ceil(n/TEAMS); const inR=n-(r-1)*TEAMS; return 'Round '+r+' pick '+inR; }
 function survive(p, atPick, nowPick){
   if (atPick==null) return null;
   const adp = p.adp!=null ? p.adp : p.rank*1.08+6;
@@ -941,12 +768,6 @@ function chooseFor(ros, gone){
 function needWindow(from, to){ const R=rosters(); const used=usedPicks(); const out=[]; for(let n=from;n<to;n++){ if(used.has(n)) continue; const sl=slotOfPick(n); if(sl===S.slot) continue; const ros=R[sl]||[]; out.push({n, sl, ros, open: ros.length>=5 ? openSlots(ros) : null}); } return out; }
 let WIN=null;
 function profileOf(ids){ const n=ids.length; return CATS.map((_,c)=>{ const tot=ids.reduce((s,id)=>s+byId(id).ez[c],0); const d=n?(tot-AVG[c]*n)/n:0; let st='none'; if(n) st=d>=0.11?'win':d<=-0.11?'lose':'toss'; return {c,tot,d,st}; }); }
-function lean(prof, key){ const t=BUILDS[key].t; return t.reduce((s,c)=>s+prof[c].d,0)/t.length; }
-function bestLean(prof, exclude){
-  let best=null, bv=-99;
-  ['puntft','guards','puntast'].forEach(k=>{ if(k===exclude) return; const v=lean(prof,k); if(v>bv){bv=v;best=k;} });
-  return {key:best, val:bv};
-}
 function rawFit(p, key, prof, ctx){ return fitFor(p, key, S.mine, prof, ctx); }
 function fitFor(p, key, ids, prof, ctx){
   const b=BUILDS[key]; const n=ids.length; let s=0;
@@ -973,7 +794,7 @@ function extraFor(p, n){
   if (n>=10){ x += p.risk*0.2; if (p.upside) x += 0.6; }
   return x;
 }
-// Josh calibration. Each player Josh ranked is moved most of the way toward his spot by scaling his expected stats, so the board, the cards and the plan math all agree.
+// Josh calibration. Each player Josh ranked is moved half of the way toward his spot (5 over 7 times 0.7, about 29 percent for a passing remark) by scaling his expected stats, so the board, the cards and the plan math all agree.
 function calibrate(){
   CAL=true;
   // the plain numbers before calibration are kept, so a second run starts from them and the engine can see how far the board value moved
@@ -1125,6 +946,7 @@ function render(){
   const picks=myPickNumbers();
   const usedP=usedPicks();
   const now=nowPick();
+  document.body.classList.toggle('season',now>TEAMS*ROUNDS);
   const future=picks.filter(n=>n>=now && !usedP.has(n));
   const next=future[0]??null, after=future[1]??null;
   const onClock = next===now;
@@ -1325,13 +1147,14 @@ function renderTeams(now){
   const live=scanOn(); if(live){ for(const sl in R) R[sl].forEach(id=>{ moved[id]=pk[id]!=null && slotOfPick(pk[id])!==+sl; }); }
   const picksOf = sl=>{ const out=[]; for(let r=1;r<=ROUNDS;r++){ out.push((r-1)*TEAMS + (r%2===1 ? sl : TEAMS+1-sl)); } return out; };
   let h='';
-  const liOf=sl=>LI?LI.teams[teamName(sl)]||null:null;
+  // Vikas, Nov 5 2026, version 26.13. The scan numbers show only while the cards hold today's rosters, and a team is found by its draft slot, so a renamed team keeps its numbers
+  const liOf=sl=>(LI&&live)?((LI.bySlot&&LI.bySlot[sl])||LI.teams[teamName(sl)]||null):null;
   const order=Array.from({length:TEAMS},(_,i)=>i+1); if(LI) order.sort((a,b)=>((liOf(a)||{}).pos||99)-((liOf(b)||{}).pos||99));
   for(const sl of order){
     const ids=R[sl]||[]; const open=openSlots(ids); const prof=profileOf(ids); const li=liOf(sl);
     const nextP=picksOf(sl).find(n=>n>=now && !used.has(n));
     const lst=ids.map(id=>'<li>'+(live&&pk[id]==null?'<span title="Added after the draft">Add</span>':'<span title="Pick '+pk[id]+'">R'+Math.ceil(pk[id]/TEAMS)+'</span>')+'<span>'+esc(byId(id).name)+(moved[id]?' <span class="small">swap</span>':'')+'</span><span>'+esc(byId(id).team)+' '+esc(byId(id).pos.replaceAll(',',' '))+'</span></li>').join('');
-    const cats = li ? '<div class="small" style="margin-top:6px"><b>Rank '+li.pos+' of '+LI.n+'</b>, average week '+Math.round(100*li.week)+'%, top four '+Math.round(100*li.top4)+'%, record '+(li.rec.w||0)+' '+(li.rec.l||0)+' '+(li.rec.t||0)+'</div><div class="tcats">'+li.per.map((x,c)=>'<span class="chip '+(x>=0.6?'good':x<=0.4?'bad':'warn')+'" title="'+Math.round(100*x)+' percent to win '+CATS[c]+' in an average week">'+CATS[c]+' '+Math.round(100*x)+(li.me && LI.lock.includes(c)?' lock':'')+'</span>').join('')+'</div>'
+    const cats = li ? '<div class="small" style="margin-top:6px"><b>Rank '+li.pos+' of '+LI.n+'</b>, average week '+Math.round(100*li.week)+'%, top four '+Math.round(100*li.top4)+'%, cat record '+(li.rec.w||0)+' wins '+(li.rec.l||0)+' losses'+(li.rec.t?' '+li.rec.t+' ties':'')+'</div><div class="tcats">'+li.per.map((x,c)=>'<span class="chip '+(x>=0.6?'good':x<=0.4?'bad':'warn')+'" title="'+Math.round(100*x)+' percent to win '+CATS[c]+' in an average week">'+CATS[c]+' '+Math.round(100*x)+(li.me && LI.lock.includes(c)?' lock':'')+'</span>').join('')+'</div>'
       : ids.length>=3 ? '<div class="tcats">'+prof.map(x=>'<span class="chip '+(x.st==='win'?'good':x.st==='lose'?'bad':'warn')+'">'+CATS[x.c]+'</span>').join('')+'</div>' : '';
     h+='<div class="tcard'+(sl===S.slot?' me':'')+(sl===clockSlot?' clock':'')+'"><div class="thead"><span class="tname">'+esc(teamName(sl))+'</span><span class="tslot">Slot '+sl+(nextP?', next '+nextP:'')+'</span></div>'+
        (ids.length?'<ul class="tlist">'+lst+'</ul>':'<p class="small">No picks yet.</p>')+
@@ -1578,7 +1401,7 @@ $('copy').onclick=()=>{
   const done=()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy list',1500); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>{ btn.textContent='Copy blocked'; setTimeout(()=>btn.textContent='Copy list',1500); });
 };
-const TABS=['board','teams','plan','moves'];
+const TABS=['board','teams','moves'];
 /* With the real league on the board, the nine cat panel shows the same numbers as the Pickups and trades tab, built from the latest Yahoo scan.
    Winning means you win that cat 60 percent of the time or more in an average week, losing means under 45 percent, and the rest are toss ups.
    In a mock draft the panel stays a draft tool that compares your picks with an average team */
@@ -1603,9 +1426,9 @@ function catsLive(){
   }).join('');
 }
 function hashFor(t){ const want=t==='board'?'':'#'+t; if(location.hash===want) return; try{ history.replaceState(null,'',want||location.pathname+location.search); }catch(e){} }
-function setTab(t){ if(!TABS.includes(t) || t==='plan') t='board'; const early=t==='moves' && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabPlan').setAttribute('aria-selected',t==='plan'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewPlan').hidden=t!=='plan'; $('viewMoves').hidden=t!=='moves'; if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
-$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabPlan').onclick=()=>setTab('plan'); $('tabMoves').onclick=()=>setTab('moves');
-if (location.hash==='#plan') S.tab='plan'; if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves'; if (location.hash==='#mgr') S.tab='moves';
+function setTab(t){ if(!TABS.includes(t)) t='board'; const early=t==='moves' && !window.NCWMoves; if(early) t='board'; S.tab=t; if(!early) hashFor(t); $('tabBoard').setAttribute('aria-selected',t==='board'); $('tabTeams').setAttribute('aria-selected',t==='teams'); $('tabMoves').setAttribute('aria-selected',t==='moves'); $('viewBoard').hidden=t!=='board'; $('viewTeams').hidden=t!=='teams'; $('viewMoves').hidden=t!=='moves'; document.body.classList.toggle('teams',t==='teams'); if(t==='teams') renderTeams(nowPick()); if(window.NCWMoves){ if(t==='moves') window.NCWMoves.show(); else window.NCWMoves.hide(); } save(); }
+$('tabBoard').onclick=()=>setTab('board'); $('tabTeams').onclick=()=>setTab('teams'); $('tabMoves').onclick=()=>setTab('moves');
+if (location.hash==='#teams') S.tab='teams'; if (location.hash==='#moves') S.tab='moves'; if (location.hash==='#mgr') S.tab='moves';
 // the address follows the tab, and a changed address or the back button switches the tab
 window.addEventListener('hashchange',()=>{ const t=location.hash.slice(1)||'board'; if(TABS.includes(t) && t!==S.tab) setTab(t); });
 // Josh's ranks can move during the season without a code change. data/josh_live.json holds the newest rank for each player he has spoken about since the draft.
@@ -1614,7 +1437,7 @@ function applyJosh(map){ let n=0;
   PLAYERS.forEach(p=>{ if(p.stub) return; if(!p.jb) p.jb=[p.josh,p.jnote,p.jest,p.jw];
     p.josh=p.jb[0]; p.jnote=p.jb[1]; p.jest=p.jb[2]; p.jw=p.jb[3]; p.jlive=null;
     const u=map?map[nkey(p.name)]:null;
-    if(u && Number.isInteger(u.rank) && u.rank>=1 && u.rank<=400){ // a soft entry is a passing remark. It moves him only 40 percent of the way from his draft day rank and keeps the weight his rank already had, so a soft move up can never push him down the board
+    if(u && Number.isInteger(u.rank) && u.rank>=1 && u.rank<=400){ // a soft entry is a passing remark. It moves him only about 29 percent of the way from his draft day rank (jw 0.4 times 5 over 7) and keeps the weight his rank already had, so a soft move up can never push him down the board
       const b0=p.jb[0]; const r=(u.soft && b0)?Math.max(1,Math.round(b0+0.4*(u.rank-b0))):u.rank; p.jlive={rank:r,was:b0||null}; p.josh=r; p.jw=b0?(p.jb[3]||0.7):(u.soft?0.4:0.7); p.jest=false; if(typeof u.note==='string' && u.note) p.jnote=u.note; n++; } });
   calibrate(); render(); return n; }
 window.NCW={PLAYERS,STATS,JOSH,CATS,LEAGUE_DRAFT,LEAGUE_TEAMS,nkey,matchName,esc,setTab,applyJosh};

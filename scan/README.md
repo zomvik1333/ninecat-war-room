@@ -100,6 +100,11 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 * The report's week line now reads like this, week win chance, Monday call, on track for N of 9 by Sunday, leading N of 9 right now. Never call the on track number cats you lead
 * After any change to how players are projected, change CALV in moves.js, so every browser checks the past weeks again with the new code
 
+## Added Nov 5 2026, version 26.13
+* After the deploy run `node scan/check-live.js` in the project folder. It reads the open /data/players.json on the live site and prints LIVE OK, or LIVE STALE with the live stamp and the local stamp, or LIVE UNKNOWN when the site did not answer. On LIVE STALE say so in the first line of the report and send Vikas a push notification, the deploy did not go through and he has to run it himself
+* ingest.js no longer warns that most players have no two week numbers from week 3 on. A WARNING about two week numbers now only means Yahoo left lines empty, and the 30 minute reread is only for the mid update warnings about last night's games or more than 44 minutes
+* The scan report's league line says cat record, nine decisions a week, and the top four chance comes from a cat by cat simulation
+
 ## The season plan file
 * data/plan.json holds the season plan for every device. It is a list of nine roles in the order FG%, FT%, 3PM, PTS, REB, AST, STL, BLK, TO. The roles are lock, build, bonus, low, punt and swing
 * The scan never changes this file by itself. Change it only when Vikas says in chat that a pivot is now his plan, then deploy. Set made to the day of the change as well as the roles

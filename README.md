@@ -17,6 +17,33 @@ Live site at https://ninecatwarroom.vercel.app
 * Six small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks, starts.json holds the first scan of each fantasy week for the Monday call and results.json holds the final score of every matchup in every finished week. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
 
+## Version 26.13 (branch main), Nov 5 2026, fixes from the Nov 5 deep audit
+
+The audit report is bug_reports\audit_2026-11-05.md in the notes folder. Every item in it was fixed on Vikas's yes. Nothing about the plan cats, locks or how out players are counted this week changed.
+
+* Top four chance and wins by week 18 use the cat record. This league keeps a category record, nine decisions a week, and the old sim added one win a week to it. Every future matchup is now played cat by cat and the first week to simulate is read from the record divided by 9. The league table and the Teams tab say cat record and the header says cat wins by week 18
+* The value scale no longer sells an established player short after a cold start. This season climbs at half speed, 85 percent of (1 minus e to the minus games over 20), about 25 at game 7, 45 at 15 and 66 at 30. A player far below his draft spot loses it only after 15 games, and a breakout up needs two weeks of 3 games or more. On the Nov 5 data Mitchell moves from 21st to 18th, Tatum 30th to 22nd, Randle 115th to 91st, Siakam 110th to 88th, and the replay of the 13 logged talks stays 10 of 13. The injury prone cut reaches its full 10 percent at 50 of 82 games, as the comment always said
+* The season view counts every team at 15 active players. A team with more counts its best 15 by value and games share, the rest sit out as if dropped, and a roster change keeps the count at 15, a player leaving lets the best one sitting out step back in. A two for one filled from your own bench gets no streamer credit. With this the average week no longer swings with the roster count, 61.3 with 17 players against 61.4 with Larsson dropped, where it was 62.7 against 57.7. The 60 percent hedge for a player on IL who is out now applies only with no return date in the news
+* Players of yours who are out, on IL or waiting on a return date are never offered in a trade, and checkOffer says so. Tatum is not sold while hurt
+* Overpay warnings. A deal 6 percent or more their way on the box score, or 6 points above what they need on the value scale, carries an Overpays chip, a line under News and risk and a checkOffer stop
+* Buying high. A player you would get whose box score runs 20 percent or more above a modest record with no new role carries a buying high chip and a risk line. A starter on his NBA team who is out with a return date is named as due back. And while such a starter is out, a hot start is moved a third of the way back toward the preseason line
+* A marked trade counts for this week from the day Yahoo processes it, two days after the mark. The banner says the day. The season view moves the players at once as before
+* Pickup cards print the calibrated week chance, the same number as the header
+* The trade off table never prints a hyphen as a minus sign, keeps Jr. and III with a last name, and on a two for one shows the streamer as its own column
+* In a two for one the other team never drops a player on its IL, and nobody when it has an open spot
+* The manager notes rule deals out before Best trades is picked, so the list refills and the routes agree. Out are a deal a note rules out, a deal that asks for a prized player unless it favors him by 110 percent or more on the box score, and a deal with two or more injury prone players. The page says how many were left off. In talks shows only deals that help you
+* A damaged saved value in the browser can no longer blank the page. The board state is checked piece by piece and reset when wrong, and old calibration keys are cleared
+* The Teams tab shows the scan numbers only while its cards hold today's rosters, finds a team by draft slot so a renamed team keeps its numbers, and says cat record
+* A two week line Yahoo left empty later in the season is filled from the season line, marked as not shown, so the minutes check still runs without counting as proof, a role change or a breakout
+* A replay of an older scan ignores moves you marked today, so the Monday call is built from what was known then
+* The Draft board in season hides the draft cells, the quick bar and the draft panels, the Teams tab hides the draft controls, and on a phone the board comes before the rail with 16 pixel inputs
+* Wording. Goal line names a best pickup only when it scores 50 or more, the IL move named first is the player out longest, the held until date reads as words, the My players note gives the real blend weights
+* ingest.js no longer warns that most players have no two week numbers from week 3 on. Only a line Yahoo left empty counts as a gap, so the nightly 30 minute reread stops and a clean scan can replace a flagged snapshot again
+* scan/check-live.js reads the open /data/players.json on the live site and prints LIVE OK or LIVE STALE with both stamps, so a blocked deploy is loud
+* Dead code out. sgn, tradeWhy, the old value scale weights, effLine, gpw, the hidden Game plan tab and its 172 lines, pickLabel, lean and bestLean
+* Calibration restarts under CALV 26.13. Tested on the local copy, 47 cards all match checkOffer, workers and page score the same 5824 offers, no console errors on any tab, no dash or colon in page text, no horizontal overflow on a 390 pixel phone
+* Fallback branch fallback-v26-13-before-audit-fixes
+
 ## Version 26.11 (branch main), Nov 4 2026, trade engine rework
 
 * What if on your real roster. NCWMoves.setRoster([[id,slot,status],...]) rebuilds every number from your roster as Yahoo shows it today, the trade snapshot too. Nothing is saved, a reload goes back to the last scan. NCWMoves.whatIf([add ids],[drop ids]) scores a move for this week and the season without changing anything
