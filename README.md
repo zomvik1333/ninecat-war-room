@@ -18,6 +18,18 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.20 (branch main), Nov 11 2026, checked deals of any shape on each manager page
+
+Vikas asked for every variation of a deal with the managers he trades with, one for one, two for one, three for one, three for two and one for two, that gains for him, breaks no lock and sits inside the room's fair band, and asked for them on the site.
+
+* checkOffer now scores up to three players a side. When you send more players than you get, the other team drops as many of its least useful players as its roster needs and each spot you open is filled by a streamer unless your own bench fills it. One extra player scores exactly as before. The site's own search still tries one or two players a side
+* The private notes can carry ideas for a manager, deals you had checked, each a give list and a get list. His page under By manager gains a Checked deals section. Every idea is scored again by checkOffer on each load and shows only while it still gains 0.3 or more, keeps every lock and is fair to the room, biggest gain first. A card says Passes every check or Has a catch and spells the catch out, who drops whom, and what the deal does to his average week
+* How the list was made. Every combination of the six shapes was run through checkOffer on a local copy, about 64,000 offers a manager, 384,000 in all, in 20 seconds. Kept were deals that gain a point or more, break no lock, are fair to the room, carry no hard stop, and are no worse than 45 percent light on the value scale
+* What it found on the Nov 11 scan. No deal with any of the six passes every check without breaking a lock. No two for one, three for one or one for two qualifies with anyone. The deals that meet his three tests are one for one, two for two and three for two, and nearly all read light for the other manager on the value scale
+* No change to any score formula, the room, the plan cats or the main lists
+* Tested on the local copy. 360 random offers and 40 random adds and drops with no error, every button tapped with no console error, lint unchanged at the same eight old warnings
+* Fallback branch fallback-v26-20-before-checked-deals
+
 ## Version 26.19 (branch main), Nov 11 2026, a shorter trades page, equal value prices and how you deal with each manager
 
 Vikas asked for the trades page to show only the trades that stay on plan, the pivots and the By manager view, said Kyrie, Boozer and Yaxel may be traded as long as he gets equal value, and set which managers he trades straight with and which he only deals with when he clearly wins.

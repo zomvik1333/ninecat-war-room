@@ -56,6 +56,8 @@ function okMgr(j){
       move:keys(t.move).concat(Array.isArray(t.yes)?keys(t.yes.filter(x=>typeof x==='string')):[]).filter((x,i,a)=>a.indexOf(x)===i),
       yes:(Array.isArray(t.yes)?t.yes:[]).slice(0,10).filter(y=>y && typeof y==='object' && Array.isArray(y.give) && Array.isArray(y.get)).map(y=>({give:keys(y.give).slice(0,3),get:keys(y.get).slice(0,3),at:isDay(y.at)?y.at:''})).filter(y=>y.give.length && y.get.length),
       talks:(Array.isArray(t.talks)?t.talks:[]).slice(0,20).filter(y=>y && typeof y==='object' && Array.isArray(y.give) && Array.isArray(y.get)).map(y=>({give:keys(y.give).slice(0,4),get:keys(y.get).slice(0,4),at:isDay(y.at)?y.at:'',level:['yes','maybe','no'].indexOf(y.level)>=0?y.level:'maybe',note:typeof y.note==='string'?y.note.trim().slice(0,200):''})).filter(y=>y.give.length && y.get.length),
+      // Vikas, Nov 11 2026, version 26.20. ideas are deals you had checked with this manager, any shape up to three players a side. His page scores each one again on every load
+      ideas:(Array.isArray(t.ideas)?t.ideas:[]).slice(0,40).filter(y=>y && typeof y==='object' && Array.isArray(y.give) && Array.isArray(y.get)).map(y=>({give:keys(y.give).slice(0,3),get:keys(y.get).slice(0,3),at:isDay(y.at)?y.at:'',note:typeof y.note==='string'?y.note.trim().slice(0,200):''})).filter(y=>y.give.length && y.get.length),
       tips:arr(t.tips,30)};
     // a yes in principle is also a deal in talks
     const tm=o.teams[id], same=(a,b)=>a.length===b.length && a.every(x=>b.indexOf(x)>=0);
@@ -2392,6 +2394,9 @@ function mgrPage(cw,inner){
   if(m && m.tips.length) h+='<details class="mvteam" style="margin-top:8px"><summary class="small"><b>Your notes on '+esc(m.name)+'</b>, '+m.tips.length+' tips</summary><ul class="mvlist">'+m.tips.map(x=>'<li>'+esc(x.replace(/\.+$/,''))+'.</li>').join('')+'</ul></details>';
   // Vikas, Nov 4 2026, version 26.12. In talks only shows a deal that helps you. A deal whose gain is zero or less, or whose players have moved, is not shown. The notes keep it
   const tk=talkRows(cw,o).filter(x=>!x.stale && x.r.planGain>0); if(tk.length){ h+='<h2 style="margin-top:10px">In talks <span>deals '+esc(m.name)+' has talked about with you, from your notes</span></h2>'; tk.forEach(x=>{ h+=talkCard(cw,x); }); }
+  if(m && m.ideas && m.ideas.length){ const all=ideaRows(cw,o), okI=all.filter(ideaOK);
+    h+='<h2 style="margin-top:10px">Checked deals <span>any shape up to three a side, from your notes</span></h2><p class="small">'+okI.length+' of the '+m.ideas.length+' deals you had checked with '+esc(m.name)+' still gain for you, keep every lock and are fair to the room today. Each one is scored again on every load, biggest gain first. A deal with a catch says what it is.</p>';
+    okI.forEach(x=>{ h+=ideaCard(cw,x); }); }
   h+=how(''+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+(m.noLate?((m.byDraft||m.pairs)?', and':'')+' gives no credit for players taken after pick '+LATEPICK+' or picked up after the draft':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.');
   if(m && m.deal==='fair') h+='<p class="small" style="margin-top:8px"><span class="chip good">Trades straight</span> Your notes say '+esc(m.name)+' deals fair, so the aim here is a deal both teams get something from. Good for both lists the deals that lift his average week as well as your plan.</p>';
   if(m && m.deal==='win') h+='<p class="small" style="margin-top:8px"><span class="chip warn">Win only</span> Your notes say to deal with '+esc(m.name)+' only when you clearly win, so a deal shows here only when your gain is '+WIN_ONLY+' points or more.</p>';
@@ -2417,6 +2422,29 @@ function talkRows(cw,only){ const out=[]; if(!MG) return out;
       // a deal the room would veto is unlikely to go through whatever the manager said
       out.push({o,m,y,give,get,r,c:(y.level==='yes'?0.8:0.55)*(r.roomWhy && /^the room will/.test(r.roomWhy)?0.3:1)}); }); });
   return out; }
+/* Vikas, Nov 11 2026, version 26.20. Checked deals. He asked for every shape of deal with the managers he trades with, one for one up to three for two, that gains for him,
+   breaks no lock and is fair to the room. The site's own search tries one or two players a side, so the wider shapes are found by running checkOffer over every combination
+   and the keepers are saved in the private notes as ideas. Each idea is scored again here by checkOffer, so the numbers are always today's, and it shows only while it still
+   gains 0.3 or more, keeps every lock and is fair to the room. Kept on the trade result so a page draw does not score them twice */
+function ideaRows(cw,o){ const m=MG && MG.teams[o]; if(!m || !m.ideas || !m.ideas.length) return []; if(TR && TR.ideaC && TR.ideaC[o]) return TR.ideaC[o]; const out=[];
+  m.ideas.forEach(y=>{ const byKey=(list,ks)=>ks.map(k=>list.find(p=>B.nkey(p.name)===k)), give=byKey(cw.ros[ME]||[],y.give), get=byKey(cw.ros[o]||[],y.get); if(give.some(p=>!p) || get.some(p=>!p)) return;
+    const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id)); if(r.err) return; out.push({o,m,y,give,get,r}); });
+  out.sort((a,b)=>b.r.planGain-a.r.planGain); if(TR){ TR.ideaC=TR.ideaC||{}; TR.ideaC[o]=out; } return out; }
+const ideaOK=x=>x.r.planGain>=0.3 && !x.r.broke.length && x.r.roomFair;
+function ideaCard(cw,x){ const nm=a=>esc(listWords(a.map(p=>p.name))), oName=(cw.teams[x.o]||{}).name||'', r=x.r, N=esc(x.m.name), key=['PTS','REB','AST','STL','3PM','TO'];
+  // the value scale stop is said in plain words here, since it is the catch on most of these
+  const plain=z=>{ const v=/^fails the value scale, look (-?[\d.]+) percent their way/.exec(z); return !v?z:+v[1]<0?'it reads '+Math.abs(+v[1])+' percent light for him on the value scale, his own read of names, draft spots and ranks, so expect a no or a counter':'you give '+v[1]+' percent more than he does on the value scale'; };
+  const soft=(r.stops||[]).filter(z=>!/^plan gain under/.test(z)).map(plain), clean=!soft.length;
+  return '<details class="mvcard"><summary><span class="mvn '+(r.planGain>=1?'strong':'helps')+'">'+bsg(r.planGain)+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(x.get)+'</b> <span class="sub">for '+nm(x.give)+', with '+esc(oName)+'</span><span class="meta"><span class="chip muted">'+x.give.length+' for '+x.get.length+'</span><span class="chip good">Keeps your locks</span><span class="chip muted">Room '+r.room+'</span>'+(clean?'<span class="chip good">Passes every check</span>':'<span class="chip warn">Has a catch</span>')+'</span></span></summary>'
+    +'<ul class="mvlist">'+(r.perGame?'<li>A game you give '+esc(r.perGame.filter(z=>key.indexOf(z.k)>=0).map(z=>z.give+' '+z.k).join(', '))+' and get '+esc(r.perGame.filter(z=>key.indexOf(z.k)>=0).map(z=>z.get+' '+z.k).join(', '))+'.</li>':'')
+    +'<li>Your average week goes from '+r.nineCatBefore+' to '+r.nineCatAfter+' percent, and your plan moves up '+Math.abs(r.planGain)+' points.</li>'
+    +'<li>The average week for '+N+' moves '+(r.theirChange>=0?'up ':'down ')+Math.abs(r.theirChange)+' points.</li>'
+    +'<li>On box scores '+N+' gets about '+r.face+' percent of what he gives, and the room reads it at '+r.room+' percent, inside the fair band of '+pc(ROOM_LO)+' to '+pc(ROOM_HI)+'.</li>'
+    +(r.myDrop?'<li>You drop '+esc(r.myDrop)+' to make room, and the gain counts that drop.</li>':'')
+    +(r.cut?'<li>'+N+' would have to drop '+esc(r.cut)+' to make room.</li>':'')
+    +(r.streamer?'<li>'+esc(capF(r.streamer))+'.</li>':'')
+    +(soft.length?'<li>The catch, '+esc(listWords(soft))+'.</li>':'')
+    +(x.y.note?'<li>'+esc(x.y.note.replace(/\.+$/,''))+'.</li>':'')+'</ul></details>'; }
 function talkCard(cw,x){
   if(x.stale) return '<p class="small">'+esc(x.m.name)+' talked about a deal'+(x.y.at?' on '+nice(x.y.at):'')+' whose players have moved since, so it no longer applies.</p>';
   const nm=a=>a.map(p=>esc(p.name)).join(' and '), oName=(cw.teams[x.o]||{}).name||'', r=x.r, up=r.planGain>=0, N=esc(x.m.name);
@@ -2575,7 +2603,8 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   const U=ctx.U, give=giveIds.map(i=>U[String(i)]), get=getIds.map(i=>U[String(i)]); if(give.some(p=>!p)||get.some(p=>!p)) return {err:'unknown player id'};
   if(!give.length || !get.length) return {err:'give at least one player on each side'};
   const pl=planOf(), env=tradeEnv(ctx,pl); env.spotV=TR?TR.spot:spotValue(ctx,pl,env); const stops=[];
-  if(give.length>2||get.length>2) stops.push('the search only tries one for one, two for two, two for one and one for two');
+  // Vikas, Nov 11 2026, version 26.20. Three players a side are scored too. The site's own search still tries only one or two a side
+  if(give.length>3||get.length>3) stops.push('the checker handles up to three players a side');
   give.forEach(p=>{ const k=B.nkey(p.name); if(p.own!==ME) stops.push(p.name+' is not yours'); if(NEVER.has(k)) stops.push('Kyrie is never offered'); if(HOLD[k] && env.today<HOLD[k]) stops.push(p.name+' is held until '+niceLong(HOLD[k])); if(hurt(p)) stops.push(p.name+' is hurt, your rule keeps him until he is back'); });
   get.forEach(p=>{ if(p.own!==o) stops.push(p.name+' is not on that team'); });
   // Vikas, Nov 6 2026, version 26.16. One for two. Your least useful player the drop rules allow is dropped to make room, and the gain counts that drop.
@@ -2597,14 +2626,15 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   askMiss(give,get).forEach(s=>stops.push('below your asking price, '+s));
   { const f=fillerOf(give,get); if(f) stops.push(fillerWords(f)); }
   const prone=get.filter(p=>p.prone && p.prone.on); if(prone.length>=2) stops.push('you would take on '+prone.length+' injury prone players, '+listWords(prone.map(p=>p.name)));
-  const two=give.length>get.length; let cut=null; if(two && ctx.ros[o].filter(p=>!isIL(p)).length>=ACTIVE){ const worst=ctx.ros[o].filter(p=>p.proj && !isIL(p)).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0)); cut=worst.find(p=>!get.includes(p))||null; }
-  const T0=seasonTotals(ctx,ME,myCut?give.concat([myCut]):give,get), Tm=scaleT(T0,1/ctx.tweeks), streamed=two && !T0.promoted; if(streamed) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
-  const To=scaleT(seasonTotals(ctx,o,cut?get.concat([cut]):get,give),1/ctx.tweeks); if(myCut) TK.forEach(q=>To[q]+=ctx.stream[q]); const ov={}; ov[o]=To; const v=myView(ctx,Tm,ov);
-  const gain=100*(planWeekOf(ctx,v.prs,pl,false)-env.basePlan)-(streamed?env.spotV:0); const broke=env.guard.filter(c=>env.hit(c,v.per[c],v.fav[c]));
+  // when you send more players than you get, they drop as many of their least useful players as their roster needs, and each spot you open is filled by a streamer unless your own bench fills it
+  const extra=give.length-get.length, two=extra>0; let cuts=[]; if(two){ const over=ctx.ros[o].filter(p=>!isIL(p)).length+extra-ACTIVE; if(over>0){ const worst=ctx.ros[o].filter(p=>p.proj && !isIL(p)).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0)); cuts=worst.filter(p=>!get.includes(p)).slice(0,Math.min(extra,over)); } } const cut=cuts[0]||null;
+  const T0=seasonTotals(ctx,ME,myCut?give.concat([myCut]):give,get), Tm=scaleT(T0,1/ctx.tweeks), ks=two?Math.max(0,extra-(T0.promoted||0)):0, streamed=ks>0; for(let i=0;i<ks;i++) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
+  const To=scaleT(seasonTotals(ctx,o,cuts.length?get.concat(cuts):get,give),1/ctx.tweeks); if(myCut) TK.forEach(q=>To[q]+=ctx.stream[q]); const ov={}; ov[o]=To; const v=myView(ctx,Tm,ov);
+  const gain=100*(planWeekOf(ctx,v.prs,pl,false)-env.basePlan)-ks*env.spotV; const broke=env.guard.filter(c=>env.hit(c,v.per[c],v.fav[c]));
   if(gain<0.3) stops.push('plan gain under 0.3'); if(broke.length) stops.push('breaks '+broke.map(c=>CATS[c]).join(' ')+', so at best a pivot');
   const typ=Object.assign({},ctx.typ); typ[ME]=Tm; typ[o]=To; const so=strength(ctx,o,typ), dop=so.per.map((x,c)=>100*(x-ctx.base[o].per[c])), fitF=fitOf(o,give,get,dop);
   const swaps=swapsOf(give,get).map(x=>({give:x.give?x.give.name:null,get:x.get?x.get.name:null,room:x.look}));
-  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(so.week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),room:pc(room.look),roomFair:room.ok,roomEasy:room.easy,roomWhy:room.ok?null:room.words,swaps,fit:fitF?fitF.fit:null,fitsNotes:!!(fitF&&fitF.on),fitWhy:fitF?fitF.why:[],myDrop:myCut?myCut.name:null,josh:js,broke:broke.map(c=>CATS[c]),cut:cut?cut.name:null,streamer:two?(streamed?'a waiver level streamer fills the open spot':'your own bench fills the open spot, no streamer counted'):null,overpay:over,prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get,streamed?ctx.stream:null),listed:!stops.length,stops}; }
+  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(so.week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),room:pc(room.look),roomFair:room.ok,roomEasy:room.easy,roomWhy:room.ok?null:room.words,swaps,fit:fitF?fitF.fit:null,fitsNotes:!!(fitF&&fitF.on),fitWhy:fitF?fitF.why:[],myDrop:myCut?myCut.name:null,josh:js,broke:broke.map(c=>CATS[c]),cut:cut?listWords(cuts.map(p=>p.name)):null,streamer:two?(streamed?'a waiver level streamer fills the open spot':'your own bench fills the open spot, no streamer counted'):null,overpay:over,prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get,streamed?ctx.stream:null),listed:!stops.length,stops}; }
 /* Vikas, Nov 4 2026. What if, on the roster you really have now.
    setRoster takes your roster as Yahoo shows it today, a list of [player id, slot, status], and rebuilds every number on it, the trade snapshot too.
    Nothing is saved. A reload goes back to the last scan. whatIf scores adds and drops on top of the roster in use, for this week and the season, without changing anything */
