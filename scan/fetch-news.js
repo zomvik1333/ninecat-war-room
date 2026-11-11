@@ -20,7 +20,11 @@ const MAP={GS:'GSW',NO:'NOP',NY:'NYK',SA:'SAS',UTAH:'UTA',WSH:'WAS'};
 const TID={1:'ATL',2:'BOS',3:'NOP',4:'CHI',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GSW',10:'HOU',11:'IND',12:'LAC',13:'LAL',14:'MIA',15:'MIL',16:'MIN',17:'BKN',18:'NYK',19:'ORL',20:'PHI',21:'PHX',22:'POR',23:'SAC',24:'SAS',25:'OKC',26:'UTA',27:'WAS',28:'TOR',29:'MEM',30:'CHA'};
 const FRESH=10, NOTE_MAX=200, DIRS=['good','bad','neutral'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const stop=m=>{ console.log(m); process.exit(1); };
+// Vikas, Nov 10 2026, version 26.17. After a network call it ends on its own rather than calling process.exit, which trips a libuv assertion on Windows
+// after a fetch (the same fix check-live.js got in 26.13). Before any network call it still exits at once
+class Stop extends Error{}
+let NET=false;
+const stop=m=>{ console.log(m); if(!NET) process.exit(1); process.exitCode=1; throw new Stop(m); };
 const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 // the same name key the site uses, copied from nkey in index.html. Keep the two the same
 const nkey = str => String(str||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/-/g,' ').replace(/\b(jr|sr|ii|iii|iv)\b/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
@@ -111,6 +115,7 @@ if(tags){
 // one GET to ESPN, tried up to 4 times with a short wait. It never follows a redirect, so no other host is ever called
 async function get(url){
   for(let k=0;k<4;k++){
+    NET=true;
     try{ const r=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(20000)}); if(r.ok) return await r.json(); }catch(e){}
     if(k<3) await sleep(700*(k+1));
   }
@@ -200,4 +205,4 @@ async function get(url){
   say.forEach(m=>console.log(m));
   const v=Object.keys(p).map(i=>p[i]);
   console.log('news saved, '+v.filter(x=>x.st).length+' players with a status, '+v.filter(x=>x.ret).length+' with a return date, '+v.filter(x=>x.dir).length+' tags, '+news.unmatched.length+' unmatched');
-})();
+})().catch(e=>{ if(e instanceof Stop) return; console.log('news NOT saved. '+String(e&&e.message||e).slice(0,120)+'. Nothing written.'); process.exitCode=1; });

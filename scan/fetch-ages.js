@@ -12,7 +12,11 @@ const API='https://site.api.espn.com/apis/site/v2/sports/basketball/nba/';
 const MAP={GS:'GSW',NO:'NOP',NY:'NYK',SA:'SAS',UTAH:'UTA',WSH:'WAS'};
 const MIN_TEAMS=28, MIN_PLAYERS=380;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const stop=m=>{ console.log(m); process.exit(1); };
+// Vikas, Nov 10 2026, version 26.17. After a network call it ends on its own rather than calling process.exit, which trips a libuv assertion on Windows
+// after a fetch (the same fix check-live.js got in 26.13). Before any network call it still exits at once
+class Stop extends Error{}
+let NET=false;
+const stop=m=>{ console.log(m); if(!NET) process.exit(1); process.exitCode=1; throw new Stop(m); };
 // the same name key the site uses, copied from nkey in index.html. Keep the two the same
 const nkey = str => String(str||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/-/g,' ').replace(/\b(jr|sr|ii|iii|iv)\b/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
 // known spelling differences, the same pairs as PALIAS and BALIAS in moves.js. Used only for the match count printed at the end
@@ -32,6 +36,7 @@ const today=etDay(new Date());
 // one GET to ESPN, tried up to 4 times with a short wait. It never follows a redirect, so no other host is ever called
 async function get(url){
   for(let k=0;k<4;k++){
+    NET=true;
     try{ const r=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(20000)}); if(r.ok) return await r.json(); }catch(e){}
     if(k<3) await sleep(700*(k+1));
   }
@@ -102,4 +107,4 @@ async function get(url){
   all.forEach(i=>{ const k=nkey(pl[i][0]); if(p[k]) return; if(ALIAS[k]&&p[ALIAS[k]]){ byAlias++; return; } miss.push(pl[i][0]); });
   console.log((all.length-miss.length)+' of the '+all.length+' players in data/players.json have an age, '+miss.length+' have no age match'+(miss.length?', '+(miss.length>15?'the first 15 are ':'they are ')+miss.slice(0,15).join(', '):''));
   if(byAlias) console.log(byAlias+' of those matches needed a known other spelling of the name, the same list as PALIAS and BALIAS in moves.js');
-})();
+})().catch(e=>{ if(e instanceof Stop) return; console.log('ages NOT saved. '+String(e&&e.message||e).slice(0,120)+'. Nothing written.'); process.exitCode=1; });

@@ -113,7 +113,7 @@
 
   async function runDaily(opts){
     if(opts.season) SEASON=String(opts.season);
-    const out=[]; const P={}, S={}, L={}, OWN={}, PCT={}, CUR={};
+    const out=[]; const P={}, S={}, L={}, OWN={}, PCT={}, CUR={}, ROS={};
     let known={};
     try{ const r=await fetch(SITE+'/data/players.json',{cache:'no-store'}); if(r.ok){ const j=await r.json(); known=j.p||{}; } }catch(e){ st.log.push('known players file not loaded'); }
     if(opts.all) known={};
@@ -146,7 +146,9 @@
       const g=grid(d,'#statTable0')||grid(d);
       if(!g){ st.log.push('no roster table team '+tid); continue; }
       const ros=[];
-      g.rows.forEach(r=>{ const pc=pcell(r.cells[g.H['Players']]||r.cells[2]); if(!pc) return; const s=statsOf(r.cells,g.H); see(pc,s.pre); ros.push(pc.id+':'+s.slot+':'+pc.status); if(+s.gp>0){ season=true; S[pc.id]=s; } CUR[pc.id]=s.cur; PCT[pc.id]=s.pct; });
+      g.rows.forEach(r=>{ const pc=pcell(r.cells[g.H['Players']]||r.cells[2]); if(!pc) return; const s=statsOf(r.cells,g.H); see(pc,s.pre); ros.push(pc.id+':'+s.slot+':'+pc.status); if(+s.gp>0){ season=true; S[pc.id]=s; } CUR[pc.id]=s.cur; ROS[pc.id]=1;
+        // Vikas, Nov 10 2026, version 26.17. The team pages show % Start, the share of leagues that start him today, not % Ros. It is not kept. See the taken list below
+        PCT[pc.id]=(g.H['% Ros']!=null && g.H['% Start']==null)?s.pct:''; });
       out.push('R|'+tid+'|'+ros.length+'|'+ros.join(','));
       if(season){
         const d2=await get(BASE+'/'+tid+'?stat1=AS&stat2=AL14'); const g2=grid(d2,'#statTable0')||grid(d2);
@@ -176,6 +178,21 @@
       await list('S_AS_'+SEASON,'OR',4,'S');
       await list('S_AS_'+SEASON,'R_PO',2,'S');
     }
+    // Vikas, Nov 10 2026, version 26.17. The site reads the last number of every player as his rostered percent across Yahoo. A team page gives % Start in that
+    // column, which swings with the day's schedule and with injuries (Luka read 71 while he is rostered in every league). So the rostered percent of every
+    // player on a roster comes from the taken players list, the same kind of page as the available list. A player that list does not show keeps no number,
+    // which the site reads as no change. Read only
+    {
+      for(let k=0;k<12;k++){
+        st.step='taken '+k; let d=null;
+        try{ d=await get(BASE+'/players?status=T&pos=P&cut_type=33&stat1=S_AS_'+SEASON+'&myteam=0&sort=AR&sdir=1&count='+(k*25)); }catch(e){ st.log.push('taken list page '+k+' not read'); break; }
+        const g=grid(d); if(!g || g.H['% Ros']==null){ st.log.push('no taken players table '+k); break; }
+        let n=0;
+        g.rows.forEach(r=>{ const pc=pcell(r.cells[g.H['Players']]||r.cells[2]); if(!pc) return; n++; if(!ROS[pc.id]) return; const v=digits((r.cells[g.H['% Ros']]||{}).textContent); if(v!=='') PCT[pc.id]=v; });
+        if(n<25) break; await sleep(250);
+      }
+      const miss=Object.keys(ROS).filter(id=>PCT[id]==='').length; if(miss) st.log.push('no rostered percent for '+miss+' of '+Object.keys(ROS).length+' rostered players');
+    }
     const avail=Object.keys(OWN);
     for(let i=0;i<avail.length;i+=16) out.push('A|'+avail.slice(i,i+16).map(id=>id+':'+OWN[id]+':'+(P[id].st||'')).join(','));
 
@@ -201,19 +218,28 @@
     // Vikas, Nov 4 2026. The final score of every matchup last week, so the week forecast can be checked against what really happened
     if(wk && +wk>1 && opts.finals!==false) await finals(+wk-1,teams,out);
     st.step='transactions';
-    try{ const d=await get(BASE+'/transactions');
-      const t=d.querySelector('table[class*="transaction"]')||d.querySelector('table');
-      let n=0;
-      if(t) [...t.rows].forEach(r=>{ if(n>=60) return;
-        const moves=[]; const icons=[...r.querySelectorAll('span[title]')].map(x=>x.getAttribute('title'));
-        [...r.querySelectorAll('a[href*="/nba/players/"]')].forEach(a=>{ const m=(a.getAttribute('href')||'').match(/players\/(\d+)$/); if(!m) return; const h=a.parentElement&&a.parentElement.querySelector('h6'); const txt=clean(h?h.textContent:'');
-          const sign=/Add/i.test(txt)?'+':/Drop/i.test(txt)?'-':/Trade/i.test(txt)?'t':(/Add/i.test(icons[moves.length]||'')?'+':/Drop/i.test(icons[moves.length]||'')?'-':'t');
-          moves.push(sign+m[1]); if(!P[m[1]]&&!known[m[1]]){ const sp=a.parentElement&&a.parentElement.querySelector('span'); const mm=clean(sp?sp.textContent:'').match(/^([A-Za-z]{2,4}) - ([A-Z,]+)$/); P[m[1]]={nm:clean(a.textContent),team:mm?mm[1].toUpperCase():'',pos:mm?mm[2]:''}; } });
-        if(!moves.length) return;
-        const ta=r.querySelector('a[href*="'+BASE+'/"]'); const tid=ta?((ta.getAttribute('href')||'').match(/\/(\d+)$/)||[])[1]||'':'';
-        const when=(r.textContent.replace(/\s+/g,' ').match(/([A-Z][a-z]{2}) (\d{1,2}), (\d{1,2}):(\d{2}) ([ap]m)/)||[]);
-        out.push('X|'+(when[1]||'')+(when[2]||'')+'|'+tid+'|'+moves.join(',')); n++; });
-    }catch(e){ st.log.push('transactions not read'); }
+    // Vikas, Nov 10 2026, version 26.17. Yahoo shows 25 moves a page, about four days in this league, and the site counts adds for the whole fantasy week and keeps
+    // a seven day memory of your own adds and drops. So up to three pages are read, about two weeks. A page after the first that fails is only logged
+    { let n=0; const seenX=new Set();
+      for(let pg=0;pg<3;pg++){
+        let d=null;
+        try{ d=await get(BASE+'/transactions'+(pg?'?transactionsfilter=all&count='+(pg*25):'')); }catch(e){ st.log.push(pg?'transactions page '+(pg+1)+' not read':'transactions not read'); break; }
+        const t=d.querySelector('table[class*="transaction"]')||d.querySelector('table');
+        let rowsN=0;
+        if(t) [...t.rows].forEach(r=>{ if(n>=90) return;
+          const moves=[]; const icons=[...r.querySelectorAll('span[title]')].map(x=>x.getAttribute('title'));
+          [...r.querySelectorAll('a[href*="/nba/players/"]')].forEach(a=>{ const m=(a.getAttribute('href')||'').match(/players\/(\d+)$/); if(!m) return; const h=a.parentElement&&a.parentElement.querySelector('h6'); const txt=clean(h?h.textContent:'');
+            const sign=/Add/i.test(txt)?'+':/Drop/i.test(txt)?'-':/Trade/i.test(txt)?'t':(/Add/i.test(icons[moves.length]||'')?'+':/Drop/i.test(icons[moves.length]||'')?'-':'t');
+            moves.push(sign+m[1]); if(!P[m[1]]&&!known[m[1]]){ const sp=a.parentElement&&a.parentElement.querySelector('span'); const mm=clean(sp?sp.textContent:'').match(/^([A-Za-z]{2,4}) - ([A-Z,]+)$/); P[m[1]]={nm:clean(a.textContent),team:mm?mm[1].toUpperCase():'',pos:mm?mm[2]:''}; } });
+          if(!moves.length) return; rowsN++;
+          const ta=r.querySelector('a[href*="'+BASE+'/"]'); const tid=ta?((ta.getAttribute('href')||'').match(/\/(\d+)$/)||[])[1]||'':'';
+          const when=(r.textContent.replace(/\s+/g,' ').match(/([A-Z][a-z]{2}) (\d{1,2}), (\d{1,2}):(\d{2}) ([ap]m)/)||[]);
+          // a move made while the pages were being read shifts every row down one, so the same row can show on two pages. It is kept once
+          const key=(when[0]||'')+'|'+tid+'|'+moves.join(','); if(seenX.has(key)) return; seenX.add(key);
+          out.push('X|'+(when[1]||'')+(when[2]||'')+'|'+tid+'|'+moves.join(',')); n++; });
+        if(rowsN<20) break; await sleep(250);
+      }
+    }
 
     const plines=[];
     if(!opts.noP) Object.keys(P).forEach(id=>{ const p=P[id], k=known[id]; if(!k || k[1]!==p.team || k[2]!==p.pos || (p.pre && String(k[3]||'')!==String(p.pre))) plines.push(['P',id,p.nm,p.team,p.pos,p.pre||''].join('|')); });

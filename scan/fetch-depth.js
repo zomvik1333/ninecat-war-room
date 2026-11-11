@@ -22,7 +22,11 @@ const TID={1:'ATL',2:'BOS',3:'NOP',4:'CHI',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GS
 const POS=['pg','sg','sf','pf','c'];
 const MIN_TEAMS=28;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const stop=m=>{ console.log(m); process.exit(1); };
+// Vikas, Nov 10 2026, version 26.17. After a network call it ends on its own rather than calling process.exit, which trips a libuv assertion on Windows
+// after a fetch (the same fix check-live.js got in 26.13). Before any network call it still exits at once
+class Stop extends Error{}
+let NET=false;
+const stop=m=>{ console.log(m); if(!NET) process.exit(1); process.exitCode=1; throw new Stop(m); };
 const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 // the same name key the site uses, copied from nkey in index.html. Keep the two the same
 const nkey = str => String(str||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/-/g,' ').replace(/\b(jr|sr|ii|iii|iv)\b/g,' ').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
@@ -50,6 +54,7 @@ const find=(name,team)=>{ const k=nkey(name); let ids=idx[k]||(ALIAS[k]&&idx[ALI
 // one GET to ESPN, tried up to 4 times with a short wait. It never follows a redirect, so no other host is ever called
 async function get(url){
   for(let k=0;k<4;k++){
+    NET=true;
     try{ const r=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(20000)}); if(r.ok) return await r.json(); }catch(e){}
     if(k<3) await sleep(700*(k+1));
   }
@@ -107,4 +112,4 @@ async function get(url){
   if(down.length) console.log('Down the bench, '+down.join(', ')+'.');
   const starters=Object.keys(p).filter(id=>p[id][1]===0).length;
   console.log('depth saved, '+Object.keys(t).length+' teams, '+Object.keys(p).length+' tracked players placed, '+starters+' of them starters, '+(into.length+outOf.length+up.length+down.length)+' moves since the last run.');
-})().catch(e=>stop('depth NOT saved. '+String(e&&e.message||e).slice(0,120)+'. Nothing written.'));
+})().catch(e=>{ if(e instanceof Stop) return; console.log('depth NOT saved. '+String(e&&e.message||e).slice(0,120)+'. Nothing written.'); process.exitCode=1; });

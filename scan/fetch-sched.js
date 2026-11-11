@@ -31,7 +31,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     fail.push(day);
   }
   for(let i=0;i<days.length;i+=5){ await Promise.all(days.slice(i,i+5).map(one)); await sleep(250); }
-  if(fail.length || Object.keys(games).length!==30 || n<1100){ console.log('schedule NOT saved. games '+n+', teams '+Object.keys(games).length+', failed days '+fail.join(' ')); process.exit(1); }
+  if(fail.length || Object.keys(games).length!==30 || n<1100){ console.log('schedule NOT saved. games '+n+', teams '+Object.keys(games).length+', failed days '+fail.join(' ')); process.exitCode=1; return; } // ends on its own, no process.exit after a fetch on Windows (26.17)
   Object.keys(games).forEach(t=>{ games[t]=[...new Set(games[t])].sort(); });
   fs.writeFileSync(path.join(__dirname,'..','data','schedule.json'),JSON.stringify({src:'ESPN scoreboard, regular season games listed under each US date',made:new Date().toISOString().slice(0,10),games}));
   console.log('schedule saved, '+n+' games, '+tbd+' games with teams not set yet'+(cup?', '+cup+' NBA Cup championship game left out because it does not count':''));

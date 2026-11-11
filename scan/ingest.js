@@ -38,8 +38,11 @@ const players=rd('players.json',{p:{}}); let newP=0;
 of('P').forEach(f=>{ const old=players.p[f[1]]; if(!old) newP++; players.p[f[1]]=[asc(f[2])||(old&&old[0])||('Player '+f[1]),f[3]||(old&&old[1])||'',f[4]||(old&&old[2])||'',f[5]!==''?n(f[5]):(old?old[3]:null)]; });
 const sched=rd('schedule.json',null);
 if(sched&&sched.games) of('P').forEach(f=>{ if(f[3]&&!sched.games[f[3]]) say.push('WARNING, player '+f[1]+' '+asc(f[2])+' has the NBA team code '+f[3]+' and that is not a team in data/schedule.json. Fine for an NBA free agent, otherwise read that line again.'); });
-if(of('P').length) players.updated=new Date().toISOString().slice(0,16);
-const saveP=()=>{ if(of('P').length) wr('players.json',players); };
+// Vikas, Nov 11 2026, version 26.17. The stamp moves on every daily scan, not only when a player line came with it. check-live.js compares this stamp
+// with the live site, and a scan with no player lines (Nov 11) left it unchanged, so LIVE OK could not tell a deploy that went through from one that did not
+const stampP=of('P').length>0 || (!partial && of('H').length>0);
+if(stampP) players.updated=new Date().toISOString().slice(0,16);
+const saveP=()=>{ if(stampP) wr('players.json',players); };
 
 // league schedule, one time
 const K=partial?[]:of('K');

@@ -2525,7 +2525,13 @@ function cats(cb){
 }
 /* checkOffer scores any offer with every rule the trade search uses, and says which rule would stop it.
    Use it in chat before quoting any trade number. NCWMoves.checkOffer('4',[giveIds],[getIds]) */
-function checkOffer(o,giveIds,getIds){ const ctx=CTXW, U=ctx.U, give=giveIds.map(i=>U[String(i)]), get=getIds.map(i=>U[String(i)]); if(give.some(p=>!p)||get.some(p=>!p)) return {err:'unknown player id'};
+// Vikas, Nov 10 2026, version 26.17. The team id is read as text, so 2 and '2' mean the same team (a number used to read every player as not on that team).
+// An unknown team, your own team, a list that is not a list or a player named twice gets a plain answer instead of an error or a wrong number
+function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !ctx.U) return {err:'the page is still loading, try again in a moment'};
+  if(o===ME || !Array.isArray(ctx.ros[o]) || !ctx.ros[o].length) return {err:'unknown team id, give the other manager\'s team id'};
+  if(!Array.isArray(giveIds) || !Array.isArray(getIds)) return {err:'give two lists of player ids, yours first'};
+  if(new Set(giveIds.concat(getIds).map(String)).size!==giveIds.length+getIds.length) return {err:'a player is named twice'};
+  const U=ctx.U, give=giveIds.map(i=>U[String(i)]), get=getIds.map(i=>U[String(i)]); if(give.some(p=>!p)||get.some(p=>!p)) return {err:'unknown player id'};
   if(!give.length || !get.length) return {err:'give at least one player on each side'};
   const pl=planOf(), env=tradeEnv(ctx,pl); env.spotV=TR?TR.spot:spotValue(ctx,pl,env); const stops=[];
   if(give.length>2||get.length>2) stops.push('the search only tries one for one, two for two, two for one and one for two');
