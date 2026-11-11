@@ -18,6 +18,23 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.22 (branch main), Nov 11 2026, the page searches every variation itself, on the last scan
+
+Vikas asked that every variation with a manager be current on the stats of the last scan without asking for a search, that the scan date sit above the trades, and that a deal which breaks a lock by a lot be left off while a small slip is shown with a label.
+
+* A line above the trades on both tabs names the day and time of the scan every trade is scored on
+* Checked deals is now searched by the page. For a manager marked fair in the notes it tries every deal of one, two or three of your players for one or two of his, about 64,000 to 88,000 offers, drops the ones the room would not call fair with a cheap check and scores the rest with checkOffer. It works in short slices, shows how far along it is, and takes a few seconds
+* Kept are deals that gain half a point or more, are fair to the room and have no hard stop. Deals that keep every lock are listed first. Deals where every lock touched slips by 3 points of that cat's win chance or less are listed after under Checked deals with a lock at risk, each card labeled with the slip. A bigger break is not shown
+* The result is saved in the browser as player ids with a stamp of the scan, the plan and the notes, so the next visit only scores the kept deals again. A new scan, a changed plan or changed notes starts a fresh search. Search again forces one
+* checkOffer returns slips, the win chance of each lock it breaks before and after
+* The ideas kept by hand in the notes still join the list. A player your notes say a manager keeps is left out, and one he prizes needs 110 percent on the box score, as in the main lists
+* data/plan.json holds Grayson Allen until Nov 25 on his word that he wants to try him out, so no deal sends him
+* The words under Best trades no longer say Kyrie is never offered and Boozer is held, which stopped being true in 26.19
+* Fixed in passing, two searches running side by side could each save over the other
+* No change to any score formula, the room, the plan cats or the main lists
+* Tested on the local copy on the Nov 11 18.23 scan with his notes. Keeps every lock, Haziq 111, Anshu 57, Nitin 18, Chris 17, Rishi 16, Vinny 10, the same deals the offline search found. A reload scored the saved list in a third of a second. 360 random offers with no error, every button tapped with no console error, lint unchanged at the same eight old warnings
+* Fallback branch fallback-v26-22-before-live-search
+
 ## Version 26.21 (branch main), Nov 11 2026, every checked variation on each manager page
 
 Vikas asked whether every deal named in chat was on the By manager pages and said he wants all the variations there, not a short pick of them.

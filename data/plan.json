@@ -13,7 +13,9 @@
   "lock"
  ],
  "never": [],
- "hold": {},
+ "hold": {
+  "Grayson Allen": "2026-11-25"
+ },
  "keep": [
   "Kyrie Irving"
  ],
@@ -23,7 +25,7 @@
   "Kyrie Irving": "own"
  },
  "askNote": "Asking prices set by Vikas. On Nov 11 2026 he said Kyrie, Boozer and Yaxel may be traded as long as he gets equal value, so each is priced at own. A trade that sends one of them must bring back at least one player ranked as high as him or better on the value scale, which is how other managers see players. A number in place of own is a fixed rank, 30 is a round three player and 40 is round four.",
- "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them. On Nov 11 2026 Vikas lifted never for Kyrie and hold for Boozer. Kyrie stays on keep so he is never suggested as a drop.",
+ "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them. On Nov 11 2026 Vikas lifted never for Kyrie and hold for Boozer. Kyrie stays on keep so he is never suggested as a drop. On Nov 11 2026 Vikas said he wants to try Grayson Allen out before moving him, so Allen is on hold until Nov 25, about when his five game review is done.",
  "tiers": {
   "trade": [
    "VJ Edgecombe",
