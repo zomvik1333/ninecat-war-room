@@ -18,6 +18,18 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.21 (branch main), Nov 11 2026, every checked variation on each manager page
+
+Vikas asked whether every deal named in chat was on the By manager pages and said he wants all the variations there, not a short pick of them.
+
+* The private notes may now hold up to 150 ideas a manager, up from 40
+* Checked deals shows the ten biggest gains and folds the rest under Show the other, so a long list does not bury the page
+* Ideas that gain for you and are fair to the room but break a lock get their own list, Checked deals that break a lock, since those are pivots. Their card says which lock
+* The lists were rebuilt on the Nov 11 18.23 scan from every combination of the six shapes. Kept, every deal that gains half a point or more, breaks no lock, is fair to the room and has no hard stop, with no cut for how light it reads on the value scale, plus the 30 biggest lock breaking deals a manager and every deal named in chat that is still fair to the room
+* No change to any score formula, the room, the plan cats or the main lists
+* Tested on the local copy, every button tapped with no console error, lint unchanged at the same eight old warnings
+* Fallback branch fallback-v26-21-before-all-variations
+
 ## Version 26.20 (branch main), Nov 11 2026, checked deals of any shape on each manager page
 
 Vikas asked for every variation of a deal with the managers he trades with, one for one, two for one, three for one, three for two and one for two, that gains for him, breaks no lock and sits inside the room's fair band, and asked for them on the site.
