@@ -12,19 +12,18 @@
   "punt",
   "lock"
  ],
- "never": [
+ "never": [],
+ "hold": {},
+ "keep": [
   "Kyrie Irving"
  ],
- "hold": {
-  "Cameron Boozer": "2027-01-15"
- },
- "keep": [],
  "ask": {
-  "Yaxel Lendeborg": 30,
-  "Cameron Boozer": 40
+  "Yaxel Lendeborg": "own",
+  "Cameron Boozer": "own",
+  "Kyrie Irving": "own"
  },
- "askNote": "Asking prices set by Vikas on Nov 4 2026. A trade that sends one of these players must bring back at least one player ranked this high or better on the value scale, which is how other managers see players. 30 is a round three player, 40 is round four.",
- "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them.",
+ "askNote": "Asking prices set by Vikas. On Nov 11 2026 he said Kyrie, Boozer and Yaxel may be traded as long as he gets equal value, so each is priced at own. A trade that sends one of them must bring back at least one player ranked as high as him or better on the value scale, which is how other managers see players. A number in place of own is a fixed rank, 30 is a round three player and 40 is round four.",
+ "rulesNote": "never is never traded or dropped, hold is not traded until that day, keep is never suggested as a drop. Names as Yahoo shows them. On Nov 11 2026 Vikas lifted never for Kyrie and hold for Boozer. Kyrie stays on keep so he is never suggested as a drop.",
  "tiers": {
   "trade": [
    "VJ Edgecombe",
@@ -35,18 +34,18 @@
    "Immanuel Quickley",
    "Jayson Tatum",
    "Cameron Boozer",
-   "Onyeka Okongwu"
+   "Onyeka Okongwu",
+   "Kyrie Irving"
   ],
   "float": [
    "Moussa Diabate",
-   "Reed Sheppard",
-   "Alex Caruso",
-   "Bobby Portis Jr.",
    "Devin Vassell",
-   "Kris Dunn"
+   "Kris Dunn",
+   "Grayson Allen",
+   "Pelle Larsson"
   ],
   "drop": [
-   "Pelle Larsson"
+   "Jaxson Hayes"
   ]
  },
  "review": {
@@ -58,22 +57,18 @@
    "games": 15,
    "note": "whether he holds Charlotte's lead center job"
   },
-  "Reed Sheppard": {
-   "games": 15,
-   "note": "his usage in the first two games after Fred VanVleet returns, a big drop makes him droppable and holding up makes him trade only"
-  },
-  "Alex Caruso": {
-   "games": 5,
-   "note": "his minutes now that Jalen Williams is out, a real jump makes him a keeper and no jump makes him droppable"
-  },
-  "Bobby Portis Jr.": {
-   "games": 10,
-   "note": "his minutes, droppable if still under 25 a game and Josh has not moved him up, more if Bam or Giannis sits"
-  },
   "Kris Dunn": {
    "games": 9,
    "note": "his first two games after the Nov 2 add, good numbers keep him floating, great numbers make him trade only, two bad games in a row make him droppable"
+  },
+  "Grayson Allen": {
+   "games": 5,
+   "note": "his first five games after the Nov 10 trade for Klay, a Hornets starter level role keeps him floating, a clear step back makes him droppable"
+  },
+  "Pelle Larsson": {
+   "games": 5,
+   "note": "whether he keeps putting up numbers, a clear step back makes him droppable again"
   }
  },
- "tiersNote": "Set by Vikas on Oct 24 2026, updated Oct 26, Oct 28 and Nov 4 2026. trade is trade only, never dropped unless out for the season or out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream. drop goes for any clear upgrade. A player on no list counts as droppable. review gives the games after which a spot is checked again and what else to watch. Streams should favor players who also last."
+ "tiersNote": "Set by Vikas on Oct 24 2026, updated Oct 26, Oct 28, Nov 4 and Nov 11 2026. On Nov 11 Kyrie joined trade only, Larsson moved up to floating and Hayes became the first drop. trade is trade only, never dropped unless out for the season or out more than 6 weeks with no IL spot. float is earning his spot, never dropped for a stream. drop goes for any clear upgrade. A player on no list counts as droppable. review gives the games after which a spot is checked again and what else to watch. Streams should favor players who also last."
 }

@@ -18,6 +18,22 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.19 (branch main), Nov 11 2026, a shorter trades page, equal value prices and how you deal with each manager
+
+Vikas asked for the trades page to show only the trades that stay on plan, the pivots and the By manager view, said Kyrie, Boozer and Yaxel may be traded as long as he gets equal value, and set which managers he trades straight with and which he only deals with when he clearly wins.
+
+* Best trades no longer shows In talks and worth closing or Most likely to happen. It is now Sell high and keep, Stays on plan and Pivots. Deals in talks stay on each manager's page under By manager, as before
+* A price of own in data/plan.json means equal value. The player may be traded, but one player ranked as high as him or better on the value scale has to come back, his own match as with any price. It follows his rank, so it never needs resetting. Kyrie, Boozer and Yaxel are priced this way now. The never trade rule on Kyrie and the hold on Boozer are lifted, and Kyrie is on keep so he is never suggested as a drop
+* An empty never list in data/plan.json now clears the built in default. Before this an empty list was read as no list, so Kyrie could not be unlocked without a code change
+* The private notes can carry deal for a manager, fair or win. Like every note it lives only in the browser, and the code holds no names
+* fair is a manager who trades straight. His page says so and gains a Good for both section, up to three deals that lift your plan and his average week by 0.3 points or more each and are fair to the room. Smaller gains are allowed there, since the point is that both teams get better
+* win is a manager you only deal with when you clearly win. A deal with him is left off every list unless your gain is 3 points or more, and his page says so. The count of deals left off by your notes includes these
+* Fixed, Make this my plan on a manager's page. The button carried only the card's place in that manager's list and the page looked it up in the main pivot list, so it adopted a different pivot or did nothing. It now adopts the pivot on the card
+* Tiers in data/plan.json on his word. Kyrie joined trade only, Larsson moved up to floating with a five game review, Hayes is the first drop
+* No change to any score formula, the room, the face value check or the plan cats
+* Tested on the local copy on the Nov 11 scan with his notes loaded. The three win only managers list nothing today, the best deal their notes allow gains 2.0. The main list shows the two Anshu deals and two Haziq deals as pivots. A deal that sends Kyrie now scores with no stop, a deal that sends Yaxel for a lesser player is stopped with the equal value line. 360 random offers and 40 random adds and drops with no error, every button tapped with no console error, lint unchanged at the same eight old warnings
+* Fallback branch fallback-v26-19-before-manager-stance
+
 ## Version 26.18 (branch main), Nov 11 2026, box scores, deeper free agents and every live matchup
 
 Vikas asked what the scan does not read and then asked for all three gaps to be closed and fed into the numbers, with any good current source for the games.

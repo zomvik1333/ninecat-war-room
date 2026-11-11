@@ -38,7 +38,7 @@ const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} 
 /* private manager notes. Vikas keeps notes on the other managers in his own notes folder and can load them on his own device.
    They are kept in this browser's storage only and never travel with the site, which is public. The code here holds no names and no notes.
    They change only how a trade is pitched, how hard the sell is rated and which deals look most likely, on this device. Without them the page is the same for everyone */
-const MGKEY='ncw_mgr_v1'; let MG=null;
+const MGKEY='ncw_mgr_v1', WIN_ONLY=3, BOTH_MIN=0.3; let MG=null;
 const MGSTYLE=['cats','ai','simple','numbers','explain'], MGREPLY=['normal','days','slow'];
 function okMgr(j){
   if(!j || typeof j!=='object' || Array.isArray(j) || !j.teams || typeof j.teams!=='object') return null;
@@ -47,6 +47,9 @@ function okMgr(j){
   Object.keys(j.teams).forEach(id=>{ const t=j.teams[id]; if(!/^\d{1,2}$/.test(id) || id===ME || !t || typeof t!=='object' || Array.isArray(t)) return;
     o.teams[id]={name:(typeof t.name==='string' && t.name.trim()?t.name.trim().slice(0,30):'This manager'),ease:isFinite(+t.ease)?clamp(+t.ease,-2,2):0,
       reply:MGREPLY.indexOf(t.reply)>=0?t.reply:'normal',style:MGSTYLE.indexOf(t.style)>=0?t.style:'',edge:t.edge===true,callout:t.callout===true,noTwo:t.noTwo===true,byDraft:t.valueBy==='draft',pairs:t.pairs===true,noLate:t.noLate===true,
+      // Vikas, Nov 11 2026, version 26.19. deal says how you deal with this manager. fair is a manager who trades straight, so his page also shows the deals that lift both teams.
+      // win is a manager you only deal with when you clearly win, so a deal with him shows only when your gain is WIN_ONLY points or more
+      deal:t.deal==='fair'||t.deal==='win'?t.deal:'',
       needPos:arr(t.needPos,5).filter(p=>/^(PG|SG|SF|PF|C)$/.test(p)),needCats:arr(t.needCats,9).map(c=>CATS.indexOf(c)).filter(c=>c>=0),
       keep:keys(t.keep),prize:keys(t.prize),like:keys(t.like),dislike:keys(t.dislike),doubt:keys(t.doubt),
       // Vikas, Nov 6 2026, version 26.16. move is the players he has said he would move. A plain name under yes counts the same, that is how Anshu's were written
@@ -89,8 +92,6 @@ function mgOf(t){ const m=MG && MG.teams[t.o]; if(!m) return null;
   else if(maybe){ lv=Math.max(lv,1); why.unshift(N+' is considering this'+(tk.at?' since '+nice(tk.at):'')); }
   const rf=m.reply==='slow'?0.4:m.reply==='days'?0.9:1; if(m.reply==='slow') why.push(N+' is slow to answer, so the odds are low for now'); else if(m.reply==='days') why.push(N+' takes a few days to decide');
   return {m,lv,adj:s-s0,force:force===0,yes:!!yes,no,maybe,rf,sell:lv===2?'easy':lv===1?'fair':'hard',chance:Math.max(maybe?0.55:0,Math.min(0.9,(lv===2?0.7:lv===1?0.45:0.2)*rf*(yes?1.25:1))),why}; }
-// the chance a trade happens, from the notes when there are any for that team, otherwise from the site's own rating
-const chanceOf=t=>{ const g=mgOf(t); return g?g.chance:(t.sell==='easy'?0.6:t.sell==='fair'?0.4:t.sell==='over'?0.15:0.2); };
 /* Vikas, Nov 6 2026, version 26.16. Profile fit, 0 to 100, how well a deal matches what this manager has told you. He gets a player he said he likes, 30 each up to 60.
    You get a player he said he would move, 20 each up to 40. It helps a cat he is chasing, 15 each up to 30. It gives him a player at a spot he needs, 10.
    A player he does not rate on your side takes 30 off. At 50 or more the deal fits his notes. Such a deal sits higher in every list, may lose by Josh's ranks by
@@ -983,7 +984,7 @@ const cyBump=(l,f)=>{ const o=Object.assign({},l); ['fgm','fga','ftm','fta','tpm
 const tierKey=p=>{ const k=B.nkey(p.name); return NEVER.has(k)||TTRADE.has(k)?'trade':TFLOAT.has(k)?'float':TDROP.has(k)?'drop':'none'; };
 // rules from data/plan.json. never and keep are lists of names, hold maps a name to the day the hold ends. A missing or damaged field keeps the default
 function setRules(j){ if(!j || typeof j!=='object') return; Object.keys(TNAME).forEach(k=>delete TNAME[k]); { const tt=(j.tiers && typeof j.tiers==='object' && !Array.isArray(j.tiers))?j.tiers:{}; [tt.trade,tt.float,tt.drop,(j.review && typeof j.review==='object' && !Array.isArray(j.review))?Object.keys(j.review):null].forEach(a=>{ if(Array.isArray(a)) a.forEach(s=>{ if(typeof s==='string' && s.trim()) TNAME[B.nkey(s)]=s.trim(); }); }); } const names=x=>Array.isArray(x)?x.filter(s=>typeof s==='string' && s.trim()).map(s=>B.nkey(s)):null;
-  const nv=names(j.never); if(nv && nv.length){ NEVER.clear(); nv.forEach(k=>NEVER.add(k)); }
+  const nv=names(j.never); if(nv){ NEVER.clear(); nv.forEach(k=>NEVER.add(k)); }
   const kp=names(j.keep); if(kp){ KEEP.clear(); kp.forEach(k=>KEEP.add(k)); }
   if(j.hold && typeof j.hold==='object' && !Array.isArray(j.hold)){ const h={}; Object.keys(j.hold).forEach(n=>{ if(isDay(j.hold[n])) h[B.nkey(n)]=j.hold[n]; }); Object.keys(HOLD).forEach(k=>delete HOLD[k]); Object.assign(HOLD,h); }
   const tr=(j.tiers && typeof j.tiers==='object' && !Array.isArray(j.tiers))?j.tiers:null;
@@ -991,16 +992,19 @@ function setRules(j){ if(!j || typeof j!=='object') return; Object.keys(TNAME).f
   if(j.review && typeof j.review==='object' && !Array.isArray(j.review)){ Object.keys(REVIEW).forEach(k=>delete REVIEW[k]);
     Object.keys(j.review).forEach(n=>{ const r=j.review[n]; if(!r || typeof r!=='object') return; const g=Number.isInteger(r.games) && r.games>0 && r.games<=82?r.games:null;
       REVIEW[B.nkey(n)]={games:g,note:typeof r.note==='string'?r.note.replace(/[<>]/g,'').slice(0,160):''}; }); }
-  if(j.ask && typeof j.ask==='object' && !Array.isArray(j.ask)){ Object.keys(ASK).forEach(k=>delete ASK[k]); Object.keys(j.ask).forEach(n=>{ const v=+j.ask[n]; if(Number.isFinite(v) && v>=1 && v<=200) ASK[B.nkey(n)]=Math.round(v); }); } }
+  if(j.ask && typeof j.ask==='object' && !Array.isArray(j.ask)){ Object.keys(ASK).forEach(k=>delete ASK[k]); Object.keys(j.ask).forEach(n=>{ if(j.ask[n]==='own'){ ASK[B.nkey(n)]='own'; return; } const v=+j.ask[n]; if(Number.isFinite(v) && v>=1 && v<=200) ASK[B.nkey(n)]=Math.round(v); }); } }
 /* Vikas, Nov 4 2026. Asking prices from data/plan.json, ask maps a player to a rank. A trade that sends him must bring back at least one player who ranks
    that high or better on the value scale, which is how the other managers see players. Cameron Boozer 40 is a round four player or better */
 const ASK={};
+// Vikas, Nov 11 2026, version 26.19. A price of own means equal value. The player may go, but one player ranked as high as him or better on the value scale has to come back.
+// It moves with his rank, so nothing needs resetting as the season goes on. A player with no rank yet has no price
+const askOf=p=>{ const a=ASK[B.nkey(p.name)]; return a==='own'?(p.seenRank!=null?Math.round(p.seenRank):null):(a||null); };
 // Vikas, Nov 6 2026, version 26.15. The price is per player. Each priced player you give needs his own match at or above the price on the other side,
 // so Yaxel at 30 can no longer walk out for Hart because Murray happened to be in the same deal
-function askMatch(give,get){ const priced=give.filter(p=>ASK[B.nkey(p.name)]).sort((a,b)=>ASK[B.nkey(a.name)]-ASK[B.nkey(b.name)]), used=new Set(), miss=[];
-  for(const p of priced){ const a=ASK[B.nkey(p.name)]; const x=get.filter(x=>!used.has(x.id) && x.seenRank!=null && x.seenRank<=a).sort((u,v)=>v.seenRank-u.seenRank)[0]; if(x) used.add(x.id); else miss.push(p); } return miss; }
+function askMatch(give,get){ const priced=give.filter(p=>askOf(p)!=null).sort((a,b)=>askOf(a)-askOf(b)), used=new Set(), miss=[];
+  for(const p of priced){ const a=askOf(p); const x=get.filter(x=>!used.has(x.id) && x.seenRank!=null && x.seenRank<=a).sort((u,v)=>v.seenRank-u.seenRank)[0]; if(x) used.add(x.id); else miss.push(p); } return miss; }
 function askOK(give,get){ return askMatch(give,get).length===0; }
-function askMiss(give,get){ return askMatch(give,get).map(p=>p.name+' needs his own player ranked '+ASK[B.nkey(p.name)]+' or better back'); }
+function askMiss(give,get){ return askMatch(give,get).map(p=>p.name+(ASK[B.nkey(p.name)]==='own'?' needs equal value, a player ranked '+askOf(p)+' or better back':' needs his own player ranked '+askOf(p)+' or better back')); }
 // names in the plan's tiers or reviews who are no longer on your roster, Vikas Oct 28 2026
 const staleTiers=ctx=>{ const on=new Set(((ctx&&ctx.ros&&ctx.ros[ME])||[]).map(p=>B.nkey(p.name))); return Object.keys(TNAME).filter(k=>!on.has(k)).map(k=>TNAME[k]); };
 const tierOf=p=>{ const k=pickOf[B.nkey(p.name)]; return !k?'pickup':k<=TIER_TOP?'top':k<=TIER_MID?'mid':'late'; };
@@ -1487,7 +1491,7 @@ function trades(ctx,done,live){
     // Vikas, Nov 4 and 5 2026, versions 26.12 and 26.13. The manager notes rule deals out before any list is picked, so Best trades, the pivots, the routes and
     // By manager all agree. Out are a deal a note rules out (a player he will not trade, no room for two for one, he calls out light offers, he already said no),
     // a deal that asks for a player he rates highly unless it clearly favors him on the box score (110 percent or more), and a deal that hands you two or more injury prone players
-    const noteOut=t=>{ if(t.prone>=2) return true; const g=mgOf(t); if(g && g.force && !g.yes) return true; const m=MG && MG.teams[t.o]; if(m && m.prize.length && t.get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0) && !(t.face && t.face.look>=1.10)) return true; return false; };
+    const noteOut=t=>{ if(t.prone>=2) return true; const g=mgOf(t); if(g && g.force && !g.yes) return true; const m=MG && MG.teams[t.o]; if(m && m.deal==='win' && t.myGain<WIN_ONLY) return true; if(m && m.prize.length && t.get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0) && !(t.face && t.face.look>=1.10)) return true; return false; };
     const ok=t=>t.jside!=='lose' && !noteOut(t), byScore=(a,b)=>b.score-a.score||b.myGain-a.myGain, byGain=(a,b)=>b.myGain-a.myGain;
     res.cutByNotes=out.filter(t=>t.kind==='plan' && !t.ask && t.jside!=='lose' && noteOut(t)).length;
     const planAll=out.filter(t=>t.kind==='plan' && !t.ask && ok(t)).sort(byScore), pivAll=out.filter(t=>t.kind!=='plan' && !t.ask && ok(t) && t.myGain>=0.3 && t.newRoles.join()!==pl.roles.join()).sort(byScore);
@@ -2307,9 +2311,9 @@ function tradeCard(cw,t,i,grp){
   h+='<div class="mvbody"><div><span class="lab">The trade off, a game</span>'+pgTable(t)+'<p class="small">Swap by swap. '+esc(swapLines(t).join('. '))+'.</p></div><div><span class="lab">What it does for me</span>'+meTable(cw,t)+'</div>'
     +'<div><span class="lab">How to sell it to '+esc(oName)+'</span><ul>'+sellFor(cw,t).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
     // what the other manager will say is only shown once there is a profile on him, since without one it is a guess
-    +(g?'<div><span class="lab">What '+esc(g.m.name)+' will say</span>'+((grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes.</p>':'<p>About '+pc(g.chance)+' percent he says yes.</p>')+(g.why.length?'<ul>'+g.why.slice(0,4).map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(t.fit?'<p class="small">Fits his notes '+t.fit.fit+' of 100'+(t.fit.why.length?', '+esc(t.fit.why.join(', '))+'.':'.')+'</p>':'')+(kit.alt?'<p class="small">'+esc(kit.alt)+'</p>':'')+'</div>':'')
+    +(g?'<div><span class="lab">What '+esc(g.m.name)+' will say</span>'+((grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w'||grp==='b') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes.</p>':'<p>About '+pc(g.chance)+' percent he says yes.</p>')+(g.why.length?'<ul>'+g.why.slice(0,4).map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(t.fit?'<p class="small">Fits his notes '+t.fit.fit+' of 100'+(t.fit.why.length?', '+esc(t.fit.why.join(', '))+'.':'.')+'</p>':'')+(kit.alt?'<p class="small">'+esc(kit.alt)+'</p>':'')+'</div>':'')
     +'<div><span class="lab">News and risk</span><ul>'+newsRisk(t).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
-    +'<div class="mvact"><button class="btn" type="button" data-trade="'+grp+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+grp+i+'">Copy a message to send</button>'+(t.kind!=='plan'?'<button class="btn" type="button" data-pivot="'+i+'">Make this my plan</button>':'')+'</div></div></details>';
+    +'<div class="mvact"><button class="btn" type="button" data-trade="'+grp+i+'">I made this trade</button><button class="btn" type="button" data-pitch="'+grp+i+'">Copy a message to send</button>'+(t.kind!=='plan'?'<button class="btn" type="button" data-pivot="'+grp+i+'">Make this my plan</button>':'')+'</div></div></details>';
   return h;
 }
 function tradePanel(ctx){
@@ -2321,14 +2325,14 @@ function tradePanel(ctx){
   if(ST.trTab==='mgr'){ h+=mgrPage(cw,true)+'</div>'; return h; }
   if(!TR){ h+='<p class="empty" id="mvtrwait">Scoring trades with all nine teams.</p></div>'; return h; }
   if(TR.note){ h+='<p class="empty">'+esc(TR.note)+'</p></div>'; return h; }
-  if(MG) h+=likelyPanel(cw);
+  // Vikas, Nov 11 2026, version 26.19. In talks and Most likely to happen left this page. Deals in talks live on each manager's page under By manager
   h+=sellPanel(cw);
   h+='<h2 style="margin-top:6px">Stays on plan <span>builds a route, spends only room, breaks no floor</span></h2>';
   // early in the season most of any gain rests on guesses about minutes, and managers have little to go on either, so holding is a real option
   const early=(cw.avgGP||0)<5;
   if(!TR.list.length) h+='<div class="switch">Hold. No trade both helps your plan and looks fair to the other manager on the box score right now, so there is nothing worth pitching. Check back after a few more games. The By manager tab still shows the long shots. Checked '+TR.count+' offers.</div>';
   else if(early) h+='<div class="switch">Early season, about '+r0(cw.avgGP||0)+' game'+(r0(cw.avgGP||0)===1?'':'s')+' a player so far. The trades below pass both checks, but most of your gain still rests on guesses about minutes. Holding until about 5 games is a fair choice unless one of these is clearly worth it to you.</div>';
-  if(TR.cutByNotes) h+='<p class="small">'+TR.cutByNotes+' deal'+(TR.cutByNotes===1?' was':'s were')+' left off because of your manager notes, a player he will not trade or rates highly, a shape he has no room for, or two injury prone players.</p>';
+  if(TR.cutByNotes) h+='<p class="small">'+TR.cutByNotes+' deal'+(TR.cutByNotes===1?' was':'s were')+' left off because of your manager notes, a player he will not trade or rates highly, a shape he has no room for, a manager you only deal with when you clearly win, or two injury prone players.</p>';
   const nTiny=TR.list.filter(tinyTrade).length;
   if(TR.list.length && nTiny===TR.list.length) h+='<p class="empty">No fair trade gains a full point right now.</p>';
   TR.list.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'p'); });
@@ -2368,7 +2372,12 @@ function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return nul
   str.sort((x,y)=>y.myGain-x.myGain);
   // Vikas, Nov 6 2026, version 26.16. He would take. The deals that fit his notes at 50 or more, best fit first, then your gain. Fair deals and pivots, never a stretch
   const take=fair.concat(piv).filter(t=>t.fit && t.fit.on).sort((x,y)=>y.fit.fit-x.fit.fit||y.myGain-x.myGain).slice(0,5);
-  return {likely,helpful,pivots:piv,stretch:str.slice(0,6),take,hasMg,m,nFair:fair.length,nStr:str.length,view:!!(m && (m.byDraft||m.pairs||m.noLate))}; }
+  // Vikas, Nov 11 2026, version 26.19. Good for both, for a manager your notes mark as one who trades straight. Deals that lift your plan and his average week,
+  // fair to the room, smaller gains allowed since the point is that both teams get better
+  let both=[]; if(m && m.deal==='fair'){ const seen={}; both=(TR.alt||[]).filter(t=>t.o===o && !t.ask && t.myGain>=BOTH_MIN && t.oGain>=BOTH_MIN && t.room && t.room.ok && t.face.look>=FACE_INSULT);
+    both.forEach(t=>{ t.mview=mgView(t,m); const a=acceptOf(t); t.acc2=a.c; t.accWhy=a.why; t.accG=a.g; t.ev=t.myGain*a.c; });
+    both=both.filter(t=>(!t.mview || t.mview.ok) && live(t)).sort((x,y)=>y.myGain-x.myGain).filter(t=>{ const k=t.get.map(p=>p.id).sort().join('+'); if(seen[k]) return false; seen[k]=1; return true; }).slice(0,3); }
+  return {likely,helpful,pivots:piv,stretch:str.slice(0,6),take,both,hasMg,m,nFair:fair.length,nStr:str.length,view:!!(m && (m.byDraft||m.pairs||m.noLate))}; }
 const accTag=c=>c>=0.5?'<span class="chip good">Likely yes</span>':c>=0.25?'<span class="chip muted">Worth a try</span>':'<span class="chip warn">Long shot</span>';
 function mgrPage(cw,inner){
   const E=inner?'':'</div>'; let h=inner?'':'<div class="panel"><h2>Trades by manager <span>ranked by what each manager values</span></h2>';
@@ -2384,6 +2393,9 @@ function mgrPage(cw,inner){
   // Vikas, Nov 4 2026, version 26.12. In talks only shows a deal that helps you. A deal whose gain is zero or less, or whose players have moved, is not shown. The notes keep it
   const tk=talkRows(cw,o).filter(x=>!x.stale && x.r.planGain>0); if(tk.length){ h+='<h2 style="margin-top:10px">In talks <span>deals '+esc(m.name)+' has talked about with you, from your notes</span></h2>'; tk.forEach(x=>{ h+=talkCard(cw,x); }); }
   h+=how(''+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+(m.noLate?((m.byDraft||m.pairs)?', and':'')+' gives no credit for players taken after pick '+LATEPICK+' or picked up after the draft':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.');
+  if(m && m.deal==='fair') h+='<p class="small" style="margin-top:8px"><span class="chip good">Trades straight</span> Your notes say '+esc(m.name)+' deals fair, so the aim here is a deal both teams get something from. Good for both lists the deals that lift his average week as well as your plan.</p>';
+  if(m && m.deal==='win') h+='<p class="small" style="margin-top:8px"><span class="chip warn">Win only</span> Your notes say to deal with '+esc(m.name)+' only when you clearly win, so a deal shows here only when your gain is '+WIN_ONLY+' points or more.</p>';
+  if(r.both && r.both.length){ h+='<h2 style="margin-top:10px">Good for both <span>lifts your plan and '+esc(m.name)+'\'s average week</span></h2>'; r.both.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'b'); }); }
   if(r.take && r.take.length){ h+='<h2 style="margin-top:10px">He would take <span>fits what '+esc(m.name)+' told you, from your notes</span></h2>'; r.take.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'w'); }); }
   else if(m && (m.like.length || m.move.length)) h+='<p class="small" style="margin-top:8px">No fair deal fits what '+esc(m.name)+' told you right now. What he has asked for himself is under In talks.</p>';
   if(!r.likely.length && !r.helpful.length) h+='<p class="empty">No trade that keeps every cat at this time.'+(r.pivots.length?' Pivots below, each costs a cat.':r.stretch.length?' Stretch trades only, below.':'')+'</p>';
@@ -2396,16 +2408,6 @@ function mgrPage(cw,inner){
   if(r.pivots.length){ h+='<h2 style="margin-top:14px">Pivots <span>fair to him, each costs one of your cats</span></h2>'; r.pivots.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'p'); }); }
   if(r.stretch.length){ h+='<h2 style="margin-top:14px">Stretch trades <span>short of fair to him, lean on your pitch</span></h2>'; r.stretch.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'s'); }); }
   h+=E; return h; }
-/* most likely to happen. Only drawn when your private notes are loaded on this device. Your gain times the chance they say yes */
-function likelyPanel(cw){
-  let h='<h2 style="margin-top:6px">Most likely to happen <span>your gain times the chance they say yes, from your notes</span></h2>';
-  const rows=TR.list.concat(TR.pivots).filter(t=>{ const g=mgOf(t); return !(g && (g.no || g.yes || g.maybe)); }).map(t=>({t,c:chanceOf(t)})).map(x=>Object.assign(x,{ev:x.t.myGain*x.c})).filter(x=>x.ev>0).sort((a,b)=>b.ev-a.ev).slice(0,5);
-  const nm=a=>a.map(p=>esc(p.name)).join(' and '), who=t=>esc((MG.teams[t.o]&&MG.teams[t.o].name)||((cw.teams[t.o]||{}).name)||'');
-  h+=rows.length?'<ol class="mvlist">'+rows.map(x=>'<li><b>Get '+nm(x.t.get)+'</b> for '+nm(x.t.give)+', with '+who(x.t)+'. Gain '+r1(x.t.myGain)+', about '+pc(x.c)+' percent to happen'+(x.t.kind!=='plan'?', a pivot':'')+'.</li>').join('')+'</ol>':'<p class="empty">No listed trade has a real chance right now.</p>';
-  // deals a manager has said yes to or is considering show here only when they really help, keep every lock and lift the average week. The By manager tab shows all of them
-  const good=talkRows(cw).filter(x=>!x.stale && x.r.planGain>=1 && !x.r.broke.length && x.r.nineCatAfter>=x.r.nineCatBefore).sort((a,b)=>b.r.planGain*b.c-a.r.planGain*a.c);
-  if(good.length) h='<h2 style="margin-top:6px">In talks and worth closing <span>a manager is considering these, from your notes</span></h2>'+good.map(x=>talkCard(cw,x)).join('')+h;
-  return h; }
 /* deals in talks. Every number comes from checkOffer, so any size works, three for three included */
 function talkRows(cw,only){ const out=[]; if(!MG) return out;
   Object.keys(MG.teams).forEach(o=>{ if(only && o!==only) return; const m=MG.teams[o];
@@ -2433,7 +2435,7 @@ function talkCard(cw,x){
     +(watch.length?'<li>Watch out, '+esc(listWords(watch))+'.</li>':'')+'</ul></details>'; }
 function notesPanel(){
   let h='<div class="panel"><h2>Your private manager notes <span>kept in this browser only</span></h2>';
-  h+=MG?'<p>Notes loaded for '+esc(listWords(Object.values(MG.teams).map(m=>m.name)))+(MG.made?', made '+esc(nice(MG.made)):'')+'. Trade cards with those managers show a rating from your notes, a pitch in their style and a Most likely to happen list.</p>':'<p>Load your managers.json file from your notes folder to rate each trade by what that manager has told you. It stays in this browser and is never sent anywhere.</p>';
+  h+=MG?'<p>Notes loaded for '+esc(listWords(Object.values(MG.teams).map(m=>m.name)))+(MG.made?', made '+esc(nice(MG.made)):'')+'. Trade cards with those managers show a rating from your notes, and a pitch in their style. Deals in talks show on the page for that manager under By manager.</p>':'<p>Load your managers.json file from your notes folder to rate each trade by what that manager has told you. It stays in this browser and is never sent anywhere.</p>';
   h+='<div class="mvact"><label class="btn" style="cursor:pointer">Load notes file<input type="file" id="mvmgfile" accept=".json,application/json" style="display:none"></label>'+(MG?'<button class="btn" type="button" id="mvmgclear">Remove notes from this browser</button>':'')+'</div><p class="small" id="mvmgmsg"></p></div>';
   return h; }
 function leaguePanel(ctx,rc){
@@ -2459,7 +2461,7 @@ function wire(root){
   [['mvshowskip','showSkip','showskip'],['mvshowmine','showMine','showmine'],['mvshowsmall','small','showsmall']].forEach(x=>{ const b=$(x[0]); if(b) b.onchange=()=>{ ST[x[1]]=!!b.checked; save(); const m=root.querySelector('.mv'); if(m) m.classList.toggle(x[2],ST[x[1]]); }; });
   root.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ ST.marks.push({type:'add',add:b.getAttribute('data-add'),drop:b.getAttribute('data-drop')||null,il:b.getAttribute('data-il')||null,day:CTX?CTX.now.date:null}); ST.at=D.scan.at; save(); compute(true); });
   // Vikas, Nov 6 2026, version 26.16. On the By manager tab p is that manager's pivots and w is He would take. Before this a tap on a manager's pivot marked the wrong trade
-  const trOf=k=>{ const i=+String(k).slice(1), g=String(k).charAt(0); if(!TR) return null; if(g==='t'||g==='s'||g==='h'||g==='w'||(g==='p' && ST.trTab==='mgr')){ const ks=Object.keys(TR.byTeam||{}), o=ks.indexOf(ST.tteam)>=0?ST.tteam:ks[0], r=o?teamRank(o):null; return r?(g==='t'?r.likely:g==='h'?r.helpful:g==='w'?r.take:g==='p'?r.pivots:r.stretch)[i]:null; } return (g==='v'?TR.pivots:TR.list)[i]; };
+  const trOf=k=>{ const i=+String(k).slice(1), g=String(k).charAt(0); if(!TR) return null; if(g==='t'||g==='s'||g==='h'||g==='w'||g==='b'||(g==='p' && ST.trTab==='mgr')){ const ks=Object.keys(TR.byTeam||{}), o=ks.indexOf(ST.tteam)>=0?ST.tteam:ks[0], r=o?teamRank(o):null; return r?(g==='t'?r.likely:g==='h'?r.helpful:g==='w'?r.take:g==='b'?r.both:g==='p'?r.pivots:r.stretch)[i]:null; } return (g==='v'?TR.pivots:TR.list)[i]; };
   const goTeam=d=>{ const ks=Object.keys((TR&&TR.byTeam)||{}); if(!ks.length) return; let i=ks.indexOf(ST.tteam); if(i<0) i=0; ST.tteam=typeof d==='string'?d:ks[(i+d+ks.length)%ks.length]; save(); render();  };
   { const pw=$('mvpkweek'), pv=$('mvpkwav'), pc0=$('mvpkchip'); if(pw) pw.onclick=()=>{ ST.pkTab='week'; save(); render(); }; if(pv) pv.onclick=()=>{ ST.pkTab='wav'; save(); render(); }; if(pc0) pc0.onclick=()=>{ ST.pkTab='chips'; save(); render(); }; }
   { const sa=$('mvsellh'), sb=$('mvsellr'), sc=$('mvsellc'); if(sa) sa.onclick=()=>{ ST.sellTab='sell'; save(); render(); }; if(sb) sb.onclick=()=>{ ST.sellTab='rise'; save(); render(); }; if(sc) sc.onclick=()=>{ ST.sellTab='cy'; save(); render(); }; }
@@ -2468,7 +2470,7 @@ function wire(root){
   root.querySelectorAll('[data-trade]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-trade')); if(!t) return; ST.marks.push({type:'trade',withTeam:t.o,give:t.give.map(p=>p.id),get:t.get.map(p=>p.id),cut:t.cut?t.cut.id:null,myCut:t.myCut?t.myCut.id:null,from:CTX?addDays(CTX.now.date,TRADELAG):null}); ST.at=D.scan.at; save(); compute(true); });
   root.querySelectorAll('[data-pitch]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-pitch')); if(!t) return; const txt=pitchText(CTXW,t); const ok=()=>{ b.textContent='Copied'; setTimeout(()=>{ b.textContent='Copy a message to send'; },1500); }; try{ navigator.clipboard.writeText(txt).then(ok,()=>{ b.textContent=txt; }); }catch(e){ b.textContent=txt; } });
   // a pivot becomes the plan only when you tap it. The trades and pickups are then ranked again under the new plan
-  root.querySelectorAll('[data-pivot]').forEach(b=>b.onclick=()=>{ const t=TR&&TR.pivots[+b.getAttribute('data-pivot')]; if(!t || !okPlan(t.newRoles)) return; ST.plan=t.newRoles.slice(); ST.planMade=planSig(); ST.pin=pinKey(t.o,t.give,t.get); ST.lead=''; save(); compute(true); });
+  root.querySelectorAll('[data-pivot]').forEach(b=>b.onclick=()=>{ const t=trOf(b.getAttribute('data-pivot')); if(!t || t.kind==='plan' || !okPlan(t.newRoles)) return; ST.plan=t.newRoles.slice(); ST.planMade=planSig(); ST.pin=pinKey(t.o,t.give,t.get); ST.lead=''; save(); compute(true); });
   const pr0=$('mvplanreset'); if(pr0) pr0.onclick=()=>{ ST.plan=null; ST.planMade=''; ST.pin=''; ST.lead=''; save(); compute(true); };
   const u=$('mvundo'); if(u) u.onclick=()=>{ ST.marks=[]; save(); compute(true); };
   const mf=$('mvmgfile'); if(mf) mf.onchange=()=>{ const f=mf.files&&mf.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ const e=setMg(String(rd.result||'')); if(e){ const m=$('mvmgmsg'); if(m) m.textContent=e; } else compute(true); }; rd.readAsText(f); };
