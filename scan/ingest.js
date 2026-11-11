@@ -108,6 +108,12 @@ if(H){
   if(dup(M.map(f=>f[2])).length) wrong.push('two live score rows are for the same team');
   if(M.length){ scan.matchup={week:n(M[0][1]),rows:M.map(f=>({tid:f[2],fgm:n(f[3]),fga:n(f[4]),ftm:n(f[5]),fta:n(f[6]),tpm:n(f[7]),pts:n(f[8]),reb:n(f[9]),ast:n(f[10]),stl:n(f[11]),blk:n(f[12]),to:n(f[13])})),rem:(of('G')[0]||[]).slice(1).map(n)}; }
   of('X').forEach(f=>scan.tx.push([f[1],f[2],f[3]]));
+  // Vikas, Nov 11 2026, version 26.18. N lines, the live score of every matchup this week. Kept as scan.live only when all ten teams came with the right week
+  { const NL=of('N'); if(NL.length){ const rows={}; let okN=true;
+      NL.forEach(f=>{ let t=f[2]; if(tid.indexOf(t)<0){ const a=nm(t), hit=scan.teams.filter(x=>nm(x.name)===a); if(hit.length===1) t=hit[0].id; else { okN=false; return; } }
+        if(+f[1]!==scan.week || rows[t]) okN=false; rows[t]={fgm:n(f[3]),fga:n(f[4]),ftm:n(f[5]),fta:n(f[6]),tpm:n(f[7]),pts:n(f[8]),reb:n(f[9]),ast:n(f[10]),stl:n(f[11]),blk:n(f[12]),to:n(f[13])}; });
+      if(okN && Object.keys(rows).length===scan.teams.length) scan.live={week:scan.week,rows};
+      else say.push('WARNING, the live scores of the other matchups came for '+Object.keys(rows).length+' teams or did not match the week, so they were left out. The standings forecast runs without them.'); } }
   const probs=[]; if(scan.teams.length!==10) probs.push('expected 10 teams and saw '+scan.teams.length); if(Object.keys(scan.rosters).length!==10) probs.push('expected 10 rosters and saw '+Object.keys(scan.rosters).length); if(!scan.rosters['11']||scan.rosters['11'].length<10) probs.push('my roster is missing or short'); if(Object.values(scan.rosters).some(r=>r.length<10)) probs.push('a roster has fewer than 10 players'); if(!Object.keys(scan.avail).length) probs.push('no available players were read');
   if(scan.mode==='season' && scan.week && scan.week<=18 && (!scan.matchup || scan.matchup.rows.length!==2)) probs.push('the live matchup score was not read. Yahoo hides it while games are in progress, so wait until the last game of the night has ended and scan again. The site keeps showing the last good scan until then');
   if(probs.length) stop('CHECK FAILED, the scan is incomplete, '+probs.join(', ')+'. Nothing written. Run the scan again.');

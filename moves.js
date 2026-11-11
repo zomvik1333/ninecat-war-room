@@ -208,6 +208,23 @@ function applyJC(l,jc,useMin,ref){
 }
 // Vikas, Oct 28 2026. Nobody plays more than 40 minutes a game over a season, so no projection goes above it
 const MPMAX=40;
+/* Vikas, Nov 11 2026, version 26.18. Game by game box scores, data/games.json, read from ESPN each night by scan/fetch-games.js.
+   Yahoo gives a season line and a two week line, so a role change shows only once it has moved an average. The last few games show it sooner.
+   The log is used gently. A player's projection moves only when his minutes over his last five games, three at least, sit 12 percent or more away from the
+   minutes the projection already uses (with five games the highest and lowest are left out), and at least two of his last three games sit on that same side by 10 percent, so one blowout or one foul trouble
+   night moves nothing. The move follows the minutes and is capped at 15 percent either way. A player who is out or on IL is left alone.
+   A free agent Yahoo's lists gave no numbers for gets his line from his games in the log, three at least in the last 14 days.
+   Only games before the day of the clock are read, so a replay of an older scan never sees games that had not been played yet */
+const GL_MIN=3, GL_GAP=0.12, GL_SIDE=0.10, GL_CAP=0.15, GL_DAYS=12;
+let GLDAY='';
+const glSet=()=>{ GLDAY=etParts(nowDate()).date; };
+function glOf(id){ const G=D.games && D.games.p && D.games.p[id]; if(!Array.isArray(G) || !GLDAY) return null;
+  const g=G.filter(x=>Array.isArray(x) && typeof x[0]==='string' && x[0]<GLDAY && x[1]>0).sort((a,b)=>a[0]<b[0]?1:-1); if(!g.length) return null;
+  const since=addDays(GLDAY,-GL_DAYS), rec=g.filter(x=>x[0]>=since).slice(0,5), in14=g.filter(x=>x[0]>=addDays(GLDAY,-14)), avg=a=>a.reduce((t,x)=>t+x[1],0)/a.length;
+  // with five games the highest and the lowest are left out of the minutes, so an early exit with an injury or one overtime game does not carry it
+  const mid=a=>{ if(a.length<5) return avg(a); const m=a.map(x=>x[1]).sort((x,y)=>x-y).slice(1,-1); return m.reduce((t,x)=>t+x,0)/m.length; };
+  const lineOf=a=>{ const o={mp:avg(a)}; TK.forEach((k,i)=>{ o[k]=a.reduce((t,x)=>t+(+x[2+i]||0),0)/a.length; }); return o; };
+  return {n:rec.length,m5:rec.length?mid(rec):null,m3:rec.length?avg(rec.slice(0,3)):null,last:rec.map(x=>x[1]),starts:rec.filter(x=>x[13]===1).length,n14:in14.length,line14:in14.length?lineOf(in14):null,newest:g[0][0]}; }
 function project(p,scan){
   const b=p.b, pr=priorOf(p.name); let prior=null, pb='none'; p.f=1; p.av=0.85;
   const jc=jcOf(p.name); p.jc=jc; p.jcOn=false; p.jcMin=false; let mpPlain=null, mpSoft=false;
@@ -264,6 +281,9 @@ function project(p,scan){
   const s=scan.stats&&scan.stats[p.id]; let cur=null, gp=0; p.g14=null; p.m14=null; p.v14=null;
   if(s){ gp=s[1]||0; cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); p.g14=s[14]; p.m14=s[15]; p.v14=s[16]; }
   if(cur&&gp<1) cur=null;
+  // a player with no numbers from Yahoo's lists gets his line from the box scores, his games in the last 14 days
+  const GLp=glOf(p.id); p.glLine=false;
+  if(!cur && GLp && GLp.n14>=GL_MIN && GLp.line14){ cur=GLp.line14; gp=GLp.n14; p.g14=GLp.n14; p.m14=cur.mp; p.v14=valOf(cur); p.glLine=true; }
   // in the first 14 days of the season every game he has played is inside the last two weeks. Yahoo's two week split can lag a night behind
   // its season numbers, so when it is missing or shows fewer games, the season line stands in for it
   p.l14null=false;
@@ -289,6 +309,12 @@ function project(p,scan){
   else if(line && m14c!=null && p.g14>=3 && line.mp>5){ const r=m14c/line.mp; const mp0=mpPlain==null?line.mp:(cur?mpPlain*(1-w)+cur.mp*w:mpPlain), r0=m14c/mp0;
     if(Math.abs(r-1)>=0.15){ const f=Math.pow(clamp(r,0.6,1.5),0.9); line=scaleLine(line,f); line.mp=m14c; p.jcMin=false; }
     if(Math.abs(r0-1)>=0.15 && !p.l14null) p.role=r0>1?'up':'down'; }
+  // the box scores, see GL_MIN. Minutes over his last games against the minutes this line uses
+  p.gl=null;
+  if(GLp && GLp.n>=1){ const g={n:GLp.n,m5:GLp.m5,m3:GLp.m3,last:GLp.last,starts:GLp.starts,dir:'',from:null,to:null};
+    if(line && line.mp>5 && GLp.n>=GL_MIN && !hurt(p) && !p.glLine){ const r=GLp.m5/line.mp, up=r>1, side=GLp.last.slice(0,3).filter(m=>up?m>=line.mp*(1+GL_SIDE):m<=line.mp*(1-GL_SIDE)).length;
+      if(Math.abs(r-1)>=GL_GAP && side>=2){ const rc=clamp(r,1-GL_CAP,1+GL_CAP), m0=line.mp; line=scaleLine(line,Math.pow(rc,0.9)); line.mp=m0*rc; g.dir=up?'up':'down'; g.from=m0; g.to=line.mp; } }
+    p.gl=g; }
   // and any line that still sits above 40 minutes, from the season blend, is brought down to 40 with its numbers
   if(line && line.mp>MPMAX){ const m0=line.mp; line=scaleLine(line,Math.pow(MPMAX/m0,0.9)); line.mp=MPMAX; }
   // the contract year bump. Playing for a deal is scaled by how good he is, a typical rostered player near 6 percent and a star at 7. Off unless data/contracts.json is switched on
@@ -765,7 +791,7 @@ function build(scan,opt){
       // Vikas, Nov 6 2026, version 26.16. A one for two marked as made drops your own player too
       if(m.myCut){ const c=ctx.U[m.myCut]; if(c && c.own===ME){ ctx.ros[ME]=ctx.ros[ME].filter(x=>x!==c); c.own=null; c.slot=''; c.fa='W'; ctx.avail.push(c); } } }
   }
-  let gsum=0, gn=0;
+  let gsum=0, gn=0; glSet();
   Object.values(ctx.U).forEach(p=>{ p.b=boardOf(p.name); project(p,scan); if(p.own){ gsum+=p.gp; gn++; } });
   ctx.avgGP=gn?gsum/gn:0;
   let ws=0, wn=0; Object.keys(ctx.ros).forEach(t=>ctx.ros[t].forEach(p=>{ if(p.proj){ ws+=p.w; wn++; } }));
@@ -804,7 +830,9 @@ function timeline(ctx){
     // Late games run past midnight Eastern, so the day is never written off while they may still be on
     if(t>=19){ ctx.dayW={}; ctx.dayW[se.date]=clamp(0.95-0.2*(t-19),0.15,0.95); }
     else if(t<2){ const y=addDays(se.date,-1); if(y>=wk.start){ from=y; ctx.dayW={}; ctx.dayW[y]=0.1; } }
-    act={}; m.rows.forEach(r=>{ const tt=zeroT(); TK.forEach(k=>tt[k]=r[k]||0); act[r.tid]=tt; }); }
+    act={}; m.rows.forEach(r=>{ const tt=zeroT(); TK.forEach(k=>tt[k]=r[k]||0); act[r.tid]=tt; });
+    // Vikas, Nov 11 2026, version 26.18. The live scores of the other matchups, when the scan carries them for this week
+    { const lv=sc.live; if(lv && lv.week===wk.n && lv.rows && typeof lv.rows==='object') Object.keys(lv.rows).forEach(t=>{ if(act[t] || !ctx.ros[t]) return; const tt=zeroT(), r=lv.rows[t]||{}; TK.forEach(k=>tt[k]=+r[k]||0); act[t]=tt; }); } }
   else from=now.date;
   if(from<wk.start) from=wk.start;
   // the week has started but the scan holds no score for it, so the days already played are unknown and only the days left can be counted
@@ -881,7 +909,7 @@ function thisWeek(ctx){
    Every finished week is checked. The Monday calls for all five matchups in the league are compared with the final scores in data/results.json, and one
    factor is fitted that makes the chances as sure as they have really been. While there are few results the factor is held close to 1 */
 // CALV is the code version. The past week checks are kept in this browser under it, so change it with any change to how players are projected
-const CALV='26.13', CALKEY='ncw_cal_'+CALV, CAL0=90;
+const CALV='26.18', CALKEY='ncw_cal_'+CALV, CAL0=90;
 // the checks of older versions are cleared from this browser, so the keys do not pile up
 try{ Object.keys(localStorage).filter(k=>/^ncw_cal_/.test(k) && k!==CALKEY).forEach(k=>localStorage.removeItem(k)); }catch(e){}
 let CAL={s:1,fit:1,n:0,weeks:[],hit:0,calls:0}, WK0=null;
@@ -1012,7 +1040,9 @@ function dropOK(ctx,d,kind,ilOpen){ const k=B.nkey(d.name), t=tierOf(d), inj=inj
   if(t==='mid'){ const sl=slumpOf(ctx,d); if(sl.on) return {ok:true,why:'a mid round pick who is slumping, '+sl.why.join(' and '),t}; }
   return {ok:false,why:tierWord(t)+', protected',t}; }
 // proof that a free agent is for real. Two weeks of real production, more minutes than before, or filling in for an injured starter
-const proofOf=p=>(p.gp>=6 && p.g14>=4 && !p.l14null && p.v14!=null && p.v14>=p.val-1) || p.role==='up' || !!p.fill;
+// Vikas, Nov 11 2026, version 26.18. More minutes over his last games in the box scores is proof too, three games is enough
+const glUp=p=>!!(p.gl && p.gl.dir==='up'), glDown=p=>!!(p.gl && p.gl.dir==='down');
+const proofOf=p=>(p.gp>=6 && p.g14>=4 && !p.l14null && p.v14!=null && p.v14>=p.val-1) || p.role==='up' || glUp(p) || !!p.fill;
 // your own drops from the last 7 days are never suggested back to you
 function myRecentDrops(ctx,sign){ const out=new Set(), now=Date.parse(ctx.now.date+'T12:00:00Z'), sg=sign||'-';
   (ctx.scan.tx||[]).forEach(t=>{ if(String(t[1])!==ME) return; const m=String(t[0]).match(/^([A-Za-z]{3})(\d{1,2})$/); if(!m) return; const mo=MON.indexOf(m[1]); if(mo<0) return;
@@ -1110,7 +1140,7 @@ function pickups(ctx){
   const urgent=mine.filter(p=>(prot.has(p.id) || tierKey(p)==='trade') && (isOut(p)));
   for(const r of top){
     const p=r.p, b=p.b; let need=100*(1-Math.exp(-Math.max(0,r.g)/3.5)); const why=[];
-    if(p.role==='up'){ need+=6; why.push('minutes are up'); } else if((p.g14>=3 && !p.l14null && (p.m14||0)>=28) || (p.gp<3 && p.mpNoDepth>=28)){ need+=4; why.push('steady starter minutes'); }
+    if(p.role==='up'){ need+=6; why.push('minutes are up'); } else if(glUp(p)){ need+=4; why.push('minutes are up over his last '+p.gl.n+' games'); } else if((p.g14>=3 && !p.l14null && (p.m14||0)>=28) || (p.gp<3 && p.mpNoDepth>=28)){ need+=4; why.push('steady starter minutes'); }
     if(p.v14!=null && p.g14>=3 && p.role!=='up' && p.v14-p.val>4){ need-=6; why.push('hot stretch without extra minutes'); }
     r.josh=0; if(b && b.josh){ const yr=p.cur||p.pre||200; if(yr-b.josh>=25){ need+=6; r.josh=1; } else if(b.josh-yr>=30){ need-=6; r.josh=-1; } }
     if(b && (b.upside||b.gem)) need+=3;
@@ -1227,7 +1257,7 @@ function chips(ctx){
     const l1=seasonLine(D.prior,k), l2=seasonLine(D.prior2,k), r1s=R.last[k]||R.last[PALIAS[k]]||null, r2s=R.two[k]||R.two[PALIAS[k]]||null;
     const best=Math.min(r1s||999,r2s||999), track=best<999?clamp((220-best)/180,0,1):0.3;
     // role, the depth chart, more minutes, filling in for a starter, and the news
-    let role=p.ds===0?1:p.ds===1?0.6:p.ds===2?0.35:p.ds==null?0.3:0.15; if(p.role==='up') role+=0.25; if(p.fill) role+=0.25;
+    let role=p.ds===0?1:p.ds===1?0.6:p.ds===2?0.35:p.ds==null?0.3:0.15; if(p.role==='up') role+=0.25; else if(glUp(p)) role+=0.15; if(glDown(p)) role-=0.1; if(p.fill) role+=0.25;
     if(p.news && !p.news.pre && p.news.dir==='good') role+=0.1; if(p.news && !p.news.pre && p.news.dir==='bad') role-=0.25; role=clamp(role,0,1);
     // market heat, his Yahoo rank this season and whether more teams are picking him up
     const pct=p.pct||0, pq=prevQ[p.id], pct0=Array.isArray(pq)?(pq[1]||0):pct;
@@ -1582,7 +1612,12 @@ function race(ctx){
   // Each team's wins, losses and ties add up to nine times the weeks already in the records, so the first week still to play is read from the records themselves
   const recs=tids.map(t=>{ const x=ctx.teams[t]||{}; return Math.round((x.w||0)+(x.l||0)+(x.t||0)); }), recW=recs.length?recs[0]:0, recOk=recs.every(n=>n===recW) && recW%9===0 && recW/9<=ctx.wk.n;
   const w0=recOk?recW/9+1:((ctx.scan.week && ctx.scan.week<ctx.wk.n)?ctx.scan.week:ctx.wk.n);
-  const games=[]; L.weeks.filter(w=>w.n>=w0 && w.n<=(L.lastRegularWeek||18)).forEach(w=>w.games.forEach(g=>{ if(P[g[0]]&&P[g[1]]) games.push(g); }));
+  // Vikas, Nov 11 2026, version 26.18. The week in progress is played from its live score plus the days left, for every matchup the scan has a score for.
+  // Before this it was played as a typical full week, as if nothing had happened yet
+  const liveP={}; let liveN=0;
+  if(ctx.act && ctx.days && w0<=ctx.wk.n){ const wkNow=L.weeks.find(w=>w.n===ctx.wk.n); if(wkNow) wkNow.games.forEach(g=>{ if(!(P[g[0]]&&P[g[1]]&&ctx.act[g[0]]&&ctx.act[g[1]])) return;
+    const a=weekProj(ctx,weekRos(ctx,g[0]),g[0],ctx.days,ctx.act), b=weekProj(ctx,weekRos(ctx,g[1]),g[1],ctx.days,ctx.act); liveP[g[0]+'v'+g[1]]=calP(catProbs(a,b,ctx.u,ctx.up)); liveN++; }); }
+  const games=[]; L.weeks.filter(w=>w.n>=w0 && w.n<=(L.lastRegularWeek||18)).forEach(w=>w.games.forEach(g=>{ if(P[g[0]]&&P[g[1]]) games.push(w.n===ctx.wk.n && liveP[g[0]+'v'+g[1]]?[g[0],g[1],liveP[g[0]+'v'+g[1]]]:g); }));
   const top4={}, wins={}; tids.forEach(t=>{ top4[t]=0; wins[t]=0; });
   // once the regular season is over the standings are final, so Yahoo's own place decides the first four
   const played=tids.some(t=>{ const x=ctx.teams[t]||{}; return (x.w||0)+(x.l||0)+(x.t||0)>0; });
@@ -1592,15 +1627,17 @@ function race(ctx){
   if(fin) tids.forEach(t=>{ const x=ctx.teams[t]; top4[t]=x.rank<=4?N:0; wins[t]=N*((x.w||0)+0.5*(x.t||0)); });
   else for(let i=0;i<N;i++){
     const w={}, e={}; tids.forEach(t=>{ const x=ctx.teams[t]||{}; w[t]=(x.w||0)+0.5*(x.t||0)+rnd()*0.01; e[t]=sig*gauss(); });
-    for(const g of games){ const pr=P[g[0]][g[1]], d=e[g[0]]-e[g[1]]; for(let c=0;c<9;c++){ const q=1/(1+Math.exp(-(lg(pr[c])+d))); if(rnd()<q) w[g[0]]++; else w[g[1]]++; } }
+    for(const g of games){ const pr=g[2]||P[g[0]][g[1]], d=g[2]?0.35*(e[g[0]]-e[g[1]]):e[g[0]]-e[g[1]]; for(let c=0;c<9;c++){ const q=1/(1+Math.exp(-(lg(pr[c])+d))); if(rnd()<q) w[g[0]]++; else w[g[1]]++; } }
     const ord=tids.slice().sort((a,b)=>w[b]-w[a]); for(let k=0;k<4;k++) top4[ord[k]]++; tids.forEach(t=>wins[t]+=w[t]);
   }
   const rows=tids.map(t=>({tid:t,name:(ctx.teams[t]||{}).name||t,rec:ctx.teams[t]||{},week:ctx.base[t].week,per:ctx.base[t].per,top4:top4[t]/N,wins:wins[t]/N}));
   rows.sort((a,b)=>b.week-a.week); rows.forEach((r,i)=>r.pos=i+1);
-  return {rows,left:games.length/5};
+  return {rows,left:games.length/5,liveN};
 }
 
 /* words */
+// one sentence from the box scores, for the cards
+const glWords=p=>!p.gl||!(p.gl.n>=GL_MIN)?'':' Over his last '+p.gl.n+' games he played '+r0(p.gl.m5)+' minutes a night'+(p.gl.dir==='up'?', up from the '+r0(p.gl.from)+' he was counted at, so his line is moved up':p.gl.dir==='down'?', down from the '+r0(p.gl.from)+' he was counted at, so his line is moved down':'')+(p.gl.starts>=GL_MIN && p.gl.starts===p.gl.n?', all as a starter':'')+'.';
 function basisWords(ps){
   const k=new Set(ps.map(p=>p.basis)); const gps=ps.map(p=>p.gp||0); const lo=Math.min.apply(null,gps), hi=Math.max.apply(null,gps);
   if(k.has('blend') || (k.has('now') && (k.has('last')||k.has('est')||k.has('older')))) return 'Based on a blend of last season and this season so far, with '+(lo===hi?lo:lo+' to '+hi)+' games played this season.';
@@ -1970,7 +2007,7 @@ function chipCard(ctx,r){
   let now='He has '+(p.gp||0)+' game'+(p.gp===1?'':'s')+' this season'+(p.m14!=null?', playing about '+n1(p.m14)+' minutes':'')+(s14?', '+s14+' what he was expected to do':'')+'. A spike from '+(p.gp||0)+' game'+(p.gp===1?'':'s')+' counts '+Math.round(100*r.w)+' percent, so one hot night cannot carry him.';
   let trend=''; if(r.r1s && r.r2s) trend=r.r1s<r.r2s-25?' He was better last season than the year before, so the trend is up.':r.r2s<r.r1s-25?' He was better two seasons ago, so last season was a dip and he has shown more before.':' His last two seasons were about the same level.';
   const track=sl(r.l2,'2024 to 25,',r.r2s)+' '+sl(r.l1,'2025 to 26,',r.r1s)+trend;
-  const role=(p.ds===0?'He starts on the depth chart.':p.ds===1?'He is first off the bench at his spot.':p.ds!=null?'He is deeper on the bench.':'He is not on the depth chart.')+(p.role==='up'?' His minutes are up.':'')+(p.fill?' He is filling in for '+p.fill.who.name+', who is out.':'')+(p.news&&p.news.note?' '+p.news.note:'');
+  const role=(p.ds===0?'He starts on the depth chart.':p.ds===1?'He is first off the bench at his spot.':p.ds!=null?'He is deeper on the bench.':'He is not on the depth chart.')+(p.role==='up'?' His minutes are up.':'')+glWords(p)+(p.fill?' He is filling in for '+p.fill.who.name+', who is out.':'')+(p.news&&p.news.note?' '+p.news.note:'');
   const mkt='Yahoo has him at '+(p.cur||'no')+' in its rank for this season and '+r.pct+' percent rostered'+(r.pct>r.pct0?', up from '+r.pct0+' at the last scan, so other managers are noticing':'')+'.';
   const buy=!CH.hasMg?'Load the manager notes in this browser to see which managers would pay for him.':r.buyers.length?'Managers whose needs he fits, '+r.buyers.join(', ')+'.':'No manager in the notes needs what he does right now. A manager who counts waiver pickups as nothing is never counted.';
   const hold=(r.gR==null?'There is no drop allowed by your rules, so he cannot be added without breaking them.':'While you hold him your season goes '+(r.gR>=0?'up ':'down ')+r1(Math.abs(r.gR))+' points with '+r.drop.name+' dropped.')+(r.wd?' He is on waivers until '+nice(r.wd)+(r.tom?' and plays that day.':' and does not play that day.'):(r.tom?' He plays on '+nice(r.day)+', the first day an add can play.':' He does not play on '+nice(r.day)+'.'));
@@ -2462,7 +2499,7 @@ async function load(){
   const get=async f=>{ try{ const r=await fetch('data/'+f,{cache:'no-store'}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } };
   const files=['league.json','schedule.json','prior.json','players.json','scan.json','scan_week.json','josh_cats.json'];
   // news, ages, a saved plan and Josh's newest ranks are extras. The tab works without them, so a missing one is never an error
-  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json','prior2.json','scan_prev.json','contracts.json','starts.json','results.json'];
+  const extra=['news.json','ages.json','plan.json','josh_live.json','depth.json','prior2.json','scan_prev.json','contracts.json','starts.json','results.json','games.json'];
   const all=await Promise.all(files.concat(extra).map(get)), a=all.slice(0,files.length), ex=all.slice(files.length);
   // every file but the weekly snapshot is needed for the numbers to be right. If one did not arrive, say so and draw nothing, because numbers built without it look normal and are wrong
   // A file that arrives but holds nothing useful is treated the same way, for example a scan with no players on your team or a schedule with no games
@@ -2475,7 +2512,7 @@ async function load(){
   D.miss=files.filter((f,i)=>!okShape[i](a[i]));
   if(D.miss.length){ D.loading=false; D.loaded=false; render(); return; }
   D.league=a[0]; D.sched=a[1]; D.prior=a[2]; D.players=a[3]; D.scan=a[4]; D.week=(a[5]&&a[5].rosters)?a[5]:a[4]; D.jc=a[6]; loadJC();
-  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; if(D.plan) setRules(D.plan); D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; D.prior2=(obj(ex[5])&&obj(ex[5].p))?ex[5]:null; D.prev=(obj(ex[6])&&obj(ex[6].q))?ex[6]:null; D.cy=(obj(ex[7])&&obj(ex[7].p))?ex[7]:null; D.starts=(obj(ex[8])&&obj(ex[8].weeks))?ex[8]:null; D.results=(obj(ex[9])&&obj(ex[9].weeks))?ex[9]:null; loadCY(); loadDepth(); loadMg();
+  D.news=(obj(ex[0])&&obj(ex[0].p))?ex[0]:null; D.ages=(obj(ex[1])&&obj(ex[1].p))?ex[1]:null; D.plan=(obj(ex[2])&&okPlan(ex[2].roles))?ex[2]:null; if(D.plan) setRules(D.plan); D.jl=(obj(ex[3])&&obj(ex[3].p))?ex[3]:null; D.depth=(obj(ex[4])&&obj(ex[4].p)&&obj(ex[4].t))?ex[4]:null; D.prior2=(obj(ex[5])&&obj(ex[5].p))?ex[5]:null; D.prev=(obj(ex[6])&&obj(ex[6].q))?ex[6]:null; D.cy=(obj(ex[7])&&obj(ex[7].p))?ex[7]:null; D.starts=(obj(ex[8])&&obj(ex[8].weeks))?ex[8]:null; D.results=(obj(ex[9])&&obj(ex[9].weeks))?ex[9]:null; D.games=(obj(ex[10])&&obj(ex[10].p))?ex[10]:null; loadCY(); loadDepth(); loadMg();
   D.gset={}; if(D.sched) Object.keys(D.sched.games).forEach(t=>D.gset[t]=new Set(D.sched.games[t]));
   D.loading=false; D.loaded=true;
   // Josh's newest ranks go to the board before anything is built from it. This comes after the load is marked done, because the board draws again and asks this tab for its numbers
@@ -2515,6 +2552,8 @@ function summary(){
   const out=c.ros[ME].filter(p=>p.status).map(p=>p.name+' '+statusWord(p.status)); if(out.length) o.push('my injury tags, '+out.join(', '));
   const nw=c.ros[ME].filter(p=>p.news && (p.news.st || p.news.note)).map(p=>p.name+(p.news.st==='Out'?' out'+(p.ret?' until '+p.ret:''):p.news.st?' day to day':'')+(p.news.note?' ('+(p.news.dir||'neutral')+') '+p.news.note:'')); if(nw.length) o.push('my news, '+nw.join(' ; ')); else if(D.news) o.push('no news items on my roster, news file made '+(typeof D.news.made==='string'?D.news.made:'at an unknown time')); else o.push('no news file loaded');
   { const all=Object.keys(JLI), mine=c.ros[ME].filter(p=>p.jl).map(p=>p.name+' '+(p.jl.was||p.jl.base||'none')+' to '+p.jl.rank+(p.jl.at?' on '+p.jl.at:''));
+    { const G=D.games, mv=Object.values(CTX.U).filter(p=>p.gl && p.gl.dir), mine=CTX.ros[ME].filter(p=>p.gl && p.gl.dir).map(p=>p.name+' '+p.gl.dir+' '+r0(p.gl.from)+' to '+r0(p.gl.to)+' minutes'), deep=CTX.avail.filter(p=>p.glLine).length;
+      o.push(G?'box scores on file through '+(Object.keys(G.p).map(k=>(G.p[k][0]||[])[0]||'').sort().pop()||'no day')+', lines moved for '+mv.length+' players'+(mine.length?', on my roster '+mine.join(' ; '):', none on my roster')+', '+deep+' free agents read from box scores only'+(RACE&&RACE.liveN?', standings count '+RACE.liveN+' live matchups':''):'no box scores file'); }
     if(all.length) o.push('josh updates on file for '+all.length+' players, newest '+(all.map(k=>JLI[k].at).filter(Boolean).sort().pop()||'undated')+(mine.length?', on my roster '+mine.join(' ; '):', none on my roster')); else o.push('no josh updates on file'); }
   return o.join(' ~ ');
 }

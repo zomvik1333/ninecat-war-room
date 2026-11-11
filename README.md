@@ -16,6 +16,22 @@ Live site at https://ninecatwarroom.vercel.app
 * scan holds the daily scan. yahoo-scan.js reads Yahoo inside the browser, ingest.js checks the text and writes the data files, fetch-sched.js refreshes the NBA schedule, fetch-news.js writes the injury news file, fetch-ages.js writes the player ages file, josh-update.js writes Josh's newest ranks and README.md is the step by step procedure.
 * Six small extra files in data. plan.json is the season plan for every device, news.json holds injury facts and hand written news tags, ages.json holds player ages, josh_live.json holds Josh's newest ranks, starts.json holds the first scan of each fantasy week for the Monday call and results.json holds the final score of every matchup in every finished week. The tab still works if any of them is missing.
 * vercel.json lets the scanner read the data files from the live site.
+* scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
+
+## Version 26.18 (branch main), Nov 11 2026, box scores, deeper free agents and every live matchup
+
+Vikas asked what the scan does not read and then asked for all three gaps to be closed and fed into the numbers, with any good current source for the games.
+
+* Game by game box scores. A new nightly script, scan/fetch-games.js, reads ESPN's scoreboard and box scores and keeps each player's last ten games in data/games.json, numbers only. The first run reads 16 days in about 15 seconds, a nightly run reads only the last two days
+* The log moves a projection gently. Only when his minutes over his last five games, three at least, sit 12 percent or more away from the minutes his line already uses, and two of his last three games sit on that same side, so one blowout or foul trouble night moves nothing. With five games the highest and lowest are left out, so an early exit with an injury does not carry it. The move follows the minutes and is capped at 15 percent. A player who is out or on IL is left alone. Because every list reads the same projection, trades, pickups, long term calls and trade chips all move with it
+* More minutes in the box scores now counts as proof for a pickup after three games, where the two week line needed about six. The pickup card says how many minutes he played over his last games, and a trade chip gets a small lift or cut for it
+* Deeper free agents. The scanner also reads the best 100 available players over the last seven days, names and status only. A free agent Yahoo gave no numbers for gets his line from his games in the log, three at least in the last 14 days. The script also names players with real minutes who are not on the site yet
+* Every live matchup. The scanner reads the live score of all five matchups this week as N lines, the same pages as last week's finals, and ingest keeps them as scan.live when all ten teams came. The standings forecast now plays the week in progress from its live score plus the days left, for every matchup it has a score for, yours included. Before this it played the current week as a typical full week
+* The calibration key moved to 26.18 since projections changed, so the past week checks are worked out again in each browser
+* The summary has a box scores line, the newest game day, how many lines moved, yours by name, and how many live matchups the standings count
+* Tested on the local copy. On the Nov 10 data 48 lines moved, none on his roster, the top three pickups and the top three trades stayed the same. On the Nov 11 scan his week chance read 41 where it read 35 without the box scores, because Yahoo's two week minutes had Bam Adebayo at 40 a night and Giannis at 39 and their last five games say 35 and 33. 360 random offers and 40 random adds and drops with no error, every listed card matches checkOffer, 54 buttons tapped with no console error, clock set to four dates. Ingest took a scan with ten N lines and the standings counted five live matchups. The seven day list and the five live matchup pages were read in the Yahoo tab, read only
+* The rostered percent fix of 26.17, the seven day list and the live matchups all start with the first scan run with this scanner
+* Fallback branch fallback-v26-18-before-box-scores
 
 ## Version 26.17 (branch main), Nov 10 2026, fixes from the Nov 10 code review
 

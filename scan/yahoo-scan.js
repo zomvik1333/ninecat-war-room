@@ -86,8 +86,9 @@
   }
 
   // the final score of every matchup in a finished week, one F line per team. Read only, it opens the same matchup pages anyone in the league can see
-  async function finals(wn,teams,out){
-    st.step='finals week '+wn;
+  // tag is F for a finished week and N for the week being played (26.18)
+  async function finals(wn,teams,out,tag){
+    st.step=(tag==='N'?'live week ':'finals week ')+wn;
     try{ const d=await get(BASE+'?matchup_week='+wn+'&module=matchups&lhst=matchups');
       const pairs=[...new Set([...d.querySelectorAll('a[href*="/matchup?week="]')].map(a=>{const m=(a.getAttribute('href')||'').match(/week=(\d+)&mid1=(\d+)&mid2=(\d+)/);return m&&+m[1]===wn?m[2]+'v'+m[3]:''}).filter(Boolean))];
       if(!pairs.length) st.log.push('no matchups found for week '+wn);
@@ -97,9 +98,9 @@
         if(!t){ st.log.push('no score table week '+wn+' '+pr); continue; }
         const hc=[...t.rows[0].cells].map(c=>c.textContent.replace(/\*/g,'').trim());
         [...t.rows].slice(1,3).forEach(r=>{ const c=[...r.cells].map(x=>x.textContent.trim()); const g=k=>c[hc.indexOf(k)]||''; const fg=g('FGM/A').split('/'), ft=g('FTM/A').split('/');
-          const tm=teams.find(x=>x.nm===clean(c[0])); out.push(['F',wn,tm?tm.tid:clean(c[0]),digits(fg[0]),digits(fg[1]),digits(ft[0]),digits(ft[1]),digits(g('3PTM')),digits(g('PTS')),digits(g('REB')),digits(g('AST')),digits(g('ST')),digits(g('BLK')),digits(g('TO'))].join('|')); });
+          const tm=teams.find(x=>x.nm===clean(c[0])); out.push([tag||'F',wn,tm?tm.tid:clean(c[0]),digits(fg[0]),digits(fg[1]),digits(ft[0]),digits(ft[1]),digits(g('3PTM')),digits(g('PTS')),digits(g('REB')),digits(g('AST')),digits(g('ST')),digits(g('BLK')),digits(g('TO'))].join('|')); });
         await sleep(250); }
-    }catch(e){ st.log.push('finals not read week '+wn); }
+    }catch(e){ st.log.push((tag==='N'?'live scores':'finals')+' not read week '+wn); }
   }
   // finals only, for weeks already played. NCWSCAN.run({mode:'finals',weeks:[1,2]}) gives F lines that ingest takes with --partial
   async function runFinals(opts){
@@ -174,6 +175,9 @@
       await list('S_AS_'+SEASON,'AR',opts.deep?6:4,'S');
       await list('S_AL14','AR',opts.deep?8:6,'L');
       await list('S_AS_'+SEASON,'R_PO',2,'S');
+      // Vikas, Nov 11 2026, version 26.18. Deeper free agents. The best available players over the last seven days, names and status only, so a player whose role
+      // changed this week is on the site before the two week list catches him. His line comes from the box scores in data/games.json
+      await list('S_AL7','AR',opts.deep?6:4,'N');
     } else {
       await list('S_AS_'+SEASON,'OR',4,'S');
       await list('S_AS_'+SEASON,'R_PO',2,'S');
@@ -217,6 +221,9 @@
 
     // Vikas, Nov 4 2026. The final score of every matchup last week, so the week forecast can be checked against what really happened
     if(wk && +wk>1 && opts.finals!==false) await finals(+wk-1,teams,out);
+    // Vikas, Nov 11 2026, version 26.18. The live score of every matchup this week, all five, as N lines, so the standings forecast counts the week in progress for every team.
+    // The same pages as last week's finals, read only. Your own matchup still comes on the two M lines as before
+    if(wk && season && opts.live!==false) await finals(+wk,teams,out,'N');
     st.step='transactions';
     // Vikas, Nov 10 2026, version 26.17. Yahoo shows 25 moves a page, about four days in this league, and the site counts adds for the whole fantasy week and keeps
     // a seven day memory of your own adds and drops. So up to three pages are read, about two weeks. A page after the first that fails is only logged
