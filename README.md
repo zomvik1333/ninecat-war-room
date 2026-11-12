@@ -18,6 +18,17 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.24 (branch main), Nov 12 2026, throw ins barely move the room, and your drop goes in the deal
+
+Vikas sent Randle, Hayes and Mitchell for Booker, Anunoby and Reid and the room read 111, an overpay, where the same deal without Hayes read 99. Hayes is his first drop and would leave his roster either way. He said a waiver level extra is a sweetener, the room sees a waiver pick as a waiver pick until he proves himself, so it should move the number a point or two at most, and that when he takes more players than he sends he would put the player he has to drop into the deal.
+
+* The best player on each side always counts in full. Every other player counts by how proven he is. Your own trade only and floating players count in full and a player in your droppable tier is a throw in. Anyone else goes by his place on the room line, in full inside the top 90 and fading to a throw in by 130
+* What a side loses that way comes back as a small allowance, at most 1.5 percent of the proven pieces for one such player and 2 percent for two or more. The room score and the box score check both work this way
+* checkOffer puts the player you would drop into the deal when you get more players than you send, so a two for three is scored as a three for three and reads the same whether you name him or not. It returns throwIn, the throw ins on both sides, and throwNote when the other manager would have to drop a better player to take yours
+* On the Nov 12 scan Mitchell and Randle for Booker, Anunoby and Reid reads room 100 and gain 3.5 with or without Hayes. Yaxel and Hayes for Siakam and Sabonis reads 53, since it is Yaxel alone for two starters. The deal the league vetoed on Nov 5 reads 136, Mitchell Robinson is a throw in there
+* Checked deals lists a one for two once, as the two for two that names your drop, and each card says who the throw in is
+* Fallback branch fallback-v26-24-before-throw-ins holds 26.23
+
 ## Version 26.23 (branch main), Nov 12 2026, the room score counts all nine cats
 
 Vikas saw Randle, Tatum and Kris Dunn for Wembanyama and Durant read room 102, fair, and asked how that could be. The room line was points, rebounds and assists with a little for steals and threes, so blocks, turnovers and the percentages counted for nothing. He asked that every cat count, the six big ones leading and field goal percentage, free throw percentage and turnovers a little less, so no deal that the league would call unfair shows as fair.
