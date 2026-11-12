@@ -18,6 +18,18 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.23 (branch main), Nov 12 2026, the room score counts all nine cats
+
+Vikas saw Randle, Tatum and Kris Dunn for Wembanyama and Durant read room 102, fair, and asked how that could be. The room line was points, rebounds and assists with a little for steals and threes, so blocks, turnovers and the percentages counted for nothing. He asked that every cat count, the six big ones leading and field goal percentage, free throw percentage and turnovers a little less, so no deal that the league would call unfair shows as fair.
+
+* The room line is now points 1, rebounds 1.2, assists 1.5, threes 1, steals 4 and blocks 4 a game, minus 1 a turnover, plus 1.5 for each make above or below a league average shooter on his own attempts, field goals at 47 percent and free throws at 78
+* Everything else about the room is unchanged, the name bonus, draft pick, age, rostered percent, missed games, teammates due back, the fair band of 94 to 106, the veto line at 112 and star for parts
+* On the Nov 12 scan that deal reads 86 and star for parts instead of 102. Randle for Durant reads 86 instead of 98. Mitchell for Jamal Murray reads 91, light to Haziq, instead of 99. The deal the league vetoed on Nov 5, Mitchell and Randle for Murray and Mitchell Robinson, still reads as a veto at 114
+* Wembanyama is first on the room line, then Doncic and Jokic. Randle sits 46th, close to where Josh has him
+* The words on the cards and in How this works say all nine cats in place of points, rebounds and assists
+* The saved Checked deals in the browser carry a new stamp, so every manager page searches again once
+* Fallback branch fallback-v26-23-before-room-nine-cats holds 26.22
+
 ## Version 26.22 (branch main), Nov 11 2026, the page searches every variation itself, on the last scan
 
 Vikas asked that every variation with a manager be current on the stats of the last scan without asking for a search, that the scan date sit above the trades, and that a deal which breaks a lock by a lot be left off while a small slip is shown with a label.
