@@ -18,6 +18,22 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.25 (branch main), Nov 13 2026, the swaps have to match, and a hot waiver pickup is not a proven player
+
+Vikas saw Mitchell and Kyrie for Jamal Murray and Duncan Robinson on Haziq's page and said it was not close to fair. Robinson is a waiver pickup, Kyrie is far better, and the league would say he got destroyed. He said a step down on one swap is fine, but it has to be about what he steps up on the other, a little here and there. The checker had already flagged the deal twice, the box score at 113 and Kyrie for Robinson as a straight downgrade, and the manager page listed it anyway.
+
+* Checked deals on a manager page now clear the same stops as the main lists, the box score cap of 110 and the swap rules. Before, the page only asked that the room score sat in the fair band. On the Nov 13 scan 64 of Haziq's 142 checked deals, 36 of Anshu's 107 and 28 of Nitin's 60 carried one of those stops
+* Gap match. In a two for two the swaps are paired best for best and lesser for lesser by room score, and what you step up on one has to cancel what you step down on the other within 3 points of room score, either way. This takes the place of the flat rule that a second swap 25 percent down on the box score is never listed. checkOffer names both steps and how far apart they are. A second swap that is an insult to him is still never listed
+* With a manager the notes mark win only, the gap rule guards your side alone, since those are deals you make only when you clearly win. The worker now gets that one label from the notes, nothing else new
+* A throw in is judged by a player's real place on the room score, name, draft pick, age and rostered percent counted and before any injury cut. It used to be the better of his two season ranks on the bare line, which put Duncan Robinson 76th after 11 hot games. His real place is 112th, so he is a throw in
+* The same rule now covers your own floating players. Larsson at 154 and Diabate at 116 are throw ins the way the room sees them. Your trade only players still count in full and your droppable tier is still always a throw in. Without this the fix above listed deals like Mitchell and Larsson for Murray and Robinson as fair when they are light to him
+* On the Nov 13 scan Mitchell and Kyrie for Murray and Robinson reads room 121, a veto, where it read 106. Randle and Tatum for Gilgeous-Alexander and Robinson reads 119, Mitchell and Randle for Sengun and Robinson 118, Murphy and Randle for Ball and Hart 112 with the swaps 6.7 apart
+* His three open offers to Anshu and the Rishi counter read the same as before, none of them holds a floating player or a pickup that moved
+* With his notes of Nov 11 the manager pages keep Haziq 57 deals, Anshu 39, Nitin 24, Chris 20, Vinny 5 and Rishi 2, none with a swap or box score stop. Best trades is empty on this scan and says so, the two deals it held both overpaid in the room
+* The saved Checked deals in the browser carry a new stamp, so every manager page searches again once
+* Tested on the local copy on the Nov 13 08.32 scan with and without his notes. Workers and the single page search give the same lists, 400 random offers with no error, every manager page opened and its cards tapped with no bad text, lint unchanged at the same eight old warnings
+* Fallback branch fallback-v26-25-before-gap-match holds 26.24
+
 ## Version 26.24 (branch main), Nov 12 2026, throw ins barely move the room, and your drop goes in the deal
 
 Vikas sent Randle, Hayes and Mitchell for Booker, Anunoby and Reid and the room read 111, an overpay, where the same deal without Hayes read 99. Hayes is his first drop and would leave his roster either way. He said a waiver level extra is a sweetener, the room sees a waiver pick as a waiver pick until he proves himself, so it should move the number a point or two at most, and that when he takes more players than he sends he would put the player he has to drop into the deal.
