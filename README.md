@@ -18,6 +18,16 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.29 (branch main), Nov 18 2026, the checklist picks who you want
+
+Vikas wanted to tick only Davion Mitchell and see every deal for him, whoever comes with him. Before, an unticked player kept every deal that named him off the lists, so unticking Mikal Bridges also hid Davion Mitchell and Bridges together.
+
+* A deal shows when at least one player you would get is ticked. The others in the deal can be anyone, ticked or not. A deal is hidden only when every player you would get is unticked
+* Tick all and Untick all buttons on every manager page, so picking one player takes two clicks
+* A player marked no in your notes still stays out of every deal
+* checkOffer says every player you would get is unticked when that is why a deal is stopped
+* Saved checked deals search again once (ideaSig rm7)
+
 ## Version 26.28 (branch main), Nov 18 2026, the hard no checklist is open on every manager page
 
 Vikas said every manager page should show the checklist of that manager's players to filter deals with. It was there on every page but started folded shut unless the manager already had a hard no, so it only looked open on a few.
