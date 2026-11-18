@@ -18,6 +18,17 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.30 (branch main), Nov 18 2026, the checklist filters at once
+
+Vikas saw 0 deals after ticking Doncic, Giddey and Davion Mitchell on Rishi's page, the page jumped down and back on every click, and the checklist said hurt next to some names. Every tick ran the whole trade search again, about 88,000 deals for Rishi, so the page showed results from a search that had not caught up.
+
+* The searches no longer use the checklist. They find every deal once, and the checklist only filters what is shown, so a tick or untick shows at once and the page stays where it was
+* The same rule as 26.29, a deal shows when at least one player you would get is ticked
+* The manager page lists for every manager (Most likely, Most helpful, Pivots, Stretch and Checked deals) all follow the checklist, and say how many deals it hides. Best trades says how many it hides too
+* No hurt label in the checklist
+* checkOffer no longer stops a deal for the checklist
+* Saved checked deals search again once (ideaSig rm8), and the checklist is no longer part of that key
+
 ## Version 26.29 (branch main), Nov 18 2026, the checklist picks who you want
 
 Vikas wanted to tick only Davion Mitchell and see every deal for him, whoever comes with him. Before, an unticked player kept every deal that named him off the lists, so unticking Mikal Bridges also hid Davion Mitchell and Bridges together.

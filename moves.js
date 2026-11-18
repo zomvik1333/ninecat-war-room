@@ -78,6 +78,8 @@ function saveOff(){ try{ localStorage.setItem(OFFKEY,JSON.stringify(OFF)); }catc
 const offHas=(o,p)=>!!(p && OFF[o] && OFF[o].indexOf(B.nkey(p.name))>=0);
 // Vikas, Nov 18 2026, version 26.29. The checklist picks who he wants. A deal stays when at least one player he would get is still ticked, and the others can be anyone,
 // so ticking only one player shows every deal that brings that player back, whoever comes with him. A deal is out only when every player he would get is unticked
+// 26.30. A tick or untick redraws the page at once and keeps it where it was, nothing is searched again
+const offRedraw=()=>{ const y=window.scrollY; render(); window.scrollTo(0,y); requestAnimationFrame(()=>window.scrollTo(0,y)); };
 const offOut=(o,get)=>!!(OFF[o] && OFF[o].length && get.length && get.every(p=>offHas(o,p)));
 function loadMg(){ loadOff(); MG=null; try{ MG=okMgr(JSON.parse(localStorage.getItem(MGKEY)||'null')); }catch(e){ MG=null; } }
 function setMg(text){ let j=null; try{ j=JSON.parse(text); }catch(e){ return 'That is not a valid notes file.'; } const m=okMgr(j); if(!m) return 'That file has no manager notes in it.'; try{ localStorage.setItem(MGKEY,JSON.stringify(j)); }catch(e){ return 'This browser would not save the notes.'; } MG=m; return ''; }
@@ -1586,7 +1588,7 @@ function trades(ctx,done,live){
     // Vikas, Nov 4 and 5 2026, versions 26.12 and 26.13. The manager notes rule deals out before any list is picked, so Best trades, the pivots, the routes and
     // By manager all agree. Out are a deal a note rules out (a player he will not trade, no room for two for one, he calls out light offers, he already said no),
     // a deal that asks for a player he rates highly unless it clearly favors him on the box score (110 percent or more), and a deal that hands you two or more injury prone players
-    const noteOut=t=>{ if(t.prone>=2) return true; if(offOut(t.o,t.get)) return true; const g=mgOf(t); if(g && g.force && !g.yes) return true; const m=MG && MG.teams[t.o]; if(m && m.deal==='win' && t.myGain<WIN_ONLY) return true; if(m && m.prize.length && t.get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0) && !(t.face && t.face.look>=1.10)) return true; return false; };
+    const noteOut=t=>{ if(t.prone>=2) return true; const g=mgOf(t); if(g && g.force && !g.yes) return true; const m=MG && MG.teams[t.o]; if(m && m.deal==='win' && t.myGain<WIN_ONLY) return true; if(m && m.prize.length && t.get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0) && !(t.face && t.face.look>=1.10)) return true; return false; };
     const ok=t=>t.jside!=='lose' && !noteOut(t), byScore=(a,b)=>b.score-a.score||b.myGain-a.myGain, byGain=(a,b)=>b.myGain-a.myGain;
     res.cutByNotes=out.filter(t=>t.kind==='plan' && !t.ask && t.jside!=='lose' && noteOut(t)).length;
     const planAll=out.filter(t=>t.kind==='plan' && !t.ask && ok(t)).sort(byScore), pivAll=out.filter(t=>t.kind!=='plan' && !t.ask && ok(t) && t.myGain>=0.3 && t.newRoles.join()!==pl.roles.join()).sort(byScore);
@@ -2439,9 +2441,11 @@ function tradePanel(ctx){
   if(!busyO && nextO) setTimeout(()=>ideaSearch(cw,nextO),30);
   // when the list already has a deal for the same players from that manager, the bigger gain of the two is the one shown, so no manager page ever tops this list for the same return
   const gsk=(o,get)=>o+'|'+get.map(p=>p.id).sort().join('+'), inList={}, swapOut=new Set(); TR.list.forEach(t=>{ const k=gsk(t.o,t.get); if(!inList[k] || t.myGain>inList[k].myGain) inList[k]=t; });
-  let big=[]; fairOs.forEach(o=>{ const S=IS[o]; if(!S || S.busy) return; let n=0; const sg={}; S.keep.forEach(x=>{ const k=gsk(o,x.get), t=inList[k]; if(n>=BIG_TEAM || x.r.planGain<1 || sg[k] || (t && (t.pinned || x.r.planGain<t.myGain+0.3))) return; sg[k]=1; n++; big.push(x); }); });
+  // Vikas, Nov 18 2026, version 26.30. The checklist filters what is shown, at once, without searching again. A deal is shown when at least one player you would get is ticked
+  let big=[]; fairOs.forEach(o=>{ const S=IS[o]; if(!S || S.busy) return; let n=0; const sg={}; S.keep.forEach(x=>{ const k=gsk(o,x.get), t=inList[k]; if(offOut(o,x.get) || n>=BIG_TEAM || x.r.planGain<1 || sg[k] || (t && (t.pinned || x.r.planGain<t.myGain+0.3))) return; sg[k]=1; n++; big.push(x); }); });
   big=big.sort((a,b)=>b.r.planGain-a.r.planGain).slice(0,BIG_MAX); big.forEach(x=>{ const k=gsk(x.o,x.get); TR.list.forEach(t=>{ if(gsk(t.o,t.get)===k) swapOut.add(t); }); });
-  const rows=TR.list.map((t,i)=>({t,g:t.pinned?1e9:t.myGain,h:tradeCard(cw,t,i,'p')})).filter(x=>!swapOut.has(x.t)).concat(big.map(x=>({g:x.r.planGain,h:ideaCard(cw,x)}))); if(big.length) rows.sort((a,b)=>b.g-a.g);
+  const nOffB=TR.list.filter(t=>offOut(t.o,t.get)).length; if(nOffB) h+='<p class="small">'+nOffB+' deal'+(nOffB===1?' is':'s are')+' hidden by your player checklists on the manager pages.</p>';
+  const rows=TR.list.map((t,i)=>({t,g:t.pinned?1e9:t.myGain,h:tradeCard(cw,t,i,'p')})).filter(x=>!swapOut.has(x.t) && !offOut(x.t.o,x.t.get)).concat(big.map(x=>({g:x.r.planGain,h:ideaCard(cw,x)}))); if(big.length) rows.sort((a,b)=>b.g-a.g);
   rows.forEach(x=>{ h+=x.h; });
   if(busyO || nextO){ const w=busyO||nextO; h+='<p class="small">Checking bigger deals, up to three for two, with '+esc(MG.teams[w].name)+', <span id="mvideapct">'+(IS[w]?IS[w].pct:0)+'</span> percent done. '+fairOs.filter(o=>IS[o] && !IS[o].busy).length+' of '+fairOs.length+' managers checked. The best ones join this list as each manager finishes.</p>'; }
   if(nTiny) h+='<label class="mvchk"><input type="checkbox" id="mvshowsmall"'+(ST.small?' checked':'')+'> Show the '+nTiny+' smaller trade'+(nTiny===1?'':'s')+' that gain under 1 point</label>';
@@ -2467,7 +2471,7 @@ function mgView(t,m){ if(!m || !(m.byDraft||m.pairs||m.noLate)) return null;
   if(m.pairs) for(let i=0;i<Math.max(inn.length,out.length);i++){ const a=inn[i]||0, b=out[i]||0; if(b>0 && a<0.85*b && b-a>(m.byDraft?4:2)){ ok=false; pair=i===0?'best':'second'; break; } }
   return {look,ok,pair,A,B:Bv,late:zero.map(p=>p.name),lateCap:lk}; }
 function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return null; const m=MG && MG.teams[o], hasMg=!!m;
-  let fair=b.fair.slice(), str=b.stretch.slice(), piv=(b.pivots||[]).slice();
+  const shown=t=>!offOut(o,t.get); let fair=b.fair.filter(shown), str=b.stretch.filter(shown), piv=(b.pivots||[]).filter(shown);
   fair.concat(str).concat(piv).forEach(t=>{ t.mview=mgView(t,m); });
   // 26.26. Fair is the room score for every manager, so his own view from the notes no longer moves a deal between the lists. It still feeds the yes chance
   // the insult guard. A manager who calls out lowballs never sees a deal that looks light to him, not even as a long shot
@@ -2503,7 +2507,7 @@ function mgrPage(cw,inner){
   { const hp=(cw.ros[o]||[]).filter(p=>p.proj).slice().sort((a,b)=>(b.rv||0)-(a.rv||0)), kp=m?m.keep:[], shut=p=>kp.indexOf(B.nkey(p.name))>=0 || offHas(o,p), nShut=hp.filter(shut).length, who=m?m.name:((cw.teams[o]||{}).name||'This manager');
     // Vikas, Nov 18 2026, version 26.28. The checklist starts open on every manager page, not only on a page that already has a hard no
     if(hp.length) h+='<details class="mvteam" style="margin-top:8px" open><summary class="small"><b>'+esc(who)+'\'s players</b>, '+(hp.length-nShut)+' of '+hp.length+' ticked</summary><p class="small">Tick the players you want from '+esc(who)+'. A deal shows when at least one player you would get is ticked, and whoever comes with him can be anyone, on this page and on Best trades. Tick only one player to see every deal for him. A player marked no in your notes stays out of every deal. This is kept in this browser only and your notes file is not changed. <button class="btn" type="button" data-offall="'+esc(o)+'|1" style="margin-left:6px">Tick all</button> <button class="btn" type="button" data-offall="'+esc(o)+'|0">Untick all</button></p><div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0">'
-      +hp.map(p=>{ const k=B.nkey(p.name), inNotes=kp.indexOf(k)>=0; return '<label class="small" style="min-width:150px;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" data-off="'+esc(o+'|'+k)+'"'+(inNotes?' disabled':offHas(o,p)?'':' checked')+'>'+esc(p.name)+(inNotes?' <span class="sub">no in your notes</span>':hurt(p)?' <span class="sub">hurt</span>':'')+'</label>'; }).join('')+'</div></details>'; }
+      +hp.map(p=>{ const k=B.nkey(p.name), inNotes=kp.indexOf(k)>=0; return '<label class="small" style="min-width:150px;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" data-off="'+esc(o+'|'+k)+'"'+(inNotes?' disabled':offHas(o,p)?'':' checked')+'>'+esc(p.name)+(inNotes?' <span class="sub">no in your notes</span>':'')+'</label>'; }).join('')+'</div></details>'; }
   const tk=talkRows(cw,o).filter(x=>!x.stale && x.r.planGain>0); if(tk.length){ h+='<h2 style="margin-top:10px">In talks <span>deals '+esc(m.name)+' has talked about with you, from your notes</span></h2>'; tk.forEach(x=>{ h+=talkCard(cw,x); }); }
   // Vikas, Nov 11 2026, version 26.22. Checked deals is searched by the page itself for a manager marked fair, on the scan named above the trades. The first ten show and the
   // rest fold away. Deals that let a lock slip a little get their own labeled list. A deal that breaks a lock by more is not shown at all
@@ -2511,10 +2515,10 @@ function mgrPage(cw,inner){
     const fold=(list,n)=>list.slice(0,n).map(x=>ideaCard(cw,x)).join('')+(list.length>n?'<details class="mvhow"><summary class="small">Show the other '+(list.length-n)+', smaller gains</summary>'+list.slice(n).map(x=>ideaCard(cw,x)).join('')+'</details>':'');
     h+='<h2 style="margin-top:10px">Checked deals <span>every shape up to three for two, on the scan of '+when+'</span></h2>';
     if(!S || S.busy){ if(!S) setTimeout(()=>ideaSearch(cw,o),30); h+='<p class="small">Searching every deal of one, two or three of your players for one or two of '+esc(m.name)+'\'s, on the scan of '+when+'. <span id="mvideapct">'+(S?S.pct:0)+'</span> percent done. It takes a few seconds the first time after a scan.</p>'; }
-    else { h+='<p class="small">'+S.keep.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room, on the scan of '+when+'.'+(S.slip.length?' '+S.slip.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
-      if(!S.keep.length) h+='<p class="empty">No deal with '+esc(m.name)+' gains for you, keeps every lock and is fair to the room on this scan.</p>';
-      h+=fold(S.keep,10);
-      if(S.slip.length) h+='<h2 style="margin-top:10px">Checked deals with a lock at risk <span>a slip of '+SLIP_MAX+' points or less, labeled on each card</span></h2>'+fold(S.slip,6); } }
+    else { const keepV=S.keep.filter(x=>!offOut(o,x.get)), slipV=S.slip.filter(x=>!offOut(o,x.get)), nOff=S.keep.length-keepV.length; h+='<p class="small">'+keepV.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room, on the scan of '+when+'.'+(nOff?' '+nOff+' more are hidden by your checklist above.':'')+(slipV.length?' '+slipV.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
+      if(!keepV.length) h+='<p class="empty">No deal with '+esc(m.name)+' gains for you, keeps every lock and is fair to the room on this scan.</p>';
+      h+=fold(keepV,10);
+      if(slipV.length) h+='<h2 style="margin-top:10px">Checked deals with a lock at risk <span>a slip of '+SLIP_MAX+' points or less, labeled on each card</span></h2>'+fold(slipV,6); } }
   h+=how(''+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+(m.noLate?((m.byDraft||m.pairs)?', and':'')+' gives no credit for players taken after pick '+LATEPICK+' or picked up after the draft':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.');
   if(m && m.deal==='fair') h+='<p class="small" style="margin-top:8px"><span class="chip good">Trades straight</span> Your notes say '+esc(m.name)+' deals fair, so the aim here is a deal both teams get something from. Good for both lists the deals that lift his average week as well as your plan.</p>';
   if(m && m.deal==='win') h+='<p class="small" style="margin-top:8px"><span class="chip warn">Win only</span> Your notes say to deal with '+esc(m.name)+' only when you clearly win, so a deal shows here only when your gain is '+WIN_ONLY+' points or more.</p>';
@@ -2563,11 +2567,11 @@ const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && ideaClean(
    IDEAKEY with a stamp of the scan, the plan and the notes, so the next visit only scores the kept deals again. The stops below are matched by their words, so a
    reworded stop in checkOffer has to be reworded here too */
 const IDEA_HARD=/is a hard no|is not yours|not on that team|is hurt|is held|never offered|drop rules|only makes room|insults them|under 3 centers|under 2 centers|asking price|injury prone|checker handles|lose by Josh|plan gain under|star for parts|the room will/;
-const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm7',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG(),JSON.stringify(OFF)].join('|'); };
+const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm8',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
 const TIERSIG=()=>[...TTRADE].sort().join(',')+'/'+[...TFLOAT].sort().join(',');
 function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; if(TR.ideaS[o]) return; const m=MG && MG.teams[o], trRef=TR, S=TR.ideaS[o]={busy:true,pct:0,keep:[],slip:[],tried:0}, seen={};
   const kOf=(give,get)=>give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.');
-  const take=(give,get)=>{ let k=kOf(give,get); if(seen[k] || offOut(o,get)) return; const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id)); if(r.err || r.planGain<0.5 || !r.roomFair || r.stops.some(z=>IDEA_HARD.test(z) || IDEA_FAIR.test(z))) return;
+  const take=(give,get)=>{ let k=kOf(give,get); if(seen[k]) return; const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id)); if(r.err || r.planGain<0.5 || !r.roomFair || r.stops.some(z=>IDEA_HARD.test(z) || IDEA_FAIR.test(z))) return;
     // 26.24. The player you would drop goes in the deal, so a one for two is the same deal as the two for two that names him. It is listed once
     if(r.myDrop){ const t=(cw.ros[ME]||[]).find(p=>p.name===r.myDrop); if(t && give.indexOf(t)<0){ seen[k]=1; give=give.concat([t]); k=kOf(give,get); if(seen[k]) return; } }
     if(m){ if(get.some(p=>m.keep.indexOf(B.nkey(p.name))>=0)) return; if(r.face<110 && get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0)) return; }
@@ -2575,7 +2579,7 @@ function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; i
   const sig=ideaSig(cw); let cache=null; try{ cache=JSON.parse(localStorage.getItem(IDEAKEY)||'null'); }catch(e){} if(!cache || cache.sig!==sig) cache={sig,t:{}};
   const finish=save=>{ if(TR!==trRef) return;
     // the deals kept by hand in the notes join the list, scored the same way
-    ideaRows(cw,o).forEach(x=>{ const k=kOf(x.give,x.get); if(seen[k] || offOut(o,x.get)) return; if(ideaOK(x)){ seen[k]=1; S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; S.slip.push(x); } });
+    ideaRows(cw,o).forEach(x=>{ const k=kOf(x.give,x.get); if(seen[k]) return; if(ideaOK(x)){ seen[k]=1; S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; S.slip.push(x); } });
     S.keep.sort((a,b)=>b.r.planGain-a.r.planGain); S.slip.sort((a,b)=>b.r.planGain-a.r.planGain); S.busy=false;
     // two searches can run side by side, so the saved copy is read again right before it is written
     if(save){ let c2=null; try{ c2=JSON.parse(localStorage.getItem(IDEAKEY)||'null'); }catch(e){} if(!c2 || c2.sig!==sig || !c2.t) c2={sig,t:{}}; c2.t[o]=S.keep.concat(S.slip).map(x=>x.give.map(p=>p.id).join('.')+'>'+x.get.map(p=>p.id).join('.')); try{ localStorage.setItem(IDEAKEY,JSON.stringify(c2)); }catch(e){} }
@@ -2669,8 +2673,8 @@ function wire(root){
   const mf=$('mvmgfile'); if(mf) mf.onchange=()=>{ const f=mf.files&&mf.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ const e=setMg(String(rd.result||'')); if(e){ const m=$('mvmgmsg'); if(m) m.textContent=e; } else compute(true); }; rd.readAsText(f); };
   const mc=$('mvmgclear'); if(mc) mc.onclick=()=>{ clearMg(); render(); };
   root.querySelectorAll('[data-offall]').forEach(b=>b.onclick=()=>{ const a=String(b.getAttribute('data-offall')).split('|'), o=a[0], on=a[1]==='1'; if(!o || !CTXW) return; const m=MG && MG.teams[o], kp=m?m.keep:[];
-    if(on) delete OFF[o]; else { const L=(CTXW.ros[o]||[]).filter(p=>p.proj).map(p=>B.nkey(p.name)).filter(k=>kp.indexOf(k)<0); if(L.length) OFF[o]=L.slice(0,30); } saveOff(); ST.offOpen=true; save(); compute(true); });
-  root.querySelectorAll('[data-off]').forEach(b=>b.onchange=()=>{ const a=String(b.getAttribute('data-off')).split('|'), o=a[0], k=a.slice(1).join('|'); if(!o || !k) return; const L=(OFF[o]||[]).filter(x=>x!==k); if(!b.checked) L.push(k); if(L.length) OFF[o]=L.slice(0,30); else delete OFF[o]; saveOff(); ST.offOpen=true; save(); compute(true); });
+    if(on) delete OFF[o]; else { const L=(CTXW.ros[o]||[]).filter(p=>p.proj).map(p=>B.nkey(p.name)).filter(k=>kp.indexOf(k)<0); if(L.length) OFF[o]=L.slice(0,30); } saveOff(); ST.offOpen=true; save(); offRedraw(); });
+  root.querySelectorAll('[data-off]').forEach(b=>b.onchange=()=>{ const a=String(b.getAttribute('data-off')).split('|'), o=a[0], k=a.slice(1).join('|'); if(!o || !k) return; const L=(OFF[o]||[]).filter(x=>x!==k); if(!b.checked) L.push(k); if(L.length) OFF[o]=L.slice(0,30); else delete OFF[o]; saveOff(); ST.offOpen=true; save(); offRedraw(); });
   const ig=$('mvideago'); if(ig) ig.onclick=()=>{ if(!TR || !CTXW) return; const o=ST.tteam; if(TR.ideaS) delete TR.ideaS[o]; ideaSearch(CTXW,o,true); render(); };
 }
 function compute(redoTrades){
@@ -2775,7 +2779,7 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   // Vikas, Nov 11 2026, version 26.20. Three players a side are scored too. The site's own search still tries only one or two a side
   if(give.length>3||get.length>3) stops.push('the checker handles up to three players a side');
   give.forEach(p=>{ const k=B.nkey(p.name); if(p.own!==ME) stops.push(p.name+' is not yours'); if(NEVER.has(k)) stops.push('Kyrie is never offered'); if(HOLD[k] && env.today<HOLD[k]) stops.push(p.name+' is held until '+niceLong(HOLD[k])); if(hurt(p)) stops.push(p.name+' is hurt, your rule keeps him until he is back'); });
-  get.forEach(p=>{ if(p.own!==o) stops.push(p.name+' is not on that team'); }); if(offOut(o,get)) stops.push('every player you would get is unticked on that manager\'s page');
+  get.forEach(p=>{ if(p.own!==o) stops.push(p.name+' is not on that team'); });
   // Vikas, Nov 6 2026, version 26.16. One for two. Your least useful player the drop rules allow is dropped to make room, and the gain counts that drop.
   // myDrop in the answer names him. To try a different drop, run whatIf with that drop first and read the two answers together
   let myCut=null; if(get.length>give.length){ const ilOpenM=ctx.ros[ME].filter(isIL).length+ctx.ros[ME].filter(p=>!isIL(p) && isOut(p)).length<2;
