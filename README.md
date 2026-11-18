@@ -18,6 +18,20 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.26 (branch main), Nov 18 2026, the room score is the one fairness test, both tabs show the same deals, and a hard no checklist
+
+Vikas asked why Best trades showed gains near 2 while a manager page showed gains over 6. Best trades asked every check to pass and the manager page also listed deals with a catch. He said the room score is the fairness test, since a deal the room sees as fair is one a manager will take. He also asked for a list of the other manager's players with a box to untick when that manager gives a hard no.
+
+* Fair is judged one way, by the room score. The box score check and the value scale are still worked out and shown, but they no longer keep a deal off a list. A deal over 106 in the room is an overpay and is not listed
+* Best trades and By manager show the same deals with the same numbers. Best trades runs the checked deal search for each manager you trade straight with, one at a time in the background, and merges the best of them into the list
+* Draft spot is a warning, never a gate. When you give a player picked in the top 50 of your draft for one picked 10 or more spots later, or not drafted, the card says you may be paying more than you need to
+* A checked deal on a manager page shows only when nothing stops it but a lock slip
+* Hard no players. Each manager page lists that manager's players with a box. Untick a player and every deal that asks for him is hidden on both tabs, and checkOffer names him as a hard no. Tick him to bring the deals back. The list is kept in the browser under its own key, ncw_mgr_off_v1, and the manager notes are never read or written by it
+* Open spots. A two for one earned a streamer for the spot it opened even when the player thrown in sat outside the counted 15 and no spot opened. That made such a deal read about 10 points of average week too high. A streamer is now counted only when the roster really drops under 15. On the test copy Gilgeous-Alexander for Tatum and Missi read 63 to 78 on the average week and now reads 63 to 68, the same as the one for one
+* The saved Checked deals in the browser carry a new stamp, so every manager page searches again once
+* Tested on the local copy with and without his notes. Lint unchanged at the same eight old warnings, no new console errors, the hard no checklist hides and restores deals on both tabs, and the notes read the same before and after
+* Fallback branch fallback-v26-25-before-room-only holds 26.25
+
 ## Version 26.25 (branch main), Nov 13 2026, the swaps have to match, and a hot waiver pickup is not a proven player
 
 Vikas saw Mitchell and Kyrie for Jamal Murray and Duncan Robinson on Haziq's page and said it was not close to fair. Robinson is a waiver pickup, Kyrie is far better, and the league would say he got destroyed. He said a step down on one swap is fine, but it has to be about what he steps up on the other, a little here and there. The checker had already flagged the deal twice, the box score at 113 and Kyrie for Robinson as a straight downgrade, and the manager page listed it anyway.

@@ -69,7 +69,14 @@ function okMgr(j){
     // the newest date anywhere in his notes, so a page can say when they are getting old
     tm.at=[isDay(t.at)?t.at:'',o.made].concat(tm.talks.map(z=>z.at)).filter(isDay).sort().pop()||''; });
   return Object.keys(o.teams).length?o:null; }
-function loadMg(){ MG=null; try{ MG=okMgr(JSON.parse(localStorage.getItem(MGKEY)||'null')); }catch(e){ MG=null; } }
+/* Vikas, Nov 17 2026, version 26.26. Hard no players. On a manager's page he unchecks a player that manager will not trade, and every deal that asks for that player is
+   hidden, on that page and on Best trades. The list is kept in this browser under its own key, by team and player name. It is not part of the manager notes and
+   never changes them */
+const OFFKEY='ncw_mgr_off_v1'; let OFF={};
+function loadOff(){ OFF={}; try{ const j=JSON.parse(localStorage.getItem(OFFKEY)||'{}'); if(j && typeof j==='object' && !Array.isArray(j)) Object.keys(j).forEach(t=>{ if(/^\d{1,2}$/.test(t) && Array.isArray(j[t])){ const a=j[t].filter(x=>typeof x==='string' && x).slice(0,30); if(a.length) OFF[t]=a; } }); }catch(e){ OFF={}; } }
+function saveOff(){ try{ localStorage.setItem(OFFKEY,JSON.stringify(OFF)); }catch(e){} }
+const offHas=(o,p)=>!!(p && OFF[o] && OFF[o].indexOf(B.nkey(p.name))>=0);
+function loadMg(){ loadOff(); MG=null; try{ MG=okMgr(JSON.parse(localStorage.getItem(MGKEY)||'null')); }catch(e){ MG=null; } }
 function setMg(text){ let j=null; try{ j=JSON.parse(text); }catch(e){ return 'That is not a valid notes file.'; } const m=okMgr(j); if(!m) return 'That file has no manager notes in it.'; try{ localStorage.setItem(MGKEY,JSON.stringify(j)); }catch(e){ return 'This browser would not save the notes.'; } MG=m; return ''; }
 function clearMg(){ try{ localStorage.removeItem(MGKEY); }catch(e){} MG=null; }
 const sameSet=(a,b)=>a.length===b.length && a.every(x=>b.indexOf(x)>=0);
@@ -461,6 +468,10 @@ function capFix(ctx,tid,outs,ins){ const K=ctx.kept[tid]||[], EX=ctx.ex[tid]||[]
   if(count>ACTIVE){ const cand=K.filter(p=>outs2.indexOf(p)<0).concat(ins2).sort((a,b)=>capScore(ctx,a)-capScore(ctx,b)); for(const p of cand){ if(count<=ACTIVE) break; if(ins2.indexOf(p)>=0) ins2=ins2.filter(x=>x!==p); else outs2.push(p); count--; } }
   else if(count<ACTIVE){ for(const p of EX){ if(count>=ACTIVE) break; if(outs.indexOf(p)>=0 || ins2.indexOf(p)>=0) continue; ins2.push(p); promoted++; count++; } }
   return {outs:outs2,ins:ins2,promoted}; }
+/* Vikas, Nov 18 2026, version 26.26. Open spots. A streamer is credited only for a roster spot that is really open after the deal. When players sit out of the
+   counted 15 (a hurt player, the weakest bench) a two for one that throws one of them in opens nothing, his roster is still full. Before this the thrown in
+   player earned a streamer anyway and the deal read about 10 points of average week better than it is */
+const openSpots=(ctx,tid,give,get)=>{ const all=(ctx.kept[tid]||[]).concat(ctx.ex[tid]||[]), ids=new Set(all.map(p=>p.id)); return Math.max(0,ACTIVE-(all.length-give.filter(p=>ids.has(p.id)).length+get.length)); };
 function seasonPrep(ctx){
   const days=ctx.tdays; ctx.dl={}; ctx.dT={}; ctx.pd=new Map();
   Object.keys(ctx.ros).forEach(t=>{ ctx.dl[t]=days.map(d=>ctx.kept[t].filter(p=>pROS(p,d)>0 && playsOn(p.team,d)).sort((a,b)=>b.val-a.val)); ctx.dT[t]=new Array(days.length).fill(null); });
@@ -1366,6 +1377,11 @@ function fillerOf(give,get,o){ if(give.length!==2 || get.length!==2) return null
     return {kind:'gap',side:net<0?'you':'them',mixed,a,b,up,dn,stepUp:Math.abs(ua>0?ua:ub),stepDn:Math.abs(ua>0?ub:ua),net:Math.abs(net)}; }
   if(b.get.rv>b.give.rv*FILLER) return {kind:'insult',p:b.give,q:b.get,pct:b.look,side:'them'};
   return null; }
+/* Vikas, Nov 16 2026, version 26.26. Draft spot. It is a warning, never a gate. The room score may call first round pick for second round pick fair when the later pick
+   is playing like a top player, but he wants to see that he may be paying more than he needs to. Swaps are paired best for best by room score. A swap is flagged
+   when the player he gives went in the first five rounds and a full round, 10 picks, or more ahead of the player he gets, or that player was not drafted */
+const nthW=n=>n+(n%100>=11&&n%100<=13?'th':n%10===1?'st':n%10===2?'nd':n%10===3?'rd':'th');
+const draftWarn=(give,get)=>{ const out=[]; swapsOf(give,get).forEach(x=>{ if(!x.give || !x.get) return; const a=pickOf[B.nkey(x.give.name)], b=pickOf[B.nkey(x.get.name)]; if(a && a<=50 && (!b || b-a>=10)) out.push(x.give.name+' went '+nthW(a)+' in your draft and '+x.get.name+(b?' went '+nthW(b):' was not drafted')+', so you may be paying more than you need to on draft spot'); }); return out; };
 const fillerWords=f=>{ if(f.kind==='insult') return 'the second swap, '+f.p.name+' for '+f.q.name+', is an insult to him, '+f.p.name+' is '+f.pct+' percent of '+f.q.name+' in the room\'s eyes, so this is never listed';
   if(f.mixed) return 'the swaps do not match, you step up '+r1(f.stepUp)+' room points from '+f.up.give.name+' to '+f.up.get.name+' and step down '+(f.side==='you'?'':'only ')+r1(f.stepDn)+' from '+f.dn.give.name+' to '+f.dn.get.name+', '+
     (f.side==='you'?r1(f.net)+' more than you get back':'so he comes out '+r1(f.net)+' short')+', and this is never listed';
@@ -1394,10 +1410,11 @@ function* scoreOffers(ctx,pl,env,opps){
         // Two checks. Face value, the box score and the name, which is how most managers judge a trade, and the value scale, which also carries the draft and Josh.
         // An offer that would insult them on face value is never scored at all
         // Vikas, Nov 6 2026, version 26.16. A deal that fits his notes needs 4 points less on the value scale and may lose a little more by Josh. Nothing else softens
-        const fit=fitOf(o,give,get,null), fair=softFair(fairOf(give,get),fit); if(!fair.ok && !fair.ask && !fair.str) continue;
-        const face=faceOf(give,get); if(face.insult || face.look>face.cap) continue;
+        // Vikas, Nov 16 2026, version 26.26. The room score is the one fairness test. The box score check and the value scale are still worked out for the card, but neither hides a deal
+        const fit=fitOf(o,give,get,null), fair=softFair(fairOf(give,get),fit);
+        const face=faceOf(give,get);
         // Vikas, Nov 5 2026, version 26.14. The room. A deal the room would veto as unfair to Vikas, a star for parts, or one far too light for them is never scored at all
-        const room=roomOf(give,get); if(room.veto || room.star || room.look<ROOM_LIST_LO) continue;
+        const room=roomOf(give,get); if(room.veto || room.star || room.over || room.look<ROOM_LIST_LO) continue;
         if(fillerOf(give,get,o)) continue;
         // one for two. The drop is your least useful player the drop rules allow who is not in the deal. No such player, no deal
         const oneTwo=sh[0]<sh[1], myCut=oneTwo?(myDrops.find(p=>!give.includes(p))||null):null; if(oneTwo && !myCut) continue;
@@ -1411,7 +1428,7 @@ function* scoreOffers(ctx,pl,env,opps){
         const two=sh[0]>sh[1]; let cut=null, credit=0;
         if(two) cut=thAct>=ACTIVE?(worst.find(p=>!get.includes(p))||null):null;
         // the streamer and the open spot credit apply only when the spot is really open. When his own bench fills it (seasonTotals promoted a player sitting out) neither applies
-        const T0=seasonTotals(ctx,ME,myCut?give.concat([myCut]):give,get), Tm=scaleT(T0,1/ctx.tweeks), streamed=two && !T0.promoted; if(streamed){ const s=ctx.stream; TK.forEach(q=>Tm[q]+=s[q]); credit=env.spotV; }
+        const T0=seasonTotals(ctx,ME,myCut?give.concat([myCut]):give,get), Tm=scaleT(T0,1/ctx.tweeks), streamed=two && !T0.promoted && openSpots(ctx,ME,myCut?give.concat([myCut]):give,get)>0; if(streamed){ const s=ctx.stream; TK.forEach(q=>Tm[q]+=s[q]); credit=env.spotV; }
         // your chance against every other team is known once your side is set. Against this team it can be at most 100 percent, so an offer that cannot reach the bar even then is dropped here
         const prs={}; let sP=0, sV=0;
         for(const x in w){ if(x===o) continue; const pr=catProbs(Tm,ctx.typ[x],ctx.u,ctx.up); prs[x]=pr; sP+=w[x]*pWin5(planPr(pr,ctx.vs0[x],pl,false)); sV+=w[x]*pWin5(planPr(pr,ctx.vs0[x],pl,true)); }
@@ -1434,7 +1451,7 @@ function* scoreOffers(ctx,pl,env,opps){
         if(!kind) continue;
         // listed only when it is fair on face value and the value scale does not call it more than a little light. Anything else is a long shot for the By manager tab.
         // A near miss on both is an opening ask, a place to start talking that you fall back from
-        const ok2=face.ok && fair.look>=fair.need-ASKROOM && fair.look<=fair.cap, opening=!ok2 && face.look>=face.need-FACE_ASK && face.look<=face.cap && fair.look>=fair.need-ASKROOM && fair.look<=fair.cap;
+        const ok2=room.ok, opening=!ok2 && room.light && room.look>=ROOM_LO-0.04;
         out.push({o,k:k++,give,get,fair,face,room,fit,ratio:face.look,planGain,pivGain,myGain:kind==='plan'?planGain:pivGain,weekN:v.weekN,per:v.per,fav:v.fav,dme,broke,kind,cut,myCut,credit,two,oneTwo,streamed,Tm,To,ask:!ok2,str:!ok2 && !opening});
       }
     }
@@ -1487,7 +1504,7 @@ function trades(ctx,done,live){
     // Vikas, Nov 5 2026, version 26.14. The room view sits beside face value. Easy sell needs 100 to 106 their way on both, a fair ask needs both inside the fair band,
     // and over 106 their way on either is an overpay the room may veto, which is never called fair however good it is for his cats
     const rm=t.room||roomOf(t.give,t.get); t.room=rm;
-    const look=fc.look; let lv=(look>=1.0 && look<=ROOM_HI && rm.easy)?2:(look>=0.99 && rm.ok)?1:0; if(fc.mine===2) lv++; if(fc.best===2) lv--; if(top) lv--; if(!t.weakHelp.length) lv--; if(t.cut) lv--;
+    const look=rm.look; let lv=rm.easy?2:rm.ok?1:0; if(fc.mine===2) lv++; if(fc.best===2) lv--; if(top) lv--; if(!t.weakHelp.length) lv--; if(t.cut) lv--;
     // helping two cats they are short in only makes the sell easier when the deal does not leave their team clearly worse
     // their change is judged the way the card shows it, to one decimal, so a card never says 5 points under an easy sell chip
     const og=Math.round(10*t.oGain)/10, bonus=t.weakHelp.length>=2 && look>=1.02, was=lv+(bonus?1:0);
@@ -1523,7 +1540,7 @@ function trades(ctx,done,live){
   const both=(a,b)=>{ const give=a.give.concat(a.myCut?[a.myCut]:[]).concat(b.give).concat(b.myCut?[b.myCut]:[]), get=a.get.concat(b.get), k=(a.two?1:0)+(b.two?1:0);
     if(new Set(give.map(p=>p.id)).size!==give.length) return null;
     if(ctx.ros[ME].filter(isCA).length-give.filter(isCA).length+get.filter(isCA).length<3) return null;
-    const T0=seasonTotals(ctx,ME,give,get), Tm=scaleT(T0,1/ctx.tweeks), ks=Math.max(0,k-(T0.promoted||0)); for(let i=0;i<ks;i++) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
+    const T0=seasonTotals(ctx,ME,give,get), Tm=scaleT(T0,1/ctx.tweeks), ks=Math.min(openSpots(ctx,ME,give,get),Math.max(0,k-(T0.promoted||0))); for(let i=0;i<ks;i++) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
     const over={}; over[a.o]=a.To; over[b.o]=b.To; const v=myView(ctx,Tm,over);
     if(guard.some(c=>hit(c,v.per[c],v.fav[c]))) return null;
     return {a,b,gain:100*(planWeekOf(ctx,v.prs,pl,false)-basePlan)-ks*env.spotV,per:v.per,weekN:v.weekN}; };
@@ -1533,7 +1550,7 @@ function trades(ctx,done,live){
     // Vikas, Nov 4 and 5 2026, versions 26.12 and 26.13. The manager notes rule deals out before any list is picked, so Best trades, the pivots, the routes and
     // By manager all agree. Out are a deal a note rules out (a player he will not trade, no room for two for one, he calls out light offers, he already said no),
     // a deal that asks for a player he rates highly unless it clearly favors him on the box score (110 percent or more), and a deal that hands you two or more injury prone players
-    const noteOut=t=>{ if(t.prone>=2) return true; const g=mgOf(t); if(g && g.force && !g.yes) return true; const m=MG && MG.teams[t.o]; if(m && m.deal==='win' && t.myGain<WIN_ONLY) return true; if(m && m.prize.length && t.get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0) && !(t.face && t.face.look>=1.10)) return true; return false; };
+    const noteOut=t=>{ if(t.prone>=2) return true; if(t.get.some(p=>offHas(t.o,p))) return true; const g=mgOf(t); if(g && g.force && !g.yes) return true; const m=MG && MG.teams[t.o]; if(m && m.deal==='win' && t.myGain<WIN_ONLY) return true; if(m && m.prize.length && t.get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0) && !(t.face && t.face.look>=1.10)) return true; return false; };
     const ok=t=>t.jside!=='lose' && !noteOut(t), byScore=(a,b)=>b.score-a.score||b.myGain-a.myGain, byGain=(a,b)=>b.myGain-a.myGain;
     res.cutByNotes=out.filter(t=>t.kind==='plan' && !t.ask && t.jside!=='lose' && noteOut(t)).length;
     const planAll=out.filter(t=>t.kind==='plan' && !t.ask && ok(t)).sort(byScore), pivAll=out.filter(t=>t.kind!=='plan' && !t.ask && ok(t) && t.myGain>=0.3 && t.newRoles.join()!==pl.roles.join()).sort(byScore);
@@ -1589,7 +1606,7 @@ function trades(ctx,done,live){
         const d=drops.find(p=>p.mv<=Math.max(10,x.mv)); if(!d) return; const myC=myC0-(isCA(d)?1:0);
         if(myC+(isCA(x)?1:0)<3 || thC-(isCA(x)?1:0)<2) return;
         // the bigger ask may look a little light, never insulting. It is the opening, and the listed deal is where you fall back to
-        const get=t.get.concat([x]), f=fairOf(t.give,get), fc=faceOf(t.give,get), rmx=roomOf(t.give,get); if(f.look<f.need-ASKROOM || f.look>f.cap || fc.look<fc.need-FACE_ASK || rmx.star || rmx.look<ROOM_LIST_LO) return;
+        const get=t.get.concat([x]), f=fairOf(t.give,get), fc=faceOf(t.give,get), rmx=roomOf(t.give,get); if(rmx.star || rmx.veto || rmx.over || rmx.look<ROOM_LIST_LO) return;
         const Tm=scaleT(seasonTotals(ctx,ME,t.give.concat([d]),get),1/ctx.tweeks), To=scaleT(seasonTotals(ctx,t.o,get,t.give),1/ctx.tweeks); TK.forEach(q=>To[q]+=ctx.stream[q]);
         const over={}; over[t.o]=To; const v=myView(ctx,Tm,over), brk=guard.filter(c=>hit(c,v.per[c],v.fav[c]));
         // a bigger ask may dip one guarded cat up to 3 points under its floor. It then has to gain a full point more, and the card says what it costs
@@ -1828,7 +1845,7 @@ function tradeJosh(t){ const jr=p=>{ const r=(p.b&&p.b.josh)||p.jr; return p.nam
 const rline=p=>{ const r=p.rl; if(!r) return null; if(r.cur && r.gp>=10) return {l:r.cur,b:0}; if(r.prev && r.pb==='last') return {l:r.prev,b:1}; return null; };
 const f1=x=>(Math.round(x*10)/10).toFixed(1);
 // a deal a plain value check calls even or better for them, that still gains you 2 points or more because of how it fits your build
-const fitWin=t=>!!t.face && t.face.ok && !!t.room && t.room.ok && t.myGain>=2;
+const fitWin=t=>!!t.room && t.room.ok && t.myGain>=2;
 // the season names, from the league's first week, so they roll over by themselves next year
 const seasonYear=()=>{ const s=D.league && Array.isArray(D.league.weeks) && D.league.weeks[0] && D.league.weeks[0].start; return s?+s.slice(0,4):2026; };
 const seasonLabel=back=>{ const y=seasonYear()-back; return y+' to '+String(y+1).slice(2); };
@@ -2326,7 +2343,7 @@ function tradeCard(cw,t,i,grp){
   let h0='';
   const kit=sellKit(cw,t), tc=tradeCats(t), oName=(cw.teams[t.o]||{}).name||'', nm=a=>a.map(p=>esc(p.name)).join(' and '), pl=TR.plan;
   // Vikas, Nov 5 2026, version 26.14. Every card carries the room number, what they get on all nine cats with the name counted. An overpay says the room may veto
-  const rmc=t.room||roomOf(t.give,t.get);
+  const rmc=t.room||roomOf(t.give,t.get), dwn=draftWarn(t.give,t.get);
   const sellChip=t.sell==='over'?'':t.sell==='easy'?'<span class="chip good">Easy sell</span>':t.sell==='fair'?'':'<span class="chip warn">Hard sell</span>';
   const roomChip=(t.sell==='over'||rmc.over?'<span class="chip bad">Overpay, room may veto</span>':rmc.light?'<span class="chip warn">Light to the room</span>':'')+'<span class="chip muted">Room '+pc(rmc.look)+'</span>';
   let h='<details class="mvcard'+(grp==='p' && tinyTrade(t)?' mvtiny':'')+'"><summary><span class="mvn '+(t.urgent?'must':t.myGain>=1?'strong':'helps')+'">+'+Math.abs(r1(t.myGain))+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(t.get)+'</b> <span class="sub">for '+nm(t.give)+', with '+esc(oName)+'</span>'
@@ -2336,12 +2353,12 @@ function tradeCard(cw,t,i,grp){
     +(t.kind==='plan'&&t.spent.length?'<span class="chip warn">Spends '+t.spent.map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip good">Helps '+tc.up.filter(c=>t.built.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
     +(tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').length?'<span class="chip warn">Costs '+tc.dn.filter(c=>t.spent.indexOf(c)<0 && t.broke.indexOf(c)<0 && pl.roles[c]!=='punt').map(c=>CATS[c]).join(' ')+'</span>':'')
-    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(t.mview?1-t.mview.look:t.face.need-t.face.look)))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">'+(t.mview.lateCap>0.001?'Little credit for ':'No credit for ')+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+roomChip+'<span class="chip muted">Nine cat '+updn(100*(t.after-cw.view0.weekN))+'</span>'+(t.fit&&t.fit.on?'<span class="chip good">Fits his notes</span>':'')+(t.myCut?'<span class="chip warn">Drop '+esc(shortName(t.myCut))+'</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
+    +(t.acc2!=null && (grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w')?accTag(t.acc2)+'<span class="chip muted">about '+pc(t.acc2)+'% yes</span>'+'':'')+(grp==='s'?(sh=>'<span class="chip bad">Stretch'+(sh>=1?', '+sh+'% short':'')+'</span>')(Math.round(100*(ROOM_LO-(t.room?t.room.look:ROOM_LO))))+(t.mview&&t.mview.pair?'<span class="chip bad">He loses on the '+t.mview.pair+' player</span>':'')+(t.mview&&t.mview.late&&t.mview.late.length?'<span class="chip bad">'+(t.mview.lateCap>0.001?'Little credit for ':'No credit for ')+esc(listWords(t.mview.late))+'</span>':''):'')+((grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w')?'':sellChip+(mgOf(t)?(g=>'<span class="chip '+(g.lv===2?'good':g.lv===1?'muted':'warn')+'">'+esc(g.m.name)+', '+(g.lv===2?'easy':g.lv===1?'fair':'hard')+'</span>')(mgOf(t)):''))+roomChip+'<span class="chip muted">Nine cat '+updn(100*(t.after-cw.view0.weekN))+'</span>'+(t.fit&&t.fit.on?'<span class="chip good">Fits his notes</span>':'')+(t.myCut?'<span class="chip warn">Drop '+esc(shortName(t.myCut))+'</span>':'')+(fitWin(t)?'<span class="chip good">Wins on fit</span>':'')
     +(t.bal.mult>1?'<span class="chip good">Helps balance</span>':t.bal.mult<1?'<span class="chip warn">Hurts balance</span>':'')
     +t.get.map(p=>{ const w=getWarn(p); return w?'<span class="chip bad">'+esc(w)+'</span>':''; }).join('')+t.get.map(newsChip).join('')
     +t.get.filter(p=>p.prone&&p.prone.on).map(p=>'<span class="chip '+(t.prone>=2?'bad':'warn')+'">'+esc(shortName(p))+' injury prone</span>').join('')
     +t.get.filter(p=>p.breakout&&p.breakout.dir==='up').map(p=>'<span class="chip good">'+esc(shortName(p))+' breakout</span>').join('')
-    +(t.overpay&&t.overpay.length?'<span class="chip warn">Overpays '+esc(t.overpay.map(x=>x.replace(/^you overpay on the /,'').replace(/,.*$/,'')).join(' and '))+'</span>':'')
+    +(dwn.length?'<span class="chip warn">Draft spot</span>':'')
     +t.get.filter(buyHigh).map(p=>'<span class="chip warn">'+esc(shortName(p))+' buying high</span>').join('')
     // Vikas, Nov 6 2026, version 26.15. What he is this season against last season, and a buy low tag for a player who is out with a date and was a solid line last season
     +t.get.filter(p=>p.rvTrend==='up' && !buyHigh(p)).map(p=>'<span class="chip good">'+esc(shortName(p))+' up on last season</span>').join('')
@@ -2351,7 +2368,7 @@ function tradeCard(cw,t,i,grp){
     +'</span></span></summary>';
   const g=mgOf(t);
   // Vikas, Nov 6 2026, version 26.16. Swap by swap, best for best and lesser for lesser by room score, with the room number on each, and who is dropped to make room
-  h+='<div class="mvbody"><div><span class="lab">The trade off, a game</span>'+pgTable(t)+'<p class="small">Swap by swap. '+esc(swapLines(t).join('. '))+'.</p></div><div><span class="lab">What it does for me</span>'+meTable(cw,t)+'</div>'
+  h+='<div class="mvbody"><div><span class="lab">The trade off, a game</span>'+pgTable(t)+'<p class="small">Swap by swap. '+esc(swapLines(t).join('. '))+'.</p>'+(dwn.length?'<p class="small">Draft spot. '+esc(dwn.map(capF).join('. '))+'.</p>':'')+'</div><div><span class="lab">What it does for me</span>'+meTable(cw,t)+'</div>'
     +'<div><span class="lab">How to sell it to '+esc(oName)+'</span><ul>'+sellFor(cw,t).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
     // what the other manager will say is only shown once there is a profile on him, since without one it is a guess
     +(g?'<div><span class="lab">What '+esc(g.m.name)+' will say</span>'+((grp==='t'||grp==='s'||grp==='h'||grp==='p'||grp==='w'||grp==='b') && t.acc2!=null?'<p>About '+pc(t.acc2)+' percent he says yes.</p>':'<p>About '+pc(g.chance)+' percent he says yes.</p>')+(g.why.length?'<ul>'+g.why.slice(0,4).map(x=>'<li>'+esc(capF(x))+'.</li>').join('')+'</ul>':'')+(t.fit?'<p class="small">Fits his notes '+t.fit.fit+' of 100'+(t.fit.why.length?', '+esc(t.fit.why.join(', '))+'.':'.')+'</p>':'')+(kit.alt?'<p class="small">'+esc(kit.alt)+'</p>':'')+'</div>':'')
@@ -2366,7 +2383,7 @@ function tradePanel(ctx){
   h+='<p class="small" id="mvtrwhen"><b>Scored on the Yahoo scan of '+esc(scanWhen(cw.scan.at))+'.</b> Every trade, gain and room number below comes from the stats and rosters read then.</p>';
   // two views of the same trades. Best trades is the list as it has always been. By manager ranks each manager's deals the way he values players
   h+='<div class="mvsub" role="tablist"><button type="button" role="tab" class="btn'+(ST.trTab!=='mgr'?' on':'')+'" id="mvtrbest" aria-selected="'+(ST.trTab!=='mgr')+'">Best trades</button><button type="button" role="tab" class="btn'+(ST.trTab==='mgr'?' on':'')+'" id="mvtrmgr" aria-selected="'+(ST.trTab==='mgr')+'">By manager</button></div>';
-  if(ST.trTab!=='mgr') h+=how('Every trade here is good for you first. Your gain is how many points your chance to win an average week goes up, counted the way your plan counts cats. The card also shows the real nine cat number. A trade has to look fair to the other manager, and nothing asks that it helps their team. Fair is judged two ways. First the box score and the name, the way most managers judge a deal. Each player gets a box score rating that leads with points, then rebounds and assists, from last season, or the season before if he missed last season, moved by this season. A hot start counts fast when his record backs it up, and slowly when it does not, since managers will call it one good night. Missed games, age over 33, injuries and a big name move it a little. A listed deal has to look about even to them on that, a little better when they give the best player, and it never hands them more than 10 percent extra. A deal under 80 percent of even is an insult and is never shown anywhere. Second the value scale, which also carries this league\'s draft and Josh\'s ranks. '+seenWords(cw)+' A listed deal may be at most a little light on that scale. Third the room, since Nov 5 2026 when the league vetoed a deal as unfair to you. The room judges a trade on the whole box score. All nine cats count, with points, rebounds, assists, threes, steals and blocks leading and turnovers and the two percentages counting a little less, this season counted more than last, plus the name and the draft. A top 10 name on that line last season or this season counts 15 percent more than his line, top 25 counts 10 more and top 50 counts 5 more, a top 10 draft pick 10 more, and each teammate due back from injury takes 8 percent off a role player. Yahoo\'s rostered percent is status too, a player rostered nearly everywhere carries 5 percent more and a waiver pickup 11 less. In a two for two the swaps are paired best for best and lesser for lesser, and they have to match. What you step up on one swap has to about equal what you step down on the other, within 3 points of room score either way, and a second swap that is an insult to him is never listed. Each card spells the swaps out. Each player with an asking price needs his own match. Every card shows that number as Room, and the real nine cat change beside the plan gain. Fair is 94 to 106 percent their way. Over 106 is an overpay, never called fair, listed with a veto warning. A waiver level extra beside a real piece is a throw in, on your side or his, judged by his real place among all players on the room score. The room sees a waiver pick as a waiver pick until he proves himself, so he moves the number a point or two at most, and when you take more players than you send, the player you would drop goes in the deal. From 112 the room vetoes it, so it is never listed, and neither is a star for parts, the biggest name in the deal going for players none of whom is within 85 percent of him. Every deal listed passes all three, so Easy sell, Hard sell and Overpay are marked to say how the pitch should go, and each card lists talking points that are true for that deal. Where a bigger ask is worth trying first, the card names it. Listed by your gain, with a hard sell marked down by half and a fair ask by 10 percent so they sit lower. Value you give away beyond an even deal counts a little against a trade. For a two for one, what you would gain by simply dropping a player for a streamer is taken off first. A one for two drops your least useful player the drop rules allow, and the card names him. When your notes say a manager likes a player you give or would move a player you get, the deal fits his notes, sits higher, needs a little less on the value scale and may lose a little more by Josh. They always keep two centers and you keep three. At most 14 trades show, no more than 3 with any one manager, and one per team and set of players you get. The By manager tab has the rest. Trades that gain under 1 point stay hidden until you tick the box under the list. Scored on the Yahoo scan of '+esc(snap)+'. A player with an equal value price in your plan goes only when a player ranked as high as him comes back.');
+  if(ST.trTab!=='mgr') h+=how('Every trade here is good for you first. Your gain is how many points your chance to win an average week goes up, counted the way your plan counts cats. The card also shows the real nine cat number. A trade has to look fair to the other manager, and nothing asks that it helps their team. Fair is judged one way since version 26.26, by the room, the way the league judges a deal. The box score check and the value scale no longer hide a deal. The room judges a trade on the whole box score. All nine cats count, with points, rebounds, assists, threes, steals and blocks leading and turnovers and the two percentages counting a little less, this season counted more than last, plus the name and the draft. A top 10 name on that line last season or this season counts 15 percent more than his line, top 25 counts 10 more and top 50 counts 5 more, a top 10 draft pick 10 more, and each teammate due back from injury takes 8 percent off a role player. Yahoo\'s rostered percent is status too, a player rostered nearly everywhere carries 5 percent more and a waiver pickup 11 less. In a two for two the swaps are paired best for best and lesser for lesser, and they have to match. What you step up on one swap has to about equal what you step down on the other, within 3 points of room score either way, and a second swap that is an insult to him is never listed. Each card spells the swaps out. Each player with an asking price needs his own match. Every card shows that number as Room, and the real nine cat change beside the plan gain. Fair is 94 to 106 percent their way. Over 106 is an overpay and is not listed. A waiver level extra beside a real piece is a throw in, on your side or his, judged by his real place among all players on the room score. The room sees a waiver pick as a waiver pick until he proves himself, so he moves the number a point or two at most, and when you take more players than you send, the player you would drop goes in the deal. From 112 the room vetoes it, so it is never listed, and neither is a star for parts, the biggest name in the deal going for players none of whom is within 85 percent of him. Every deal listed is fair in the room, so Easy sell and Hard sell are marked to say how the pitch should go, and each card lists talking points that are true for that deal. Where a bigger ask is worth trying first, the card names it. Listed by your gain, with a hard sell marked down by half and a fair ask by 10 percent so they sit lower. Value you give away beyond an even deal counts a little against a trade. For a two for one, what you would gain by simply dropping a player for a streamer is taken off first. A one for two drops your least useful player the drop rules allow, and the card names him. When your notes say a manager likes a player you give or would move a player you get, the deal fits his notes and sits higher, and may lose a little more by Josh. They always keep two centers and you keep three. At most 14 trades show from the main search, no more than 3 with any one manager, and one per team and set of players you get, plus up to 9 checked deals, 3 a manager. The By manager tab has the rest. The best checked deals with the managers you trade straight with, up to three for two, are searched in the background and join this list, so both tabs show the same deals with the same numbers. When you give a player drafted a full round or more ahead of the one you get back, the card carries a Draft spot warning, since you may be paying more than you need to. It never hides a deal. Trades that gain under 1 point stay hidden until you tick the box under the list. Scored on the Yahoo scan of '+esc(snap)+'. A player with an equal value price in your plan goes only when a player ranked as high as him comes back.');
   if(ST.trTab==='mgr'){ h+=mgrPage(cw,true)+'</div>'; return h; }
   if(!TR){ h+='<p class="empty" id="mvtrwait">Scoring trades with all nine teams.</p></div>'; return h; }
   if(TR.note){ h+='<p class="empty">'+esc(TR.note)+'</p></div>'; return h; }
@@ -2375,12 +2392,22 @@ function tradePanel(ctx){
   h+='<h2 style="margin-top:6px">Stays on plan <span>builds a route, spends only room, breaks no floor</span></h2>';
   // early in the season most of any gain rests on guesses about minutes, and managers have little to go on either, so holding is a real option
   const early=(cw.avgGP||0)<5;
-  if(!TR.list.length) h+='<div class="switch">Hold. No trade both helps your plan and looks fair to the other manager on the box score right now, so there is nothing worth pitching. Check back after a few more games. The By manager tab still shows the long shots. Checked '+TR.count+' offers.</div>';
-  else if(early) h+='<div class="switch">Early season, about '+r0(cw.avgGP||0)+' game'+(r0(cw.avgGP||0)===1?'':'s')+' a player so far. The trades below pass both checks, but most of your gain still rests on guesses about minutes. Holding until about 5 games is a fair choice unless one of these is clearly worth it to you.</div>';
+  if(!TR.list.length) h+='<div class="switch">Hold. No trade both helps your plan and is fair in the room right now, so there is nothing worth pitching. Check back after a few more games. The By manager tab still shows the stretch trades. Checked '+TR.count+' offers.</div>';
+  else if(early) h+='<div class="switch">Early season, about '+r0(cw.avgGP||0)+' game'+(r0(cw.avgGP||0)===1?'':'s')+' a player so far. The trades below are fair in the room, but most of your gain still rests on guesses about minutes. Holding until about 5 games is a fair choice unless one of these is clearly worth it to you.</div>';
   if(TR.cutByNotes) h+='<p class="small">'+TR.cutByNotes+' deal'+(TR.cutByNotes===1?' was':'s were')+' left off because of your manager notes, a player he will not trade or rates highly, a shape he has no room for, a manager you only deal with when you clearly win, or two injury prone players.</p>';
   const nTiny=TR.list.filter(tinyTrade).length;
   if(TR.list.length && nTiny===TR.list.length) h+='<p class="empty">No fair trade gains a full point right now.</p>';
-  TR.list.forEach((t,i)=>{ h+=tradeCard(cw,t,i,'p'); });
+  // Vikas, Nov 16 2026, version 26.26. Both tabs show the same deals. The checked deals for every manager he trades straight with, up to three for two, are searched in the
+  // background one manager at a time, and the best of them join this list, biggest gain first. A checked deal is left out when the list already has a deal for the same players
+  const fairOs=MG?Object.keys(MG.teams).filter(o=>MG.teams[o].deal==='fair' && cw.ros[o]):[], IS=TR.ideaS||{}, busyO=fairOs.find(o=>IS[o] && IS[o].busy), nextO=fairOs.find(o=>!IS[o]);
+  if(!busyO && nextO) setTimeout(()=>ideaSearch(cw,nextO),30);
+  // when the list already has a deal for the same players from that manager, the bigger gain of the two is the one shown, so no manager page ever tops this list for the same return
+  const gsk=(o,get)=>o+'|'+get.map(p=>p.id).sort().join('+'), inList={}, swapOut=new Set(); TR.list.forEach(t=>{ const k=gsk(t.o,t.get); if(!inList[k] || t.myGain>inList[k].myGain) inList[k]=t; });
+  let big=[]; fairOs.forEach(o=>{ const S=IS[o]; if(!S || S.busy) return; let n=0; const sg={}; S.keep.forEach(x=>{ const k=gsk(o,x.get), t=inList[k]; if(n>=BIG_TEAM || x.r.planGain<1 || sg[k] || (t && (t.pinned || x.r.planGain<t.myGain+0.3))) return; sg[k]=1; n++; big.push(x); }); });
+  big=big.sort((a,b)=>b.r.planGain-a.r.planGain).slice(0,BIG_MAX); big.forEach(x=>{ const k=gsk(x.o,x.get); TR.list.forEach(t=>{ if(gsk(t.o,t.get)===k) swapOut.add(t); }); });
+  const rows=TR.list.map((t,i)=>({t,g:t.pinned?1e9:t.myGain,h:tradeCard(cw,t,i,'p')})).filter(x=>!swapOut.has(x.t)).concat(big.map(x=>({g:x.r.planGain,h:ideaCard(cw,x)}))); if(big.length) rows.sort((a,b)=>b.g-a.g);
+  rows.forEach(x=>{ h+=x.h; });
+  if(busyO || nextO){ const w=busyO||nextO; h+='<p class="small">Checking bigger deals, up to three for two, with '+esc(MG.teams[w].name)+', <span id="mvideapct">'+(IS[w]?IS[w].pct:0)+'</span> percent done. '+fairOs.filter(o=>IS[o] && !IS[o].busy).length+' of '+fairOs.length+' managers checked. The best ones join this list as each manager finishes.</p>'; }
   if(nTiny) h+='<label class="mvchk"><input type="checkbox" id="mvshowsmall"'+(ST.small?' checked':'')+'> Show the '+nTiny+' smaller trade'+(nTiny===1?'':'s')+' that gain under 1 point</label>';
   h+='<h2 style="margin-top:14px">Pivots <span>give up one guarded cat for a bigger gain</span></h2>';
   h+='<p class="small">A pivot shows only when it beats the best trade that stays on plan by 2 points or more. Each one gives up a single lock, or leans on a cat the plan counts low. A full rebuild shows only when the plan is in trouble. Tap Make this my plan and the trades and pickups rank again under the new plan.</p>';
@@ -2406,9 +2433,9 @@ function mgView(t,m){ if(!m || !(m.byDraft||m.pairs||m.noLate)) return null;
 function teamRank(o){ const b=TR && TR.byTeam && TR.byTeam[o]; if(!b) return null; const m=MG && MG.teams[o], hasMg=!!m;
   let fair=b.fair.slice(), str=b.stretch.slice(), piv=(b.pivots||[]).slice();
   fair.concat(str).concat(piv).forEach(t=>{ t.mview=mgView(t,m); });
-  if(m && (m.byDraft||m.pairs||m.noLate)){ const all=fair.concat(str); fair=all.filter(t=>t.mview.ok && t.face.look>=FACE_INSULT); str=all.filter(t=>!t.mview.ok && t.mview.look>=0.80); piv=piv.filter(t=>t.mview.ok && t.face.look>=FACE_INSULT); }
+  // 26.26. Fair is the room score for every manager, so his own view from the notes no longer moves a deal between the lists. It still feeds the yes chance
   // the insult guard. A manager who calls out lowballs never sees a deal that looks light to him, not even as a long shot
-  if(m && m.callout){ str=str.filter(t=>t.face.look>=t.face.need-FACE_ASK); }
+  if(m && m.callout){ str=str.filter(t=>t.room && t.room.look>=ROOM_LO-0.03); }
   fair.concat(str).concat(piv).forEach(t=>{ const a=acceptOf(t); t.acc2=a.c; t.accWhy=a.why; t.accG=a.g; t.ev=t.myGain*a.c; });
   // a deal your notes rule out, a player he said is not for trade, a shape he has no room for, or a light offer to a manager who calls those out, is left off
   const live=t=>!(t.accG && t.accG.force && !t.accG.yes) && !(t.accG && (t.accG.yes || t.accG.maybe)); fair=fair.filter(live); str=str.filter(live); piv=piv.filter(live).sort((x,y)=>y.myGain-x.myGain).slice(0,5);
@@ -2436,6 +2463,10 @@ function mgrPage(cw,inner){
     if(old==null || old>14) h+='<p class="small" style="margin-top:8px"><span class="chip warn">Old notes</span> '+(old==null?'Your notes on '+esc(m.name)+' have no date.':'Your newest note on '+esc(m.name)+' is from '+esc(nice(m.at))+', '+old+' days ago.')+' Ask him what he needs now before you lean on them.</p>'; }
   if(m && m.tips.length) h+='<details class="mvteam" style="margin-top:8px"><summary class="small"><b>Your notes on '+esc(m.name)+'</b>, '+m.tips.length+' tips</summary><ul class="mvlist">'+m.tips.map(x=>'<li>'+esc(x.replace(/\.+$/,''))+'.</li>').join('')+'</ul></details>';
   // Vikas, Nov 4 2026, version 26.12. In talks only shows a deal that helps you. A deal whose gain is zero or less, or whose players have moved, is not shown. The notes keep it
+  // 26.26. His players, each with a box. A box he unticks is a hard no from that manager, and every deal that asks for the player goes away on both tabs
+  { const hp=(cw.ros[o]||[]).filter(p=>p.proj).slice().sort((a,b)=>(b.rv||0)-(a.rv||0)), kp=m?m.keep:[], shut=p=>kp.indexOf(B.nkey(p.name))>=0 || offHas(o,p), nShut=hp.filter(shut).length, who=m?m.name:((cw.teams[o]||{}).name||'This manager');
+    if(hp.length) h+='<details class="mvteam" style="margin-top:8px"'+(nShut||ST.offOpen?' open':'')+'><summary class="small"><b>'+esc(who)+'\'s players</b>, '+(hp.length-nShut)+' of '+hp.length+' open to a trade</summary><p class="small">Untick a player '+esc(who)+' gave a hard no on. Every deal that asks for him is hidden, on this page and on Best trades. Tick him again to bring those deals back. This is kept in this browser only and your notes file is not changed.</p><div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0">'
+      +hp.map(p=>{ const k=B.nkey(p.name), inNotes=kp.indexOf(k)>=0; return '<label class="small" style="min-width:150px;display:inline-flex;align-items:center;gap:6px"><input type="checkbox" data-off="'+esc(o+'|'+k)+'"'+(inNotes?' disabled':offHas(o,p)?'':' checked')+'>'+esc(p.name)+(inNotes?' <span class="sub">no in your notes</span>':hurt(p)?' <span class="sub">hurt</span>':'')+'</label>'; }).join('')+'</div></details>'; }
   const tk=talkRows(cw,o).filter(x=>!x.stale && x.r.planGain>0); if(tk.length){ h+='<h2 style="margin-top:10px">In talks <span>deals '+esc(m.name)+' has talked about with you, from your notes</span></h2>'; tk.forEach(x=>{ h+=talkCard(cw,x); }); }
   // Vikas, Nov 11 2026, version 26.22. Checked deals is searched by the page itself for a manager marked fair, on the scan named above the trades. The first ten show and the
   // rest fold away. Deals that let a lock slip a little get their own labeled list. A deal that breaks a lock by more is not shown at all
@@ -2443,7 +2474,7 @@ function mgrPage(cw,inner){
     const fold=(list,n)=>list.slice(0,n).map(x=>ideaCard(cw,x)).join('')+(list.length>n?'<details class="mvhow"><summary class="small">Show the other '+(list.length-n)+', smaller gains</summary>'+list.slice(n).map(x=>ideaCard(cw,x)).join('')+'</details>':'');
     h+='<h2 style="margin-top:10px">Checked deals <span>every shape up to three for two, on the scan of '+when+'</span></h2>';
     if(!S || S.busy){ if(!S) setTimeout(()=>ideaSearch(cw,o),30); h+='<p class="small">Searching every deal of one, two or three of your players for one or two of '+esc(m.name)+'\'s, on the scan of '+when+'. <span id="mvideapct">'+(S?S.pct:0)+'</span> percent done. It takes a few seconds the first time after a scan.</p>'; }
-    else { h+='<p class="small">'+S.keep.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room, on the scan of '+when+'.'+(S.slip.length?' '+S.slip.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. A deal with a catch says what it is. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
+    else { h+='<p class="small">'+S.keep.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room, on the scan of '+when+'.'+(S.slip.length?' '+S.slip.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
       if(!S.keep.length) h+='<p class="empty">No deal with '+esc(m.name)+' gains for you, keeps every lock and is fair to the room on this scan.</p>';
       h+=fold(S.keep,10);
       if(S.slip.length) h+='<h2 style="margin-top:10px">Checked deals with a lock at risk <span>a slip of '+SLIP_MAX+' points or less, labeled on each card</span></h2>'+fold(S.slip,6); } }
@@ -2481,10 +2512,12 @@ function ideaRows(cw,o){ const m=MG && MG.teams[o]; if(!m || !m.ideas || !m.idea
     const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id)); if(r.err) return; out.push({o,m,y,give,get,r}); });
   out.sort((a,b)=>b.r.planGain-a.r.planGain); if(TR){ TR.ideaC=TR.ideaC||{}; TR.ideaC[o]=out; } return out; }
 // 26.25. A checked deal also has to clear the swap rules and the box score cap, the same stops the main lists use. Matched by their words, like IDEA_HARD below
-const IDEA_FAIR=/overpays on face value|the swaps do not match|is an insult to him/, ideaFair=x=>!(x.r.stops||[]).some(z=>IDEA_FAIR.test(z));
-const ideaOK=x=>x.r.planGain>=0.3 && !x.r.broke.length && x.r.roomFair && ideaFair(x);
+// 26.26. The box score cap left this list with the box score check. A checked deal now shows only when nothing stops it but a lock slip, so no card carries a catch
+const IDEA_FAIR=/the swaps do not match|is an insult to him/, ideaFair=x=>!(x.r.stops||[]).some(z=>IDEA_FAIR.test(z)), ideaClean=x=>!(x.r.stops||[]).some(z=>!/^plan gain under|^breaks /.test(z));
+const BIG_TEAM=3, BIG_MAX=9;
+const ideaOK=x=>x.r.planGain>=0.3 && !x.r.broke.length && x.r.roomFair && ideaFair(x) && ideaClean(x);
 // a lock at risk, not gone. Every lock the deal touches slips by SLIP_MAX points of that cat's win chance or less. A bigger break is left off the page (Vikas, Nov 11 2026)
-const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && x.r.broke.length>0 && (x.r.slips||[]).every(z=>z.from-z.to<=SLIP_MAX);
+const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && ideaClean(x) && x.r.broke.length>0 && (x.r.slips||[]).every(z=>z.from-z.to<=SLIP_MAX);
 /* Vikas, Nov 11 2026, version 26.22. He wants every variation with each manager he trades with, always on the stats of the last scan, without asking for a search.
    So the page runs the search itself. For a manager marked fair in the notes it tries every deal of one, two or three of your players for one or two of his,
    about 64,000 offers, drops the ones the room would not call fair with a cheap check, and scores the rest with checkOffer, the same function behind every other
@@ -2492,12 +2525,12 @@ const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && x.r.broke.
    and either keep every lock or let a lock slip by SLIP_MAX points or less. The result is kept on the trade result and, as player ids only, in this browser under
    IDEAKEY with a stamp of the scan, the plan and the notes, so the next visit only scores the kept deals again. The stops below are matched by their words, so a
    reworded stop in checkOffer has to be reworded here too */
-const IDEA_HARD=/is not yours|not on that team|is hurt|is held|never offered|drop rules|only makes room|insults them|under 3 centers|under 2 centers|asking price|injury prone|checker handles|lose by Josh|plan gain under|star for parts|the room will/;
-const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm4',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
+const IDEA_HARD=/is a hard no|is not yours|not on that team|is hurt|is held|never offered|drop rules|only makes room|insults them|under 3 centers|under 2 centers|asking price|injury prone|checker handles|lose by Josh|plan gain under|star for parts|the room will/;
+const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm5',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG(),JSON.stringify(OFF)].join('|'); };
 const TIERSIG=()=>[...TTRADE].sort().join(',')+'/'+[...TFLOAT].sort().join(',');
 function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; if(TR.ideaS[o]) return; const m=MG && MG.teams[o], trRef=TR, S=TR.ideaS[o]={busy:true,pct:0,keep:[],slip:[],tried:0}, seen={};
   const kOf=(give,get)=>give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.');
-  const take=(give,get)=>{ let k=kOf(give,get); if(seen[k]) return; const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id)); if(r.err || r.planGain<0.5 || !r.roomFair || r.stops.some(z=>IDEA_HARD.test(z) || IDEA_FAIR.test(z))) return;
+  const take=(give,get)=>{ let k=kOf(give,get); if(seen[k] || get.some(p=>offHas(o,p))) return; const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id)); if(r.err || r.planGain<0.5 || !r.roomFair || r.stops.some(z=>IDEA_HARD.test(z) || IDEA_FAIR.test(z))) return;
     // 26.24. The player you would drop goes in the deal, so a one for two is the same deal as the two for two that names him. It is listed once
     if(r.myDrop){ const t=(cw.ros[ME]||[]).find(p=>p.name===r.myDrop); if(t && give.indexOf(t)<0){ seen[k]=1; give=give.concat([t]); k=kOf(give,get); if(seen[k]) return; } }
     if(m){ if(get.some(p=>m.keep.indexOf(B.nkey(p.name))>=0)) return; if(r.face<110 && get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0)) return; }
@@ -2505,7 +2538,7 @@ function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; i
   const sig=ideaSig(cw); let cache=null; try{ cache=JSON.parse(localStorage.getItem(IDEAKEY)||'null'); }catch(e){} if(!cache || cache.sig!==sig) cache={sig,t:{}};
   const finish=save=>{ if(TR!==trRef) return;
     // the deals kept by hand in the notes join the list, scored the same way
-    ideaRows(cw,o).forEach(x=>{ const k=kOf(x.give,x.get); if(seen[k]) return; if(ideaOK(x)){ seen[k]=1; S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; S.slip.push(x); } });
+    ideaRows(cw,o).forEach(x=>{ const k=kOf(x.give,x.get); if(seen[k] || x.get.some(p=>offHas(o,p))) return; if(ideaOK(x)){ seen[k]=1; S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; S.slip.push(x); } });
     S.keep.sort((a,b)=>b.r.planGain-a.r.planGain); S.slip.sort((a,b)=>b.r.planGain-a.r.planGain); S.busy=false;
     // two searches can run side by side, so the saved copy is read again right before it is written
     if(save){ let c2=null; try{ c2=JSON.parse(localStorage.getItem(IDEAKEY)||'null'); }catch(e){} if(!c2 || c2.sig!==sig || !c2.t) c2={sig,t:{}}; c2.t[o]=S.keep.concat(S.slip).map(x=>x.give.map(p=>p.id).join('.')+'>'+x.get.map(p=>p.id).join('.')); try{ localStorage.setItem(IDEAKEY,JSON.stringify(c2)); }catch(e){} }
@@ -2524,19 +2557,20 @@ function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; i
 function ideaCard(cw,x){ const nm=a=>esc(listWords(a.map(p=>p.name))), oName=(cw.teams[x.o]||{}).name||'', r=x.r, N=esc(x.m.name), key=['PTS','REB','AST','STL','3PM','TO'];
   // the value scale stop is said in plain words here, since it is the catch on most of these
   const plain=z=>{ const v=/^fails the value scale, look (-?[\d.]+) percent their way/.exec(z); return !v?z:+v[1]<0?'it reads '+Math.abs(+v[1])+' percent light for him on the value scale, his own read of names, draft spots and ranks, so expect a no or a counter':'you give '+v[1]+' percent more than he does on the value scale'; };
-  const soft=(r.stops||[]).filter(z=>!/^plan gain under|^breaks /.test(z)).map(plain), clean=!soft.length && !r.broke.length;
-  return '<details class="mvcard"><summary><span class="mvn '+(r.planGain>=1?'strong':'helps')+'">'+bsg(r.planGain)+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(x.get)+'</b> <span class="sub">for '+nm(x.give)+', with '+esc(oName)+'</span><span class="meta"><span class="chip muted">'+x.give.length+' for '+x.get.length+'</span>'+(r.broke.length?'<span class="chip warn">'+esc((r.slips||[]).map(z=>z.c+' slips '+z.from+' to '+z.to).join(', ')||('Breaks '+r.broke.join(' ')))+'</span>':'<span class="chip good">Keeps your locks</span>')+'<span class="chip muted">Room '+r.room+'</span>'+(clean?'<span class="chip good">Passes every check</span>':'<span class="chip warn">Has a catch</span>')+'</span></span></summary>'
+  const soft=(r.stops||[]).filter(z=>!/^plan gain under|^breaks /.test(z)).map(plain);
+  return '<details class="mvcard"><summary><span class="mvn '+(r.planGain>=1?'strong':'helps')+'">'+bsg(r.planGain)+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(x.get)+'</b> <span class="sub">for '+nm(x.give)+', with '+esc(oName)+'</span><span class="meta"><span class="chip muted">'+x.give.length+' for '+x.get.length+'</span>'+(r.broke.length?'<span class="chip warn">'+esc((r.slips||[]).map(z=>z.c+' slips '+z.from+' to '+z.to).join(', ')||('Breaks '+r.broke.join(' ')))+'</span>':'<span class="chip good">Keeps your locks</span>')+'<span class="chip muted">Room '+r.room+'</span>'+(soft.length?'<span class="chip warn">Blocked</span>':'<span class="chip good">Fair in the room</span>')+((r.draft||[]).length?'<span class="chip warn">Draft spot</span>':'')+'</span></span></summary>'
     +'<ul class="mvlist">'+(r.perGame?'<li>A game you give '+esc(r.perGame.filter(z=>key.indexOf(z.k)>=0).map(z=>z.give+' '+z.k).join(', '))+' and get '+esc(r.perGame.filter(z=>key.indexOf(z.k)>=0).map(z=>z.get+' '+z.k).join(', '))+'.</li>':'')
     +'<li>Your average week goes from '+r.nineCatBefore+' to '+r.nineCatAfter+' percent, and your plan moves up '+Math.abs(r.planGain)+' points.</li>'
     +'<li>The average week for '+N+' moves '+(r.theirChange>=0?'up ':'down ')+Math.abs(r.theirChange)+' points.</li>'
-    +'<li>On box scores '+N+' gets about '+r.face+' percent of what he gives, and the room reads it at '+r.room+' percent, inside the fair band of '+pc(ROOM_LO)+' to '+pc(ROOM_HI)+'.</li>'
+    +'<li>The room reads it at '+r.room+' percent their way, inside the fair band of '+pc(ROOM_LO)+' to '+pc(ROOM_HI)+'. On box scores alone '+N+' gets about '+r.face+' percent of what he gives.</li>'
+    +((r.draft||[]).length?'<li>Draft spot. '+esc(r.draft.map(capF).join('. '))+'.</li>':'')
     +(r.broke.length && r.slips?'<li>Lock at risk. '+esc(r.slips.map(z=>'Your chance to win '+z.c+' in an average week slips from '+z.from+' to '+z.to+' percent').join('. '))+'. A slip of '+SLIP_MAX+' points or less shows here, a bigger break is left off.</li>':'')
     +(r.myDrop?'<li>'+esc(r.myDrop)+' goes in the deal. You would have to drop him to make room anyway, and the gain counts that.</li>':'')
     +((r.throwIn||[]).length?'<li>'+esc(listWords(r.throwIn))+(r.throwIn.length>1?' are throw ins. They are':' is a throw in. He is')+' waiver level, so the room and the box score check count almost nothing for '+(r.throwIn.length>1?'them':'him')+', a point or two at most.</li>':'')
     +(r.throwNote?'<li>'+esc(capF(r.throwNote))+'.</li>':'')
     +(r.cut?'<li>'+N+' would have to drop '+esc(r.cut)+' to make room.</li>':'')
     +(r.streamer?'<li>'+esc(capF(r.streamer))+'.</li>':'')
-    +(soft.length?'<li>The catch, '+esc(listWords(soft))+'.</li>':'')
+    +(soft.length?'<li>Blocked, '+esc(listWords(soft))+'.</li>':'')
     +(x.y.note?'<li>'+esc(x.y.note.replace(/\.+$/,''))+'.</li>':'')+'</ul></details>'; }
 function talkCard(cw,x){
   if(x.stale) return '<p class="small">'+esc(x.m.name)+' talked about a deal'+(x.y.at?' on '+nice(x.y.at):'')+' whose players have moved since, so it no longer applies.</p>';
@@ -2551,6 +2585,7 @@ function talkCard(cw,x){
     +(r.perGame?'<li>A game you give '+esc(r.perGame.filter(z=>['PTS','REB','AST','STL','3PM','TO'].indexOf(z.k)>=0).map(z=>z.give+' '+z.k).join(', '))+' and get '+esc(r.perGame.filter(z=>['PTS','REB','AST','STL','3PM','TO'].indexOf(z.k)>=0).map(z=>z.get+' '+z.k).join(', '))+'.</li>':'')
     +'<li>Your average week goes from '+r.nineCatBefore+' to '+r.nineCatAfter+' percent, and your plan moves '+(up?'up ':'down ')+Math.abs(r.planGain)+' points.</li>'
     +'<li>On box scores '+N+' gets about '+r.face+' percent of what he gives.</li>'
+    +((r.draft||[]).length?'<li>Draft spot. '+esc(r.draft.map(capF).join('. '))+'.</li>':'')
     +'<li>'+(r.roomFair?'Fair to the room at '+r.room+' percent, all nine cats plus the name, so it should pass the group.':esc(r.roomWhy.charAt(0).toUpperCase()+r.roomWhy.slice(1))+'.')+'</li>'
     +(x.get.length>x.give.length?'<li>You get more players than you send, so you would have to drop someone, and that drop is not counted in the gain yet.</li>':'')
     +(watch.length?'<li>Watch out, '+esc(listWords(watch))+'.</li>':'')+'</ul></details>'; }
@@ -2596,6 +2631,7 @@ function wire(root){
   const u=$('mvundo'); if(u) u.onclick=()=>{ ST.marks=[]; save(); compute(true); };
   const mf=$('mvmgfile'); if(mf) mf.onchange=()=>{ const f=mf.files&&mf.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ const e=setMg(String(rd.result||'')); if(e){ const m=$('mvmgmsg'); if(m) m.textContent=e; } else compute(true); }; rd.readAsText(f); };
   const mc=$('mvmgclear'); if(mc) mc.onclick=()=>{ clearMg(); render(); };
+  root.querySelectorAll('[data-off]').forEach(b=>b.onchange=()=>{ const a=String(b.getAttribute('data-off')).split('|'), o=a[0], k=a.slice(1).join('|'); if(!o || !k) return; const L=(OFF[o]||[]).filter(x=>x!==k); if(!b.checked) L.push(k); if(L.length) OFF[o]=L.slice(0,30); else delete OFF[o]; saveOff(); ST.offOpen=true; save(); compute(true); });
   const ig=$('mvideago'); if(ig) ig.onclick=()=>{ if(!TR || !CTXW) return; const o=ST.tteam; if(TR.ideaS) delete TR.ideaS[o]; ideaSearch(CTXW,o,true); render(); };
 }
 function compute(redoTrades){
@@ -2700,7 +2736,7 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   // Vikas, Nov 11 2026, version 26.20. Three players a side are scored too. The site's own search still tries only one or two a side
   if(give.length>3||get.length>3) stops.push('the checker handles up to three players a side');
   give.forEach(p=>{ const k=B.nkey(p.name); if(p.own!==ME) stops.push(p.name+' is not yours'); if(NEVER.has(k)) stops.push('Kyrie is never offered'); if(HOLD[k] && env.today<HOLD[k]) stops.push(p.name+' is held until '+niceLong(HOLD[k])); if(hurt(p)) stops.push(p.name+' is hurt, your rule keeps him until he is back'); });
-  get.forEach(p=>{ if(p.own!==o) stops.push(p.name+' is not on that team'); });
+  get.forEach(p=>{ if(p.own!==o) stops.push(p.name+' is not on that team'); else if(offHas(o,p)) stops.push(p.name+' is a hard no, you unchecked him on that manager\'s page'); });
   // Vikas, Nov 6 2026, version 26.16. One for two. Your least useful player the drop rules allow is dropped to make room, and the gain counts that drop.
   // myDrop in the answer names him. To try a different drop, run whatIf with that drop first and read the two answers together
   let myCut=null; if(get.length>give.length){ const ilOpenM=ctx.ros[ME].filter(isIL).length+ctx.ros[ME].filter(p=>!isIL(p) && isOut(p)).length<2;
@@ -2711,10 +2747,9 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   let tossed=null; if(myCut){ tossed=myCut; give=give.concat([myCut]); myCut=null; }
   // a deal that fits his notes needs 4 points less on the value scale and may lose by Josh by half again the usual margin
   const fit=fitOf(o,give,get,null), fair=softFair(fairOf(give,get),fit), face=faceOf(give,get);
-  if(face.insult) stops.push('insults them on face value, they get '+pc(face.look)+' percent of what they give'); else if(!face.ok) stops.push(face.look>face.cap?'overpays on face value, they get '+pc(face.look)+' percent of what they give':'fails face value, they get '+pc(face.look)+' percent of what they give and need '+pc(face.need));
-  if(fair.look<fair.need-ASKROOM || fair.look>fair.cap) stops.push('fails the value scale, look '+r1(100*(fair.look-1))+' percent their way');
+  // Vikas, Nov 16 2026, version 26.26. The room score is the one fairness test, so the box score check and the value scale no longer stop a deal. Their numbers still come back in the answer
   // Vikas, Nov 5 2026, version 26.13. A deal inside the caps can still cost him market value. He is told plainly when he overpays, on the box score or on the value scale
-  const over=overpay(give,get,fair,face); over.forEach(x=>stops.push(x));
+  const over=overpay(give,get,fair,face);
   // Vikas, Nov 5 2026, version 26.14. The room view. A veto, a star for parts, an overpay or a light deal in the room's eyes each stop the fair tag
   const room=roomOf(give,get); if(!room.ok) stops.push(room.words);
   if(ctx.ros[ME].filter(isCA).length-give.filter(isCA).length+get.filter(isCA).length-(myCut&&isCA(myCut)?1:0)<3) stops.push('leaves you under 3 centers');
@@ -2725,7 +2760,7 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   const prone=get.filter(p=>p.prone && p.prone.on); if(prone.length>=2) stops.push('you would take on '+prone.length+' injury prone players, '+listWords(prone.map(p=>p.name)));
   // when you send more players than you get, they drop as many of their least useful players as their roster needs, and each spot you open is filled by a streamer unless your own bench fills it
   const extra=give.length-get.length, two=extra>0; let cuts=[]; if(two){ const over=ctx.ros[o].filter(p=>!isIL(p)).length+extra-ACTIVE; if(over>0){ const worst=ctx.ros[o].filter(p=>p.proj && !isIL(p)).sort((a,b)=>(a.val+14)*(ctx.ug[a.id]||0)-(b.val+14)*(ctx.ug[b.id]||0)); cuts=worst.filter(p=>!get.includes(p)).slice(0,Math.min(extra,over)); } } const cut=cuts[0]||null;
-  const T0=seasonTotals(ctx,ME,myCut?give.concat([myCut]):give,get), Tm=scaleT(T0,1/ctx.tweeks), ks=two?Math.max(0,extra-(T0.promoted||0)):0, streamed=ks>0; for(let i=0;i<ks;i++) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
+  const T0=seasonTotals(ctx,ME,myCut?give.concat([myCut]):give,get), Tm=scaleT(T0,1/ctx.tweeks), ks=two?Math.min(openSpots(ctx,ME,myCut?give.concat([myCut]):give,get),Math.max(0,extra-(T0.promoted||0))):0, streamed=ks>0; for(let i=0;i<ks;i++) TK.forEach(q=>Tm[q]+=ctx.stream[q]);
   const To=scaleT(seasonTotals(ctx,o,cuts.length?get.concat(cuts):get,give),1/ctx.tweeks); if(myCut) TK.forEach(q=>To[q]+=ctx.stream[q]); const ov={}; ov[o]=To; const v=myView(ctx,Tm,ov);
   const gain=100*(planWeekOf(ctx,v.prs,pl,false)-env.basePlan)-ks*env.spotV; const broke=env.guard.filter(c=>env.hit(c,v.per[c],v.fav[c]));
   if(gain<0.3) stops.push('plan gain under 0.3'); if(broke.length) stops.push('breaks '+broke.map(c=>CATS[c]).join(' ')+', so at best a pivot');
@@ -2733,7 +2768,7 @@ function checkOffer(o,giveIds,getIds){ o=String(o); const ctx=CTXW; if(!ctx || !
   const swaps=swapsOf(give,get).map(x=>({give:x.give?x.give.name:null,get:x.get?x.get.name:null,room:x.look}));
   // a throw in he has to drop a better player for does nothing for him
   const throwNote=(cut && thG.length && thG.every(p=>p.rv<cut.rv))?'he would have to drop '+cut.name+' to take '+listWords(thG.map(p=>p.name))+', and '+cut.name+' is the better player, so the extra does nothing for him':null;
-  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(so.week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),room:pc(room.look),roomFair:room.ok,roomEasy:room.easy,roomWhy:room.ok?null:room.words,swaps,fit:fitF?fitF.fit:null,fitsNotes:!!(fitF&&fitF.on),fitWhy:fitF?fitF.why:[],myDrop:tossed?tossed.name:null,throwIn:thG.concat(thR).map(p=>p.name),throwNote,josh:js,broke:broke.map(c=>CATS[c]),slips:broke.map(c=>({c:CATS[c],from:r1(100*ctx.view0.per[c]),to:r1(100*v.per[c])})),cut:cut?listWords(cuts.map(p=>p.name)):null,streamer:two?(streamed?'a waiver level streamer fills the open spot':'your own bench fills the open spot, no streamer counted'):null,overpay:over,prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get,streamed?ctx.stream:null),listed:!stops.length,stops}; }
+  return {planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),theirChange:r1(100*(so.week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),room:pc(room.look),roomFair:room.ok,roomEasy:room.easy,roomWhy:room.ok?null:room.words,swaps,fit:fitF?fitF.fit:null,fitsNotes:!!(fitF&&fitF.on),fitWhy:fitF?fitF.why:[],myDrop:tossed?tossed.name:null,throwIn:thG.concat(thR).map(p=>p.name),throwNote,josh:js,broke:broke.map(c=>CATS[c]),slips:broke.map(c=>({c:CATS[c],from:r1(100*ctx.view0.per[c]),to:r1(100*v.per[c])})),cut:cut?listWords(cuts.map(p=>p.name)):null,streamer:two?(streamed?'a waiver level streamer fills the open spot':(T0.promoted?'your own bench fills the open spot, no streamer counted':'no roster spot opens, your roster is still full, so no streamer is counted')):null,overpay:over,draft:draftWarn(give,get),prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get,streamed?ctx.stream:null),listed:!stops.length,stops}; }
 /* Vikas, Nov 4 2026. What if, on the roster you really have now.
    setRoster takes your roster as Yahoo shows it today, a list of [player id, slot, status], and rebuilds every number on it, the trade snapshot too.
    Nothing is saved. A reload goes back to the last scan. whatIf scores adds and drops on top of the roster in use, for this week and the season, without changing anything */
