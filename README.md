@@ -18,6 +18,25 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.27 (branch main), Nov 18 2026, audit fixes, real two week minutes, return dates that hold, and a pickup can sit
+
+Vikas asked for an independent audit of the numbers and then said fix all of them and deploy. Tested on a local copy with the Nov 18 09.32 scan and his notes.
+
+* Two week minutes are checked against the box scores. Yahoo fills its two week split team by team after midnight, and a read in the middle of that showed one game fewer with the same total minutes (Diabate 41.7 for a real 31.3). When the box scores hold more games in the same 14 days, the box score line is used. On the 09.32 scan the average week reads 67, not 69, and the top four chance 69, not 73
+* A return date that has come is due any day. A player still out on the day of his date, or up to a week after it, keeps his full share over the season and is never dropped to the 60 percent hedge, so the counted 15 and the trade gains no longer jump at midnight. Tested with Murphy and Allen at their dates, the average week stays 67 where 26.26 read 59
+* A pickup may sit. The counted 15 is picked by general value, so a pickup could push a better fit for the plan out of the 15 and read as a loss (Huerter, minus 2.4 for the season). The season lift is now the better of the pickup counted and the pickup sitting, never a gain from sitting. Same for waivers and trade chips
+* The open spot discount on a two for one only counts a spot that really opens. It read 8.4 on Nov 18 and now reads 0, so a deal that truly opens a spot is no longer marked down
+* The streamer plays at the waiver fill in share, about 2.3 games a week in place of 2.9, which matches a real waiver player through the daily lineup within half a point
+* The other team's streamer in a one for two also needs a spot that really opens
+* The forecast check is shown cat by cat. A cat whose calls score worse than a 50 percent guess is named as weak in the summary and the week panel. Turnovers are weak so far (right 6 of 14 calls). The check cache key is 26.27
+* Players are matched by id in the season totals, so a player object from the other context counts as the same player
+* Plan table labels read On target, Near 60 and Under 50 in place of On target, Close and Behind
+* Ingest compares his matchup on the matchup page with the scoreboard. When they disagree it keeps the one further along for both, warns, and flags the scan (the Nov 18 09.04 read had 182 to 77 on one and 258 to 144 on the other)
+* Ingest keeps scan_prev.json from an earlier day, so a reread the same night no longer replaces yesterday with a read from 30 minutes before
+* The scanner fetches every Yahoo page fresh, never from the browser cache
+* The page names an empty icon, so the browser no longer asks for favicon.ico
+* Saved checked deals search again once (ideaSig rm6)
+
 ## Version 26.26 (branch main), Nov 18 2026, the room score is the one fairness test, both tabs show the same deals, and a hard no checklist
 
 Vikas asked why Best trades showed gains near 2 while a manager page showed gains over 6. Best trades asked every check to pass and the manager page also listed deals with a catch. He said the room score is the fairness test, since a deal the room sees as fair is one a manager will take. He also asked for a list of the other manager's players with a box to untick when that manager gives a hard no.

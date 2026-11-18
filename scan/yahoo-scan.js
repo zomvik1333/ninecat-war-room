@@ -11,7 +11,7 @@
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   async function get(u){
     for(let k=0;k<3;k++){
-      try{ const r=await fetch(u,{credentials:'include'}); if(r.ok){ const t=await r.text(); return new DOMParser().parseFromString(t,'text/html'); } }catch(e){}
+      try{ const r=await fetch(u,{credentials:'include',cache:'no-store'}); if(r.ok){ const t=await r.text(); return new DOMParser().parseFromString(t,'text/html'); } }catch(e){}
       await sleep(900*(k+1));
     }
     throw new Error('fetch failed '+u.slice(0,60));

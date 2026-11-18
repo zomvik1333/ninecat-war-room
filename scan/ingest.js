@@ -114,6 +114,12 @@ if(H){
         if(+f[1]!==scan.week || rows[t]) okN=false; rows[t]={fgm:n(f[3]),fga:n(f[4]),ftm:n(f[5]),fta:n(f[6]),tpm:n(f[7]),pts:n(f[8]),reb:n(f[9]),ast:n(f[10]),stl:n(f[11]),blk:n(f[12]),to:n(f[13])}; });
       if(okN && Object.keys(rows).length===scan.teams.length) scan.live={week:scan.week,rows};
       else say.push('WARNING, the live scores of the other matchups came for '+Object.keys(rows).length+' teams or did not match the week, so they were left out. The standings forecast runs without them.'); } }
+  // Vikas, Nov 18 2026, version 26.27. His own matchup comes twice, from the matchup page (M lines) and from the league scoreboard (N lines). A read while Yahoo is still
+  // updating can carry an old score on one of them (Nov 18, M had Monday's 182 to 77 while N had the right 258 to 144). When they disagree, the one further along is kept for both
+  if(scan.matchup && scan.live){ const K=['fgm','fga','ftm','fta','tpm','pts','reb','ast','stl','blk','to'], vol=x=>x.fga+x.fta+x.pts+x.reb+x.ast;
+    scan.matchup.rows.forEach(r=>{ const l=scan.live.rows[r.tid]; if(!l || !K.some(k=>l[k]!==r[k])) return; const useN=vol(l)>vol(r);
+      say.push('WARNING, the matchup page and the scoreboard disagree for team '+r.tid+', '+r.pts+' points on the matchup page and '+l.pts+' on the scoreboard. Yahoo was probably still updating. The '+(useN?'scoreboard':'matchup page')+' score is further along and is kept for both. Check it against his Yahoo matchup screen, and read again in 30 minutes if it does not match.');
+      if(useN) K.forEach(k=>r[k]=l[k]); else K.forEach(k=>l[k]=r[k]); scan.flag=scan.flag||'matchup mismatch'; }); }
   const probs=[]; if(scan.teams.length!==10) probs.push('expected 10 teams and saw '+scan.teams.length); if(Object.keys(scan.rosters).length!==10) probs.push('expected 10 rosters and saw '+Object.keys(scan.rosters).length); if(!scan.rosters['11']||scan.rosters['11'].length<10) probs.push('my roster is missing or short'); if(Object.values(scan.rosters).some(r=>r.length<10)) probs.push('a roster has fewer than 10 players'); if(!Object.keys(scan.avail).length) probs.push('no available players were read');
   if(scan.mode==='season' && scan.week && scan.week<=18 && (!scan.matchup || scan.matchup.rows.length!==2)) probs.push('the live matchup score was not read. Yahoo hides it while games are in progress, so wait until the last game of the night has ended and scan again. The site keeps showing the last good scan until then');
   if(probs.length) stop('CHECK FAILED, the scan is incomplete, '+probs.join(', ')+'. Nothing written. Run the scan again.');
@@ -143,7 +149,8 @@ if(H){
   if(missing.length) say.push('WARNING, no name on file for player ids '+missing.join(' ')+'. Run the scan again with NCWSCAN.run({all:true}) to get them.');
   const sig=s=>Object.keys(s.rosters).sort().map(t=>t+':'+s.rosters[t].map(x=>x[0]).sort().join('.')).join('|');
   saveP(); saveK(); saveR();
-  if(prev && prev.at!==scan.at) wr('scan_prev.json',prev);
+  // Vikas, Nov 18 2026, version 26.27. scan_prev is the scan of an earlier day. A reread the same night keeps the one already there, so nothing compares against a read from 30 minutes ago
+  if(prev && prev.at!==scan.at && etDay(prev.at)!==etDay(scan.at)) wr('scan_prev.json',prev);
   wr('scan.json',scan);
   // Vikas, Nov 4 2026. The first scan of each fantasy week is kept in data/starts.json. The site works out the Monday call for the week from it, and checks past
   // weeks' calls against the final scores. A first scan read while Yahoo was still updating is replaced by a clean one from the same day
