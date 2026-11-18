@@ -18,6 +18,12 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.28 (branch main), Nov 18 2026, the hard no checklist is open on every manager page
+
+Vikas said every manager page should show the checklist of that manager's players to filter deals with. It was there on every page but started folded shut unless the manager already had a hard no, so it only looked open on a few.
+
+* The checklist starts open on every manager page
+
 ## Version 26.27 (branch main), Nov 18 2026, audit fixes, real two week minutes, return dates that hold, and a pickup can sit
 
 Vikas asked for an independent audit of the numbers and then said fix all of them and deploy. Tested on a local copy with the Nov 18 09.32 scan and his notes.
