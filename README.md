@@ -18,6 +18,15 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.31 (branch main), Nov 19 2026, the floor rule
+
+Vikas, Nov 19 2026. A trade has to be realistic. If the players he gets keep playing like now, great. If they go back to average, he should still at least break even. A low risk deal with high upside also passes.
+
+* The floor. Each player coming in who was worse last season is scored again halfway between his line here and his line last season, and the gain is counted again. A player with no last season, a rookie, keeps his line. The players he sends keep theirs, so the floor never leans his way
+* Every trade card shows the floor. A green Floor chip means he at least breaks even if they cool off. A red Loses chip means he loses at that line. The card body says what the floor is and who it cools off
+* Best trades and every Checked deals list put the deals that hold up at the floor first, biggest gain first, then the ones that lose at the floor, with a count above the list
+* NCWMoves.checkOffer now returns floorGain, floorAfter, floorWho and floorSafe. The searches inside the page skip the floor so they stay as fast as before, and the floor is worked out only for the deals that are shown
+
 ## Version 26.30 (branch main), Nov 18 2026, the checklist filters at once
 
 Vikas saw 0 deals after ticking Doncic, Giddey and Davion Mitchell on Rishi's page, the page jumped down and back on every click, and the checklist said hurt next to some names. Every tick ran the whole trade search again, about 88,000 deals for Rishi, so the page showed results from a search that had not caught up.
