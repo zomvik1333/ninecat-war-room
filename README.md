@@ -18,6 +18,18 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.32 (branch main), Nov 21 2026, buy low, not high on fill in roles
+
+Vikas, Nov 21 2026. A player who is hot because a starter at his spot is out drops back when that starter returns. Trading for him is buying high. He wants to buy low, so these players are counted lower and pushed down the lists.
+
+* A player you would get counts as a fill in role when he is the app's next man up behind an injured starter, or when he is running at least 10 percent above last season while a starter at his own spot is out with a return date
+* From that return date he is counted halfway between his line here and his line last season, inside the main gain, not just in the card text. The floor counts him at his full line last season
+* A player who was just as good last season is not cut. A rookie with no last season is cut only when he is the next man up, by 15 percent, and 25 percent at the floor
+* Those deals carry a red Buying high, fill in role tag and sit below the clean deals on Best trades and every Checked deals list
+* Your own player in a fill in role shows as a Sell high chip
+* Free agent pickups are not cut, a fill in is still a fine short stream
+* NCWMoves.checkOffer returns fillWho, fillBehind and fillFrom, and NCWMoves._fn.fillRole(ctx, player) shows the call for one player
+
 ## Version 26.31 (branch main), Nov 19 2026, the floor rule
 
 Vikas, Nov 19 2026. A trade has to be realistic. If the players he gets keep playing like now, great. If they go back to average, he should still at least break even. A low risk deal with high upside also passes.
