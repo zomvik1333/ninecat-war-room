@@ -18,6 +18,14 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.40 (branch main), Nov 22 2026, only deals that pass every check
+
+Vikas, Nov 22 2026. Only list the deals that pass. Hide the ones that fail unless he toggles them on.
+
+* A deal that fails any check is hidden on every list, Best trades, the pivots, each manager page and the checked deals. The checks are more injury risk coming in, a fill in or pinned riser coming in, no weak cat lifted, a weak cat given up by 8 or more, a lock under 65, a build cat on target falling under it, and any loss if the players cool off
+* A box above Best trades, Show the deals that fail your checks, brings them back sunk to the bottom with their red tags, and says how many are hidden. The choice is kept in this browser
+* Deals that lose 1 or more at the floor and three for one or one for three stay removed even with the box ticked
+
 ## Version 26.39 (branch main), Nov 22 2026, no three for one or one for three
 
 Vikas, Nov 22 2026. Three for one deals rarely happen. Keep one for one, two for one, one for two, two for three and three for two. No one for three or three for one.
