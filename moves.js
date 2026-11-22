@@ -2465,7 +2465,7 @@ function tradePanel(ctx){
   const rows=TR.list.map((t,i)=>({t,f:floorOf(t.o,t.give,t.get),i})).filter(x=>!swapOut.has(x.t) && !offOut(x.t.o,x.t.get) && shapeOK(x.t.give,x.t.get) && (x.t.pinned || keepFl(x.f)) && (x.t.pinned || !(hideBad(x.f) && ++nBad))).map(x=>({t:x.t,g:x.t.pinned?1e9:flDrop(x.f,x.t.myGain),h:tradeCard(cw,x.t,x.i,'p')})).concat(big.filter(x=>shapeOK(x.give,x.get) && keepFl(x.fl!==undefined?x.fl:(x.fl=floorOf(x.o,x.give,x.get))) && !(hideBad(x.fl) && ++nBad)).map(x=>({g:flDrop(x.fl,x.r.planGain),h:ideaCard(cw,x)}))); rows.sort((a,b)=>b.g-a.g);
   { const nb=nBad; h+='<label class="mvchk"><input type="checkbox" id="mvshowfail"'+(ST.showFail?' checked':'')+'> Show the deals that fail your checks'+(!ST.showFail && nb?', '+nb+' hidden here':'')+'</label>'; }
   if(nGone) h+='<p class="small">'+nGone+' deal'+(nGone===1?' is':'s are')+' not shown because '+(nGone===1?'it loses':'they lose')+' 1 point or more if the players you get cool off.</p>';
-  const nFl=rows.filter(x=>x.g<-1e5).length; if(nFl) h+='<p class="small">'+nFl+' deal'+(nFl===1?' fails':'s fail')+' one of your checks, '+(nFl===1?'it loses':'they lose')+' if the players you get cool off, buy high on a player filling in for an injured starter, bring in more injury risk than you send, or lift no weak cat while keeping your locks. '+(nFl===1?'It sits':'They sit')+' at the bottom with a red tag.</p>';
+  const nFl=rows.filter(x=>x.g<-1e5).length; if(nFl) h+='<p class="small">'+nFl+' deal'+(nFl===1?' fails':'s fail')+' one of your checks, '+(nFl===1?'it loses':'they lose')+' if the players you get cool off, buy high on a player filling in for an injured starter, bring in a player with high injury risk, or lift no weak cat while keeping your locks. '+(nFl===1?'It sits':'They sit')+' at the bottom with a red tag.</p>';
   rows.forEach(x=>{ h+=x.h; });
   if(!rows.length && TR.list.length) h+='<p class="empty">No deal passes every check right now. Tick the box above to see the ones that fail.</p>';
   if(busyO || nextO){ const w=busyO||nextO; h+='<p class="small">Checking bigger deals, up to three for two, with '+esc(MG.teams[w].name)+', <span id="mvideapct">'+(IS[w]?IS[w].pct:0)+'</span> percent done. '+fairOs.filter(o=>IS[o] && !IS[o].busy).length+' of '+fairOs.length+' managers checked. The best ones join this list as each manager finishes.</p>'; }
@@ -2536,7 +2536,7 @@ function mgrPage(cw,inner){
     const fold=(list,n)=>list.slice(0,n).map(x=>ideaCard(cw,x)).join('')+(list.length>n?'<details class="mvhow"><summary class="small">Show the other '+(list.length-n)+', smaller gains</summary>'+list.slice(n).map(x=>ideaCard(cw,x)).join('')+'</details>':'');
     h+='<h2 style="margin-top:10px">Checked deals <span>every shape up to three for two, on the scan of '+when+'</span></h2>';
     if(!S || S.busy){ if(!S) setTimeout(()=>ideaSearch(cw,o),30); h+='<p class="small">Searching every deal of one, two or three of your players for one or two of '+esc(m.name)+'\'s, on the scan of '+when+'. <span id="mvideapct">'+(S?S.pct:0)+'</span> percent done. It takes a few seconds the first time after a scan.</p>'; }
-    else { const keepV=S.keep.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), slipV=S.slip.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), nOff=S.keep.filter(x=>offOut(o,x.get)).length, nHid=S.keep.concat(S.slip).filter(x=>!offOut(o,x.get) && hideBad(x.fl)).length; h+='<p class="small">'+keepV.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room, on the scan of '+when+'.'+(nOff?' '+nOff+' more are hidden by your checklist above.':'')+(nHid?' '+nHid+' more fail your checks (injury risk, a fill in, no weak cat lifted or a cool off loss) and are hidden, tick Show the deals that fail your checks on Best trades to see them.':'')+(slipV.length?' '+slipV.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
+    else { const keepV=S.keep.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), slipV=S.slip.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), nOff=S.keep.filter(x=>offOut(o,x.get)).length, nHid=S.keep.concat(S.slip).filter(x=>!offOut(o,x.get) && hideBad(x.fl)).length; h+='<p class="small">'+keepV.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room, on the scan of '+when+'.'+(nOff?' '+nOff+' more are hidden by your checklist above.':'')+(nHid?' '+nHid+' more fail your checks (injury risk coming in, a fill in, no weak cat lifted or a cool off loss) and are hidden, tick Show the deals that fail your checks on Best trades to see them.':'')+(slipV.length?' '+slipV.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
       if(!keepV.length) h+='<p class="empty">No deal with '+esc(m.name)+' gains for you, keeps every lock and is fair to the room on this scan.</p>';
       h+=fold(keepV,10);
       if(slipV.length) h+='<h2 style="margin-top:10px">Checked deals with a lock at risk <span>a slip of '+SLIP_MAX+' points or less, labeled on each card</span></h2>'+fold(slipV,6); } }
@@ -2588,7 +2588,7 @@ const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && ideaClean(
    IDEAKEY with a stamp of the scan, the plan and the notes, so the next visit only scores the kept deals again. The stops below are matched by their words, so a
    reworded stop in checkOffer has to be reworded here too */
 const IDEA_HARD=/is a hard no|is not yours|not on that team|is hurt|is held|never offered|drop rules|only makes room|insults them|under 3 centers|under 2 centers|asking price|injury prone|checker handles|lose by Josh|plan gain under|star for parts|the room will/;
-const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm10',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
+const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm11',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
 const TIERSIG=()=>[...TTRADE].sort().join(',')+'/'+[...TFLOAT].sort().join(',');
 function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; if(TR.ideaS[o]) return; const m=MG && MG.teams[o], trRef=TR, S=TR.ideaS[o]={busy:true,pct:0,keep:[],slip:[],tried:0}, seen={};
   const kOf=(give,get)=>give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.');
@@ -2842,11 +2842,11 @@ const floorWords=f=>(!f?'':(f.fill||[]).map(x=>x.name+' is hot while '+x.behind+
       the box scores and pulled toward his season line when he has few games in them, so one hot week does not carry it
    2. his injury risk, the share of games he plays, this season blended with the last two seasons (proneOf), less 10 points while he is out
    3. the steady value, the steady line on his plan weights, cut for injury risk
-   A deal passes the edge check when what he gets carries the same or less injury risk than what he sends, no player coming in is a high risk unless he sends one
-   as risky, and the deal lifts a weak build cat (one under the plan target) by 5 points or over the target, while every lock stays at 65 or better, no build cat
+   A deal passes the edge check when no player he gets with real value is a high risk and the players he gets play 80 percent of games or more together (26.41,
+   what he sends does not matter), and the deal lifts a weak build cat (one under the plan target) by 5 points or over the target, while every lock stays at 65 or better, no build cat
    on target falls under it, and no weak cat falls 8 points or more. A deal that keeps every lock where it is reads Lifts. One that uses some lock cushion to do it reads Uses cushion. A cat that rises to 75
    or more from under 75 is a new lock. A deal that fails the check sits at the bottom of the lists with a red tag, like a floor loser */
-const W_SEASON=0.35, W_WIN=[[30,0.30,4],[14,0.20,3],[7,0.15,3]], LOCK_KEEP=0.65, LOCK_NEW=0.75, RISK_SLACK=0.02, RISK_HIGH=0.75;
+const W_SEASON=0.35, W_WIN=[[30,0.30,4],[14,0.20,3],[7,0.15,3]], LOCK_KEEP=0.65, LOCK_NEW=0.75, RISK_SLACK=0.02, RISK_HIGH=0.75, RISK_GET=0.80;
 let SDW=null, SDC={};
 function winOf(id,days){ const G=D.games && D.games.p && D.games.p[id]; if(!Array.isArray(G) || !GLDAY) return null; const from=addDays(GLDAY,-days);
   const g=G.filter(x=>Array.isArray(x) && typeof x[0]==='string' && x[0]>=from && x[0]<GLDAY && x[1]>0); if(!g.length) return null;
@@ -2956,8 +2956,10 @@ function edgeOf(ctx,pl,give,get,v){ const per0=ctx.view0.per, d=v.per.map((x,c)=
   const newLocks=CATS.map((x,c)=>c).filter(c=>pl.roles[c]!=='punt' && per0[c]<LOCK_NEW && v.per[c]>=LOCK_NEW);
   // a weak cat traded away for another is not a lift, so a weak cat that falls 8 points or more fails, and the count of build cats on target may not go down
   const gaveUp=weak.filter(c=>d[c]<=-8), onBefore=build.filter(c=>per0[c]>=TARGET).length, onAfter=build.filter(c=>v.per[c]>=TARGET).length;
-  const aV=sideAvl(give), aG=sideAvl(get), high=get.filter(p=>{ const x=steadyOf(p); return x && x.avl<RISK_HIGH && !give.some(q=>{ const y=steadyOf(q); return y && y.avl<=x.avl+RISK_SLACK; }); });
-  const more=aV!=null && aG!=null && (aG<aV-RISK_SLACK || high.length>0);
+  // Vikas, Nov 22 2026, version 26.41. Only what he receives counts. Shipping an injury prone player is fine, the other manager can check that himself.
+  // A deal fails when a player he gets who has real value is a high risk (plays under 75 percent of games), or the players he gets together sit under 80 percent
+  const aV=sideAvl(give), aG=sideAvl(get), high=get.filter(p=>{ const x=steadyOf(p); return x && x.v>0 && x.avl<RISK_HIGH; });
+  const more=high.length>0 || (aG!=null && aG<RISK_GET);
   let type=null, why='';
   if(lost.length) why='drops '+lost.map(c=>CATS[c]).join(' ')+' under the plan target';
   else if(!lockOK) why='a lock falls under '+pc(LOCK_KEEP);
@@ -2966,16 +2968,16 @@ function edgeOf(ctx,pl,give,get,v){ const per0=ctx.view0.per, d=v.per.map((x,c)=
   else why='no weak cat lifted';
   const sum=a=>a.reduce((t,p)=>{ const x=steadyOf(p); return t+(x?x.steady:0); },0);
   const cat={}; CATS.forEach((c,i)=>{ cat[c]=d[i]; });
-  return {cat,edge:{ok:!!type && !more,type,why:more?'more injury risk':why,lifted:lifted.map(c=>CATS[c]),newLocks:newLocks.map(c=>CATS[c]),locks:locks.map(c=>({c:CATS[c],from:pc(per0[c]),to:pc(v.per[c])}))},
+  return {cat,edge:{ok:!!type && !more,type,why:more?'injury risk coming in':why,lifted:lifted.map(c=>CATS[c]),newLocks:newLocks.map(c=>CATS[c]),locks:locks.map(c=>({c:CATS[c],from:pc(per0[c]),to:pc(v.per[c])}))},
     risk:{give:aV==null?null:Math.round(100*aV)/100,get:aG==null?null:Math.round(100*aG)/100,more,high:high.map(p=>p.name)},steady:{give:r1(sum(give)),get:r1(sum(get))}}; }
 const edgeBad=f=>floorBad(f) || !!(f && f.edge && !f.edge.ok);
 const sgn=x=>x==null?'?':(x<0?'\u2212'+Math.abs(x):String(x));
 const riskWord=a=>a==null?'':a>=0.88?'low':a>=RISK_HIGH?'medium':'high';
 const ord=c=>['FT%','PTS','REB','AST','3PM','STL'].indexOf(c);
 function edgeChip(f){ if(!f || !f.edge) return ''; const e=f.edge, r=f.risk||{}; let h='';
-  if(r.more) h+='<span class="chip bad">More injury risk'+(r.high&&r.high.length?', '+esc(listWords(r.high))+' high':'')+'</span>';
-  else if(r.give!=null && r.get!=null && r.get>=r.give+0.03) h+='<span class="chip good">Less injury risk</span>';
-  else if(r.get!=null) h+='<span class="chip muted">Same injury risk</span>';
+  if(r.more) h+='<span class="chip bad">Injury risk coming in'+(r.high&&r.high.length?', '+esc(listWords(r.high))+' high':'')+'</span>';
+  else if(r.get!=null && r.get>=0.88) h+='<span class="chip good">Healthy return</span>';
+  else if(r.get!=null) h+='<span class="chip muted">Medium risk return</span>';
   if(e.type==='lift') h+='<span class="chip good">Lifts '+esc(e.lifted.join(' '))+', locks kept</span>';
   else if(e.type==='spend') h+='<span class="chip warn">Lifts '+esc(e.lifted.join(' '))+', uses '+esc(e.locks.filter(x=>x.to<x.from-1).map(x=>x.c+' to '+x.to).join(' '))+'</span>';
   else if(!r.more) h+='<span class="chip bad">'+esc(capF(e.why))+'</span>';

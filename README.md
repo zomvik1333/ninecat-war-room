@@ -18,6 +18,14 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.41 (branch main), Nov 22 2026, injury risk on what he receives only
+
+Vikas, Nov 22 2026. Shipping an injury prone player is fine, the other manager can check that himself. He just does not want to receive one.
+
+* The edge check no longer compares his side to theirs. A deal fails when a player he gets who has real value plays under 75 percent of games (high risk), or the players he gets together play under 80 percent
+* Cards read Healthy return (88 percent or more), Medium risk return, or Injury risk coming in with the name
+* The saved search results are rebuilt once (cache key rm11)
+
 ## Version 26.40 (branch main), Nov 22 2026, only deals that pass every check
 
 Vikas, Nov 22 2026. Only list the deals that pass. Hide the ones that fail unless he toggles them on.
