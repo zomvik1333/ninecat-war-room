@@ -5,7 +5,7 @@
    It rewrites data/games.json from ESPN's scoreboard and box scores, one request for each day and one for each finished game.
    --out    the folder to write games.json to. Left off, it is the data folder of the project.
    --today  test mode clock. Left off, it is today's date in US Eastern time.
-   --days   how many days back to keep, 16 when left off.
+   --days   how many days back to keep, 32 when left off (16 before version 26.33, raised so the site can read a 30 day window).
    data/games.json is published on a public site. It holds numbers only, which are the date and the box score line of each game. No ESPN text goes into it.
    The file holds
      p     for each Yahoo id, his games, newest first, ten at most. Each game is
@@ -22,7 +22,8 @@ const API='https://site.api.espn.com/apis/site/v2/sports/basketball/nba/';
 const ROOT=path.join(__dirname,'..'), DATA=path.join(ROOT,'data');
 const MAP={GS:'GSW',NO:'NOP',NY:'NYK',SA:'SAS',UTAH:'UTA',WSH:'WAS'};
 const T30=new Set('ATL BOS BKN CHA CHI CLE DAL DEN DET GSW HOU IND LAC LAL MEM MIA MIL MIN NOP NYK OKC ORL PHI PHX POR SAC SAS TOR UTA WAS'.split(' '));
-const KEEP=10, NEWMIN=15;
+// Vikas, Nov 22 2026, version 26.33. Up to 18 games a player and 32 days, so the trade check can read a 30 day window from the box scores
+const KEEP=18, NEWMIN=15;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 class Stop extends Error{}
 let NET=false;
@@ -45,7 +46,7 @@ for(let i=0;i<args.length;i++){ const a=args[i];
 const OUT=opt.out?path.resolve(opt.out):DATA;
 const today=opt.today||etDay(new Date());
 if(!isDay(today)) stop('games NOT saved. The date given with --today is not a real date in the form YYYY-MM-DD. Nothing written.');
-const DAYS=opt.days==null?16:+opt.days;
+const DAYS=opt.days==null?32:+opt.days;
 if(!(Number.isInteger(DAYS) && DAYS>=3 && DAYS<=40)) stop('games NOT saved. --days must be a whole number from 3 to 40. Nothing written.');
 
 let P=null; try{ P=readJson(path.join(DATA,'players.json')).p; }catch(e){}

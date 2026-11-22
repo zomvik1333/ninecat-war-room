@@ -18,6 +18,19 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.33 (branch main), Nov 22 2026, the edge check, injury risk and steady lines on every trade
+
+Vikas, Nov 22 2026. Other managers judge a deal by stats and rarely by injury risk. He wants every trade judged on the season, the last 30, 14 and 7 days, averages and totals, with injury risk counted, and built so it lifts his weak cats while keeping his locks.
+
+* Every player gets a steady line. His Yahoo season line counts 35 percent, his last 30 days 30, last 14 days 20 and last 7 days 15. The short windows come from the box scores and are pulled toward the season line when he has few games in them, so one hot week does not carry it
+* Every player gets an injury risk, the share of games he plays, this season blended with the last two seasons, less 10 points while he is out. Low is 88 percent or more, medium 75 to 88, high under 75
+* His steady value is the steady line on the plan weights, cut for injury risk
+* A trade passes the edge check when the players he gets carry the same or less injury risk than the players he sends, no player coming in is a high risk unless he sends one as risky, and it lifts a weak build cat by 5 points or over the plan target. Every lock has to stay at 65 or better, no build cat on target may fall under it, and no weak cat may fall 8 points or more
+* Lifts means every lock stays where it is. Uses cushion means a lock dips but stays at 65 or better. A cat that rises to 75 or more is tagged New lock
+* Each card shows the injury risk, the edge tag and a line with the change in FT, PTS, REB, AST, 3PM and STL, both sides' games share and the steady value out and in. Deals that fail sit at the bottom with a red tag, the same way floor losers do. The room score stays the fairness test
+* The box score file now keeps 32 days and up to 18 games a player (scan/fetch-games.js), so the 30 day window is real
+* checkOffer returns catChange, edge, risk and steady. NCWMoves._fn.steadyOf(player) gives any player's steady line, risk and window totals
+
 ## Version 26.32 (branch main), Nov 21 2026, buy low, not high on fill in roles
 
 Vikas, Nov 21 2026. A player who is hot because a starter at his spot is out drops back when that starter returns. Trading for him is buying high. He wants to buy low, so these players are counted lower and pushed down the lists.
