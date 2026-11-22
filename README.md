@@ -18,6 +18,18 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.44 (branch main), Nov 22 2026, NBA depth charts and top news on the Teams tab
+
+Vikas, Nov 22 2026. Under the teams on the Teams tab, show the depth chart for every NBA team, who starts, who is out and for how long, mark a backup who starts because someone is hurt, and add the top news at the bottom.
+
+* A card for each of the 30 NBA teams with the starting five by position, from data/depth.json
+* Green starter is the normal starter and healthy. Yellow in for is a backup who starts because the starter above him is out. Grey day to day is a starter with a questionable tag
+* ESPN moves an injured starter down its list, so the first name can be a stand in. A first name who started under 75 percent of his own games in the box scores, while a regular starter at his spot is out, is marked yellow
+* Red rows are the players out, with the body part, a rough time frame (about a week, 1 to 2 weeks, about 3 weeks, about a month, long term, no return date) and the return date on file
+* Top news lists the six newest news tags, Shams first, then the biggest names, with 14 more folded under Earlier news, and a Due back this week line
+* It reads the depth charts, the news tags, the box scores and the Yahoo statuses the nightly scan already refreshes, so no scan step changes. News notes are the hand written tags, never source text
+* Drawn by NCWMoves.depthBoard in moves.js into the nbaDepth block in index.html. The trades and pickups numbers are untouched
+
 ## Version 26.43 (branch main), Nov 22 2026, the audit fixes
 
 Vikas, Nov 22 2026, after the full audit of that night. Fix them all, tighten the checks, drop the net plus 3 rule, no player block list.

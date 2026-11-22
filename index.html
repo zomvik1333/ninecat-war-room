@@ -350,6 +350,7 @@ body.myturn .quick { background: color-mix(in srgb, #ff8a00 14%, var(--bg)); }
       <p class="small">Load league draft puts the real Ball Lovers draft on the board, all 150 picks from the Yahoo draft results, with the Oct 1 swap of LaMelo Ball and Walker Kessler already applied. When the latest Yahoo scan loads, the rosters follow it and a player picked up since the draft is marked Add. In a mock, each pick goes to the team whose turn it was in the snake order, so you never have to say who took whom. Open slots are the Yahoo starting spots a team still has to fill, and the cat chips show where each roster is strong or weak against an average team.</p>
     </div>
     <div class="tgrid" id="tgrid"></div>
+    <div id="nbaDepth"></div>
   </section>
 
   <section id="viewMoves" hidden></section>
@@ -1162,6 +1163,8 @@ function renderTeams(now){
        '<div class="small">'+(open.length?'Open spots '+openText(open):'Starting spots full')+'</div>'+cats+'</div>';
   }
   $('tgrid').innerHTML=h;
+  // Vikas, Nov 22 2026, version 26.44. The NBA depth charts, injuries and top news sit under the teams, drawn by moves.js from the last scan
+  { const dn=$('nbaDepth'); if(dn){ let dh=''; try{ dh=(window.NCWMoves && NCWMoves.depthBoard)?NCWMoves.depthBoard():''; }catch(e){ dh=''; } dn.innerHTML=dh; } }
   const named=Object.keys(S.teamNames||{}).length;
   $('teamsNote').textContent = (LI && live) ? 'rosters from the Yahoo scan'+(SCN.day?', '+SCN.day:'')+', strongest first. Green is 60 percent or better to win that cat in an average week, red is 40 or under' : named ? 'names from Yahoo' : live ? 'Ball Lovers rosters from the Yahoo scan'+(SCN.day?', '+SCN.day:'') : S.league ? 'Ball Lovers rosters from Yahoo, Oct 2 2026' : (S.slot===LEAGUE_SLOT ? 'Ball Lovers draft order' : 'built from the picks as they happen');
 }
