@@ -2794,7 +2794,11 @@ function cats(cb){
    season is cut only when he is the next man up, by 15 percent and 25 percent at the floor */
 let FILL_LOW=false;
 // 26.34. Also a fill in when his minutes or depth spot went up while a starter at his spot is out, even when last season was as good (the Jalen Smith case)
-function fillRole(ctx,p){ const a=fillRole0(ctx,p); if(a || !p || !p.proj) return a; const r=riseOf(ctx,p); if(!r || r.dir!=='fill' || !r.from || !r.behind.length) return null;
+function fillRole(ctx,p){ const a=fillRole0(ctx,p); if(a || !p || !p.proj) return a; const r=riseOf(ctx,p); if(!r) return null;
+  // 26.35. A pinned or fake riser is counted lower from today, his rise came while a teammate sat
+  if((r.dir==='watch' || r.dir==='fake') && r.healthy && ctx.now && ctx.now.date){ const pr=p.prior, worse=!!(pr && valOf(pr)<valOf(p.proj)), who=r.healthy.sat.map(n=>Object.values(ctx.U).find(q=>q.name===n)).filter(Boolean);
+    return {from:ctx.now.date,who,cut:worse?mixLine(p.proj,pr,0.5):scaleLine(p.proj,0.85),low:worse?pr:scaleLine(p.proj,0.75)}; }
+  if(r.dir!=='fill' || !r.from || !r.behind.length) return null;
   const pr=p.prior, worse=!!(pr && valOf(pr)<valOf(p.proj)); return {from:r.from,who:r.behind,cut:worse?mixLine(p.proj,pr,0.5):scaleLine(p.proj,0.85),low:worse?pr:scaleLine(p.proj,0.75)}; }
 function fillRole0(ctx,p){ if(!p || !p.proj) return null; const today=ctx.now&&ctx.now.date; let from=null; const who=[];
   if(p.fill && p.fill.until){ from=p.fill.until; who.push(p.fill.who); }
@@ -2850,24 +2854,45 @@ function riseOf(ctx,p){ if(!ctx || !p) return null; if(RSW!==ctx){ RSW=ctx; RSC=
   const behind=(minUp||depthUp)?(RSC.__team[p.team]||[]).filter(q=>q!==p && (q.rv||0)>=25 && (q.pos||[]).some(x=>(p.pos||[]).indexOf(x)>=0)):[];
   let dir=null; const why=[];
   if(minUp) why.push('his minutes are up from '+r0(sea.mp)+' to '+r0(w14.avg.mp)+' over two weeks'); if(depthUp) why.push('he moved up the depth chart on '+nice(p.dsSince)); if(prodUp) why.push('he is producing above his season line');
+  // Vikas, Nov 22 2026, version 26.35. A rise that came while a teammate at his spot sat is not proven. His games over the last three weeks are split into games
+  // where every regular at his exact position played and games where one sat. He is a real riser only when the healthy games alone show the rise, 3 of them at least,
+  // minutes 5 percent or more over his season and 1 point of value or more over his season line. With fewer than 3 healthy games since the last absence he is pinned
+  // (watch). With 3 or more and no rise left in them he was a fake riser, it faded once the team was healthy
+  let hz=null;
+  if(!behind.length && !p.fill && prodUp && (minUp||depthUp)){ const GP=D.games && D.games.p, from=addDays(GLDAY,-21), played=(q,d)=>((GP&&GP[q.id])||[]).some(x=>x[0]===d && x[1]>0);
+    if(!RSC.__mates){ RSC.__mates={}; Object.values(ctx.U).forEach(q=>{ const st=ctx.scan.stats&&ctx.scan.stats[q.id]; if(q.team && (q.rv||0)>=25 && st && (st[1]||0)>=5) (RSC.__mates[q.team]||(RSC.__mates[q.team]=[])).push(q); }); }
+    const mates=(RSC.__mates[p.team]||[]).filter(q=>q!==p && (q.pos||[]).some(x=>(p.pos||[]).indexOf(x)>=0));
+    const rows=((GP&&GP[p.id])||[]).filter(x=>Array.isArray(x) && x[0]>=from && x[0]<GLDAY && x[1]>0).sort((x,y)=>x[0]<y[0]?-1:1), H=[], I=[], sat=new Set();
+    rows.forEach(x=>{ const miss=mates.filter(q=>!played(q,x[0])); if(miss.length){ I.push(x); miss.forEach(q=>sat.add(q)); } else H.push(x); });
+    if(I.length>=2){ const avgOf=a=>{ const o={mp:a.reduce((t,x)=>t+x[1],0)/a.length}; TK.forEach((k,i)=>{ o[k]=a.reduce((t,x)=>t+(+x[2+i]||0),0)/a.length; }); return o; };
+      const last=I[I.length-1][0], after=H.filter(x=>x[0]>last), h=H.length>=3?avgOf(H):null, real=!!(h && h.mp>=1.05*sea.mp && valOf(h)>=vS+1);
+      hz={sat:[...sat].map(q=>q.name),healthy:H.length,after:after.length,mpH:h?r0(h.mp):null};
+      if(real) why.push('he kept it up in '+H.length+' games with '+listWords(hz.sat)+' playing');
+      else if(after.length<3) why.push('most of it came while '+listWords(hz.sat)+' sat, and he has '+after.length+' game'+(after.length===1?'':'s')+' since with the team healthy');
+      else why.push('it faded in '+after.length+' games since '+listWords(hz.sat)+' came back');
+      hz.kind=real?'up':after.length<3?'watch':'fake'; } }
   if(p.fill || behind.length) dir=(minUp||depthUp||prodUp)?'fill':null;
-  else if(prodUp && (minUp||depthUp)) dir='up';
+  else if(prodUp && (minUp||depthUp)) dir=hz?hz.kind:'up';
   else if(minDn && prodDn) dir='down';
   const top=p.seenRank!=null && p.seenRank<=RISE_TOP;
-  const o={dir:(top && dir!=='fill')?null:dir,top,why,behind,from:behind.length?behind.map(q=>q.ret).sort()[0]:null};
+  const o={dir:(top && dir!=='fill')?null:dir,top,why,behind,healthy:hz,from:behind.length?behind.map(q=>q.ret).sort()[0]:null};
   RSC[p.id]=o; return o; }
 const riseChip=(p,mine)=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; const n=esc(shortName(p));
   if(r.dir==='up') return mine?'<span class="chip warn">'+n+' rising, you may sell low</span>':'<span class="chip gem">'+n+' rising, real role</span>';
   if(r.dir==='fill') return '<span class="chip bad">'+n+' fill in'+(r.from?', starter back '+esc(nice(r.from)):'')+'</span>';
+  if(r.dir==='watch') return '<span class="chip '+(mine?'muted':'warn')+'">'+n+' rose while '+esc(listWords(r.healthy.sat.map(x=>x.split(' ').slice(-1)[0])))+' sat, pin him</span>';
+  if(r.dir==='fake') return '<span class="chip '+(mine?'muted':'bad')+'">'+n+' faded with the team healthy</span>';
   return mine?'<span class="chip muted">'+n+' cooling</span>':'<span class="chip warn">'+n+' cooling</span>'; };
 const riseWords=p=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; const w=listWords(r.why);
+  if(r.dir==='watch') return p.name+' is not a proven riser yet, '+w+'. Pin him and check again once he has 3 games with the team healthy.';
+  if(r.dir==='fake') return p.name+' was a fake riser, '+w+'.';
   return r.dir==='up'?p.name+' is rising for real, '+w+'.':r.dir==='fill'?p.name+' is filling in'+(r.behind.length?' while '+listWords(r.behind.map(q=>q.name))+' is out':'')+(w?', '+w:'')+', so the rise is artificial.':p.name+' is cooling, his minutes and production are down on his season.'; };
 function steadyOf(p){ const ctx=CTXW||CTX; if(!ctx || !p) return null; if(SDW!==ctx){ SDW=ctx; SDC={}; } if(SDC[p.id]!==undefined) return SDC[p.id];
   const s=ctx.scan && ctx.scan.stats && ctx.scan.stats[p.id]; let sea=null;
   if(s && s[0]==='s' && (s[1]||0)>=1){ const a={mp:s[2]||0}; TK.forEach((k,i)=>{ a[k]=s[3+i]||0; }); sea={n:s[1],avg:a}; }
   const base=sea?sea.avg:(p.proj||null), parts=[], win={}, rs=riseOf(ctx,p), rd=rs&&rs.dir;
   // 26.34. A real riser leans on his recent games, a fill in leans on his season line
-  const wS=rd==='up'?0.20:rd==='fill'?0.55:W_SEASON, kM=rd==='up'?0.5:rd==='fill'?2:1;
+  const lean=rd==='fill'||rd==='watch'||rd==='fake', wS=rd==='up'?0.20:lean?0.55:W_SEASON, kM=rd==='up'?0.5:lean?2:1;
   if(sea) parts.push([sea.avg,wS]);
   W_WIN.forEach(([d,w,k])=>{ const x=winOf(p.id,d); win[d]=x; if(!x) return; let l=x.avg; if(base){ const f=x.n/(x.n+k*kM); l={}; ['mp'].concat(TK).forEach(q=>{ l[q]=(base[q]||0)+((x.avg[q]||0)-(base[q]||0))*f; }); } parts.push([l,w]); });
   if(!parts.length){ if(!p.proj){ SDC[p.id]=null; return null; } parts.push([p.proj,1]); }

@@ -18,6 +18,16 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.35 (branch main), Nov 22 2026, the healthy team test for risers
+
+Vikas, Nov 22 2026. Cam Spencer only rose because Ty Jerome was out. A rise that came while a teammate sat is artificial. Keep a pin on him, and once the team is healthy check whether he is still producing. If he is, he is a real riser. If not, he was a fake one.
+
+* A riser's games over the last three weeks are split into games where every regular at his exact position played and games where one sat, from the box scores
+* Real riser, the healthy games alone show the rise, 3 of them at least, minutes 5 percent or more over his season and 1 point of value or more over his season line
+* Pinned, most of the rise came while a teammate sat and he has fewer than 3 games since with the team healthy. The card reads rose while the teammate sat, pin him
+* Fake riser, 3 or more games since the teammate came back and the rise is gone. The card reads faded with the team healthy
+* A pinned or fake riser is counted lower in the trade gain from today, his steady line leans on his season, and a deal for him sits at the bottom like any buy high. The pin clears by itself once he has 3 healthy games that hold up
+
 ## Version 26.34 (branch main), Nov 22 2026, rising for real or a fill in
 
 Vikas, Nov 22 2026. A player moving up only because the starter at his spot is hurt is artificial. A player who is producing with real minutes is worth buying, especially outside the top 100.
