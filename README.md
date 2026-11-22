@@ -18,6 +18,14 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.38 (branch main), Nov 22 2026, floor losers of 1 or more are gone
+
+Vikas, Nov 22 2026. Remove any trade that loses 1 or more if the players cool off.
+
+* A deal whose floor gain is minus 1 or worse is not shown anywhere, Best trades, the checked deals from the background search, each manager page and the pivots. A line above Best trades says how many were left off
+* A deal that loses less than 1 still shows at the bottom with its red Loses tag, as before
+* The saved search results are rebuilt once (cache key rm9) so old floor losers drop out
+
 ## Version 26.37 (branch main), Nov 22 2026, trades first, tracking hidden
 
 Vikas, Nov 22 2026. Trades go at the very top. Sell high and keep and the risers are things the site tracks and uses to build trades, so they move to a hidden tab. They still affect pickups, trades and the reasoning, and every scan accounts for them.
