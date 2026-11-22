@@ -2435,6 +2435,7 @@ function tradePanel(ctx){
   if(TR.note){ h+='<p class="empty">'+esc(TR.note)+'</p></div>'; return h; }
   // Vikas, Nov 11 2026, version 26.19. In talks and Most likely to happen left this page. Deals in talks live on each manager's page under By manager
   h+=sellPanel(cw);
+  h+=risersPanel(cw);
   h+='<h2 style="margin-top:6px">Stays on plan <span>builds a route, spends only room, breaks no floor</span></h2>';
   // early in the season most of any gain rests on guesses about minutes, and managers have little to go on either, so holding is a real option
   const early=(cw.avgGP||0)<5;
@@ -2865,9 +2866,13 @@ function riseOf(ctx,p){ if(!ctx || !p) return null; if(RSW!==ctx){ RSW=ctx; RSC=
     const rows=((GP&&GP[p.id])||[]).filter(x=>Array.isArray(x) && x[0]>=from && x[0]<GLDAY && x[1]>0).sort((x,y)=>x[0]<y[0]?-1:1), H=[], I=[], sat=new Set();
     rows.forEach(x=>{ const miss=mates.filter(q=>!played(q,x[0])); if(miss.length){ I.push(x); miss.forEach(q=>sat.add(q)); } else H.push(x); });
     if(I.length>=2){ const avgOf=a=>{ const o={mp:a.reduce((t,x)=>t+x[1],0)/a.length}; TK.forEach((k,i)=>{ o[k]=a.reduce((t,x)=>t+(+x[2+i]||0),0)/a.length; }); return o; };
-      const last=I[I.length-1][0], after=H.filter(x=>x[0]>last), h=H.length>=3?avgOf(H):null, real=!!(h && h.mp>=1.05*sea.mp && valOf(h)>=vS+1);
-      hz={sat:[...sat].map(q=>q.name),healthy:H.length,after:after.length,mpH:h?r0(h.mp):null};
-      if(real) why.push('he kept it up in '+H.length+' games with '+listWords(hz.sat)+' playing');
+      // 26.36. He does not need 3 games to clear the pin. Two healthy games since the teammate came back that hold the rise clear it, and so do healthy games that
+      // keep climbing (each newer game better than the first, the average at least half a point over his season line). Three or more that neither hold nor climb is a fake
+      const last=I[I.length-1][0], after=H.filter(x=>x[0]>last), h=H.length>=3?avgOf(H):null, a2=after.length?avgOf(after):null, va=a2?valOf(a2):null;
+      const gv=after.map(x=>valOf(avgOf([x]))), climb=after.length>=2 && gv[gv.length-1]>gv[0] && va>=vS+0.5 && a2.mp>=sea.mp;
+      const holdAll=!!(h && h.mp>=1.05*sea.mp && valOf(h)>=vS+1), holdAfter=!!(after.length>=2 && a2.mp>=1.05*sea.mp && va>=vS+1), real=holdAll||holdAfter||climb;
+      hz={sat:[...sat].map(q=>q.name),healthy:H.length,after:after.length,mpH:h?r0(h.mp):null,mpAfter:a2?r0(a2.mp):null,climb};
+      if(real) why.push(holdAfter||climb?'he is '+(climb?'climbing':'holding it')+' in '+after.length+' games since '+listWords(hz.sat)+' came back':'he kept it up in '+H.length+' games with '+listWords(hz.sat)+' playing');
       else if(after.length<3) why.push('most of it came while '+listWords(hz.sat)+' sat, and he has '+after.length+' game'+(after.length===1?'':'s')+' since with the team healthy');
       else why.push('it faded in '+after.length+' games since '+listWords(hz.sat)+' came back');
       hz.kind=real?'up':after.length<3?'watch':'fake'; } }
@@ -2887,6 +2892,29 @@ const riseWords=p=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; co
   if(r.dir==='watch') return p.name+' is not a proven riser yet, '+w+'. Pin him and check again once he has 3 games with the team healthy.';
   if(r.dir==='fake') return p.name+' was a fake riser, '+w+'.';
   return r.dir==='up'?p.name+' is rising for real, '+w+'.':r.dir==='fill'?p.name+' is filling in'+(r.behind.length?' while '+listWords(r.behind.map(q=>q.name))+' is out':'')+(w?', '+w:'')+', so the rise is artificial.':p.name+' is cooling, his minutes and production are down on his season.'; };
+/* Vikas, Nov 22 2026, version 26.36. Risers to get and risers to watch. Every player on the other nine rosters and on waivers is read with riseOf.
+   A real riser on another roster gets the best fair one for one from your roster, scored by checkOffer, and one on waivers says free agent or the day he clears.
+   Pinned risers stay listed with the teammate who sat and his healthy games since, so the nightly scan can record them until the pin clears or turns fake */
+let RLW=null, RLC=null;
+function risers(cw){ cw=cw||CTXW; if(!cw) return null; if(RLW===cw && RLC) return RLC; RLW=cw;
+  const all=Object.values(cw.U).filter(p=>p.own!==ME && (p.own || cw.avail.indexOf(p)>=0)), out={real:[],watch:[],fake:[],fill:[]};
+  all.forEach(p=>{ const r=riseOf(cw,p); if(!r || !r.dir || !out[r.dir==='up'?'real':r.dir]) return; out[r.dir==='up'?'real':r.dir].push({p,r}); });
+  const mine=(cw.ros[ME]||[]).filter(p=>p.proj && !isIL(p));
+  out.real.forEach(x=>{ const p=x.p; if(!p.own){ const wd=waiverDate(p.fa); x.how=wd?'waiver claim, clears '+nice(wd):p.fa&&/^W/.test(p.fa)?'waiver claim':'free agent'; return; }
+    let best=null; mine.forEach(m=>{ const c=checkOffer(p.own,[m.id],[p.id]); if(c.err || !c.roomFair || c.planGain<0.3 || (c.edge && !c.edge.ok) || (c.stops||[]).some(z=>IDEA_HARD.test(z))) return; if(!best || c.planGain>best.c.planGain) best={m,c}; });
+    x.how=(cw.teams[p.own]||{}).name||'another team'; x.best=best; });
+  out.real.sort((a,b)=>(b.best?b.best.c.planGain:(!b.p.own?1:0))-(a.best?a.best.c.planGain:(!a.p.own?1:0)));
+  RLC=out; return out; }
+function risersPanel(cw){ const R=risers(cw); if(!R) return ''; const own=p=>p.own?((cw.teams[p.own]||{}).name||''):'waivers'; let h='<h2 style="margin-top:6px">Risers <span>real ones to get, pinned ones to watch</span></h2>';
+  h+='<p class="small">A riser is a player outside the top 100 producing above his season with more minutes or a better depth spot. A rise that came while a teammate at his spot sat stays pinned until his healthy games since hold it or keep climbing. Pinned and fake risers count lower in every trade.</p>';
+  if(!R.real.length) h+='<p class="empty">No proven riser right now.</p>';
+  R.real.slice(0,8).forEach(x=>{ const p=x.p; h+='<div class="switch"><b>Get '+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(x.how)+'</span><span class="meta"><span class="chip gem">Rising, real role</span>'+(x.best?'<span class="chip good">Offer '+esc(x.best.m.name)+', gain '+bsg(x.best.c.planGain)+', room '+x.best.c.room+'</span>':p.own?'<span class="chip muted">No fair one for one from your roster</span>':'<span class="chip good">Check Pickups for the drop</span>')+'</span><p class="small">'+esc(riseWords(p))+'</p></div>'; });
+  if(R.watch.length) h+='<p class="small"><b>Pinned, watch them.</b> '+esc(R.watch.map(x=>x.p.name+' ('+own(x.p)+', rose while '+listWords(x.r.healthy.sat)+' sat, '+x.r.healthy.after+' healthy game'+(x.r.healthy.after===1?'':'s')+' since)').join('; '))+'.</p>';
+  if(R.fake.length) h+='<p class="small"><b>Faded with the team healthy.</b> '+esc(R.fake.map(x=>x.p.name+' ('+own(x.p)+')').join('; '))+'.</p>';
+  return h; }
+// a plain list for the nightly scan to record the pins
+const riserList=()=>{ const R=risers(CTXW); if(!R) return null; const row=x=>({name:x.p.name,team:x.p.team,owner:x.p.own||'FA',sat:x.r.healthy?x.r.healthy.sat:[],healthyAfter:x.r.healthy?x.r.healthy.after:null,how:x.how||null,offer:x.best?{give:x.best.m.name,gain:x.best.c.planGain,room:x.best.c.room}:null});
+  return {real:R.real.map(row),pinned:R.watch.map(row),fake:R.fake.map(row),fill:R.fill.map(x=>({name:x.p.name,owner:x.p.own||'FA',behind:x.r.behind.map(q=>q.name),back:x.r.from}))}; };
 function steadyOf(p){ const ctx=CTXW||CTX; if(!ctx || !p) return null; if(SDW!==ctx){ SDW=ctx; SDC={}; } if(SDC[p.id]!==undefined) return SDC[p.id];
   const s=ctx.scan && ctx.scan.stats && ctx.scan.stats[p.id]; let sea=null;
   if(s && s[0]==='s' && (s[1]||0)>=1){ const a={mp:s[2]||0}; TK.forEach((k,i)=>{ a[k]=s[3+i]||0; }); sea={n:s[1],avg:a}; }
@@ -3019,5 +3047,5 @@ function whatIf(adds,drops){ adds=(adds||[]).map(String); drops=(drops||[]).map(
     season:{planWeekBefore:pc(a.week),planWeekAfter:pc(b.week),nineCatBefore:pc(a.weekN),nineCatAfter:pc(b.weekN),onTargetBefore:a.hit,onTargetAfter:b.hit,
       cats:a.rows.map((r,i)=>({cat:CATS[r.c],role:ROLEWORD[r.role],before:pc(r.p),after:pc(b.rows[i].p)}))}}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={setRoster,whatIf,summary,teamsInfo,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer:(o,g,r,opt)=>checkOffer(o,g,r,Object.assign({floor:true},opt||{})), _fn:{riseOf,steadyOf,edgeOf,edgeBad,winOf,floorOf,floorLine,fillRole,waivers,chips,roomOf,roomValues,faceOf,ROOM_LO,ROOM_HI,ROOM_VETO,ROOM_STAR,ROOM_BACK,FACE_CAP,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,acceptOf,teamRank,setMg,mgrPage,mgView,overpay,buyHigh,teammatesBack,capFix,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK,ACTIVE}};
+window.NCWMoves={setRoster,whatIf,summary,teamsInfo,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer:(o,g,r,opt)=>checkOffer(o,g,r,Object.assign({floor:true},opt||{})), _fn:{risers:riserList,riseOf,steadyOf,edgeOf,edgeBad,winOf,floorOf,floorLine,fillRole,waivers,chips,roomOf,roomValues,faceOf,ROOM_LO,ROOM_HI,ROOM_VETO,ROOM_STAR,ROOM_BACK,FACE_CAP,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,acceptOf,teamRank,setMg,mgrPage,mgView,overpay,buyHigh,teammatesBack,capFix,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK,ACTIVE}};
 })();

@@ -18,6 +18,15 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.36 (branch main), Nov 22 2026, risers to get and risers to watch
+
+Vikas, Nov 22 2026. Keep recording the potential risers. A pin does not need 3 games, if he starts averaging higher once the team is healthy that is good. When one passes, tell him to get the player cheap, by trade or off waivers. Everything is calculated, waivers and trades alike.
+
+* A pin clears with two healthy games since the teammate came back that hold the rise, or with healthy games that keep climbing (the newest better than the first, the average half a point or more over his season line, minutes at his season level or better). Three or more healthy games that neither hold nor climb is a fake riser
+* The Trades tab has a Risers panel under Sell high and keep. Real risers on another roster show the best fair one for one from your roster (checkOffer, room fair, edge check passed, gain 0.3 or more). Real risers on waivers say free agent or the day the claim clears, and carry the Rising tag on Pickups
+* Pinned risers are listed with the teammate who sat and their healthy games since, faded ones apart
+* NCWMoves._fn.risers() gives the lists in plain form. The nightly scan records the pins in the notes folder (app_data pins.json) and names any pin that turns real or fake
+
 ## Version 26.35 (branch main), Nov 22 2026, the healthy team test for risers
 
 Vikas, Nov 22 2026. Cam Spencer only rose because Ty Jerome was out. A rise that came while a teammate sat is artificial. Keep a pin on him, and once the team is healthy check whether he is still producing. If he is, he is a real riser. If not, he was a fake one.
