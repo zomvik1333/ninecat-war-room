@@ -18,6 +18,14 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.42 (branch main), Nov 22 2026, the season, month and week drive every number
+
+Vikas, Nov 22 2026. Rate who to trade, who to grab, how much a deal wins, which locks it breaks and the floor from the totals and averages of the whole season, the last month and the last week.
+
+* A player's line for this season used to be his Yahoo season average. It is now the season average at 35 percent, the last 30 days at 30, the last 14 at 20 and the last 7 at 15, from the box scores, each short window pulled toward the season line when it has few games
+* Every number is built on it, the trade gain, the floor, the lock check, the edge check, the week forecast and the pickup scores. Last season still fades out as games add up, and the minute checks from the last two weeks and last five games still run after it
+* A player with fewer than 3 games this season, or no box score games in the last 30 days, keeps his Yahoo season line. p.winSrc names the games in each window, p.seasonLine keeps the plain season line
+
 ## Version 26.41 (branch main), Nov 22 2026, injury risk on what he receives only
 
 Vikas, Nov 22 2026. Shipping an injury prone player is fine, the other manager can check that himself. He just does not want to receive one.

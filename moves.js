@@ -304,6 +304,10 @@ function project(p,scan){
   const s=scan.stats&&scan.stats[p.id]; let cur=null, gp=0; p.g14=null; p.m14=null; p.v14=null;
   if(s){ gp=s[1]||0; cur={mp:s[2]||0}; TK.forEach((k,i)=>cur[k]=s[3+i]||0); p.g14=s[14]; p.m14=s[15]; p.v14=s[16]; }
   if(cur&&gp<1) cur=null;
+  // Vikas, Nov 22 2026, version 26.42. This season's line is no longer the Yahoo season average alone. It is the season average at 35 percent, the last 30 days at 30,
+  // the last 14 at 20 and the last 7 at 15, from the box scores, each short window pulled toward the season line when it has few games. Every trade gain, floor,
+  // lock check and pickup score is built on it. Last season still fades out as this season's games add up, the same as before
+  p.winSrc=null; if(cur && gp>=3 && s && s[0]==='s'){ const wb=winBlend(p.id,cur); if(wb){ p.seasonLine=cur; cur=wb.line; p.winSrc=wb.n; } }
   // a player with no numbers from Yahoo's lists gets his line from the box scores, his games in the last 14 days
   const GLp=glOf(p.id); p.glLine=false;
   if(!cur && GLp && GLp.n14>=GL_MIN && GLp.line14){ cur=GLp.line14; gp=GLp.n14; p.g14=GLp.n14; p.m14=cur.mp; p.v14=valOf(cur); p.glLine=true; }
@@ -2848,6 +2852,10 @@ const floorWords=f=>(!f?'':(f.fill||[]).map(x=>x.name+' is hot while '+x.behind+
    or more from under 75 is a new lock. A deal that fails the check sits at the bottom of the lists with a red tag, like a floor loser */
 const W_SEASON=0.35, W_WIN=[[30,0.30,4],[14,0.20,3],[7,0.15,3]], LOCK_KEEP=0.65, LOCK_NEW=0.75, RISK_SLACK=0.02, RISK_HIGH=0.75, RISK_GET=0.80;
 let SDW=null, SDC={};
+// 26.42. The season line blended with the 30, 14 and 7 day box score windows. Null when the box scores hold no games for him in the last 30 days
+function winBlend(id,sea){ const parts=[[sea,W_SEASON]], n={}; let any=false;
+  W_WIN.forEach(([d,w,k])=>{ const x=winOf(id,d); n[d]=x?x.n:0; if(!x) return; any=true; const f=x.n/(x.n+k), l={}; ['mp'].concat(TK).forEach(q=>{ l[q]=(sea[q]||0)+((x.avg[q]||0)-(sea[q]||0))*f; }); parts.push([l,w]); });
+  if(!any) return null; const W=parts.reduce((a,x)=>a+x[1],0), line={}; ['mp'].concat(TK).forEach(q=>{ line[q]=parts.reduce((a,x)=>a+(x[0][q]||0)*x[1],0)/W; }); return {line,n}; }
 function winOf(id,days){ const G=D.games && D.games.p && D.games.p[id]; if(!Array.isArray(G) || !GLDAY) return null; const from=addDays(GLDAY,-days);
   const g=G.filter(x=>Array.isArray(x) && typeof x[0]==='string' && x[0]>=from && x[0]<GLDAY && x[1]>0); if(!g.length) return null;
   const tot={mp:0}; TK.forEach(k=>{ tot[k]=0; }); g.forEach(x=>{ tot.mp+=x[1]; TK.forEach((k,i)=>{ tot[k]+=(+x[2+i]||0); }); });
