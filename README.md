@@ -18,6 +18,15 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.37 (branch main), Nov 22 2026, trades first, tracking hidden
+
+Vikas, Nov 22 2026. Trades go at the very top. Sell high and keep and the risers are things the site tracks and uses to build trades, so they move to a hidden tab. They still affect pickups, trades and the reasoning, and every scan accounts for them.
+
+* Best trades now starts with the trade list. Sell high and keep and the Risers panel moved to a Tracking tab
+* The Tracking tab shows only with ?track=1 in the address (ninecatwarroom.vercel.app/?track=1#moves) or while it is open. A reload goes back to Best trades
+* The riser read now moves the pickup score too. A real riser gains 6, a fill in, a pinned or a fake riser loses 6, a cooling player loses 4, with the reason in the card
+* NCWMoves._fn.tracking() gives the sell high list, the rising keep list and the risers in plain form for the nightly scan
+
 ## Version 26.36 (branch main), Nov 22 2026, risers to get and risers to watch
 
 Vikas, Nov 22 2026. Keep recording the potential risers. A pin does not need 3 games, if he starts averaging higher once the team is healthy that is good. When one passes, tell him to get the player cheap, by trade or off waivers. Everything is calculated, waivers and trades alike.
