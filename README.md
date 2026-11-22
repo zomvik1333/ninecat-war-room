@@ -18,6 +18,17 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.45 (branch main), Nov 22 2026, one standard league table, real results blended with the players
+
+Vikas, Nov 22 2026. The league section should be the same for everyone and realistic. Real record, the cats we are winning, this week and next, and a simulated outlook built from real data and projected data that moves a little after every week.
+
+* The league table sits in real Yahoo standings order. W L T is the real cat record with the real cats won a week under it. Now is the live cat score of this week with the cats expected next week under it
+* Outlook is the cats a week expected from here against the whole league, and the place by it. It blends the players (every line from this season, the last 30, 14 and 7 days, minutes and injuries) with the real weeks (the share of the league each team really beat in every cat, from data/results.json)
+* Real weeks count weeks over weeks plus 10, half at most, times the share of the current roster that was on the team in those weeks (data/starts.json). The gap moves that team's chance in that cat in every matchup still to play, so the outlook moves a little after every finished week
+* Top 4 and the projected cat wins are simulated from the same blend. The live week is still played from its score
+* The table is the same from any seat on the same scan. A copy on older data will differ, which is what made Rishi's copy disagree
+* Not changed. Trade gains, the floor, pickups and his cat chances still run on the players alone. The 10 and the one half cap are starting choices, a back test against the finished weeks should tune them
+
 ## Version 26.44 (branch main), Nov 22 2026, NBA depth charts and top news on the Teams tab
 
 Vikas, Nov 22 2026. Under the teams on the Teams tab, show the depth chart for every NBA team, who starts, who is out and for how long, mark a backup who starts because someone is hurt, and add the top news at the bottom.
