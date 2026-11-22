@@ -8,7 +8,7 @@
    --days   how many days back to keep, 32 when left off (16 before version 26.33, raised so the site can read a 30 day window).
    data/games.json is published on a public site. It holds numbers only, which are the date and the box score line of each game. No ESPN text goes into it.
    The file holds
-     p     for each Yahoo id, his games, newest first, ten at most. Each game is
+     p     for each Yahoo id, his games, newest first, 18 at most. Each game is
            [day, minutes, fgm, fga, ftm, fta, threes, points, rebounds, assists, steals, blocks, turnovers, 1 when he started]
      done  the days whose games were all final when they were read. They are not read again
      new   players who played 15 minutes or more a night over their last games and are not in data/players.json yet, name, NBA team, games and minutes.

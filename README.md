@@ -18,6 +18,31 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.43 (branch main), Nov 22 2026, the audit fixes
+
+Vikas, Nov 22 2026, after the full audit of that night. Fix them all, tighten the checks, drop the net plus 3 rule, no player block list.
+
+* The 26.42 blend no longer switches off the minutes checks. The two week check and the last five games check are measured against the plain season line again, so the blend only adds recent form. Okongwu at 34 to 36 minutes a night is counted at 35.3 minutes again (26.42 had him at 31.5), Jarrett Allen at 31.0, and Miles Bridges back at his 25 two week minutes
+* The trade worker now gets the box scores and the clock day, so the main search cuts fill ins and pinned risers the same way checkOffer does. List gains match the checker
+* A one for two card shows the checker's gain, room and nine cat with the dropped player in the deal, and says he goes in the deal
+* The floor never reads above the gain
+* A game a player left hurt (his newest game, under 60 percent of his usual minutes, no game for 4 days since) is left out of the 30, 14 and 7 day windows
+* Show the deals that fail your checks only adds cards. The passing deals stay the same with the box on or off and the hidden count matches what comes back
+* On Best trades the same checked deal with a player thrown in on each side is listed once. Every version stays on the manager page
+* A talk marked no keeps that deal out of the checked deals too, with or without the dropped player named
+* Edge check. The weak cats no longer have to net plus 3 together. When no build cat is weak the lift step passes. A lock has to end at 65 or better, or not fall at all when it is already under 65
+* A pinned riser's card now says he rose while the teammate sat. Two absent teammates read "are out"
+* Riser tests. Climbing means every later healthy game beats the first. A riser whose last week sits under his season line is not called real. A riser needs 18 minutes a game over two weeks
+* The Sell high panel lists only deals that pass the checks
+* A tab that comes back into view checks the scan stamp and says to reload when a newer scan is live. A missing box score file is said on the page
+* The 10 point injury penalty for being out now needs a real absence, on IL, a return date a week away, or no game in 5 days
+* Search again works on the first manager page before a manager was ever picked
+* A two for three is now searched (two of his for three of theirs, his drop goes in the deal). The saved search list is rebuilt under key rm12
+* A fill in, pinned or faded free agent also loses the minutes bonus in his pickup score
+* The How this works text names the checks, the fail box and the shapes
+
+Still open by his choice or by design. No player block list, Jamal Murray deals stay. check-live cannot see the code version without touching the password gate.
+
 ## Version 26.42 (branch main), Nov 22 2026, the season, month and week drive every number
 
 Vikas, Nov 22 2026. Rate who to trade, who to grab, how much a deal wins, which locks it breaks and the floor from the totals and averages of the whole season, the last month and the last week.
