@@ -2462,7 +2462,7 @@ function tradePanel(ctx){
   // 26.33. A deal that fails the edge check, more injury risk coming in or no weak cat lifted with the locks kept, sits there too
   const flDrop=(f,g)=>edgeBad(f)?g-1e6:g;
   let nGone=0; const keepFl=f=>{ if(floorGone(f)){ nGone++; return false; } return true; };
-  const rows=TR.list.map((t,i)=>({t,f:floorOf(t.o,t.give,t.get),i})).filter(x=>!swapOut.has(x.t) && !offOut(x.t.o,x.t.get) && (x.t.pinned || keepFl(x.f))).map(x=>({t:x.t,g:x.t.pinned?1e9:flDrop(x.f,x.t.myGain),h:tradeCard(cw,x.t,x.i,'p')})).concat(big.filter(x=>keepFl(x.fl!==undefined?x.fl:(x.fl=floorOf(x.o,x.give,x.get)))).map(x=>({g:flDrop(x.fl,x.r.planGain),h:ideaCard(cw,x)}))); rows.sort((a,b)=>b.g-a.g);
+  const rows=TR.list.map((t,i)=>({t,f:floorOf(t.o,t.give,t.get),i})).filter(x=>!swapOut.has(x.t) && !offOut(x.t.o,x.t.get) && shapeOK(x.t.give,x.t.get) && (x.t.pinned || keepFl(x.f))).map(x=>({t:x.t,g:x.t.pinned?1e9:flDrop(x.f,x.t.myGain),h:tradeCard(cw,x.t,x.i,'p')})).concat(big.filter(x=>shapeOK(x.give,x.get) && keepFl(x.fl!==undefined?x.fl:(x.fl=floorOf(x.o,x.give,x.get)))).map(x=>({g:flDrop(x.fl,x.r.planGain),h:ideaCard(cw,x)}))); rows.sort((a,b)=>b.g-a.g);
   if(nGone) h+='<p class="small">'+nGone+' deal'+(nGone===1?' is':'s are')+' not shown because '+(nGone===1?'it loses':'they lose')+' 1 point or more if the players you get cool off.</p>';
   const nFl=rows.filter(x=>x.g<-1e5).length; if(nFl) h+='<p class="small">'+nFl+' deal'+(nFl===1?' fails':'s fail')+' one of your checks, '+(nFl===1?'it loses':'they lose')+' if the players you get cool off, buy high on a player filling in for an injured starter, bring in more injury risk than you send, or lift no weak cat while keeping your locks. '+(nFl===1?'It sits':'They sit')+' at the bottom with a red tag.</p>';
   rows.forEach(x=>{ h+=x.h; });
@@ -2471,7 +2471,7 @@ function tradePanel(ctx){
   h+='<h2 style="margin-top:14px">Pivots <span>give up one guarded cat for a bigger gain</span></h2>';
   h+='<p class="small">A pivot shows only when it beats the best trade that stays on plan by 2 points or more. Each one gives up a single lock, or leans on a cat the plan counts low. A full rebuild shows only when the plan is in trouble. Tap Make this my plan and the trades and pickups rank again under the new plan.</p>';
   if(!TR.pivots.length) h+='<p class="empty">No pivot beats the plan today. Stay the course.</p>';
-  TR.pivots.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'v'); });
+  TR.pivots.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'v'); });
   h+='</div>'; return h;
 }
 /* how one manager sees a deal, from your notes. A manager who values by draft judges a player mostly by where he went in this league's draft,
@@ -2541,18 +2541,18 @@ function mgrPage(cw,inner){
   h+=how(''+(r.view?esc(m.name)+(m.byDraft?' values players mostly by draft spot':'')+(m.byDraft&&m.pairs?' and':'')+(m.pairs?' judges player for player':'')+(m.noLate?((m.byDraft||m.pairs)?', and':'')+' gives no credit for players taken after pick '+LATEPICK+' or picked up after the draft':'')+', so a deal counts as fair only if it holds up his way. ':r.hasMg?'Fair uses the site\'s usual check, and the yes chance uses your notes on '+esc(m.name)+'. ':'No notes on this manager, so fair uses the site\'s usual check and the yes chance comes from the numbers alone. ')+'Likely yes is about 50 percent or better, Worth a try 25 to 50, Long shot under 25. The chance is a rough guide, not a forecast.');
   if(m && m.deal==='fair') h+='<p class="small" style="margin-top:8px"><span class="chip good">Trades straight</span> Your notes say '+esc(m.name)+' deals fair, so the aim here is a deal both teams get something from. Good for both lists the deals that lift his average week as well as your plan.</p>';
   if(m && m.deal==='win') h+='<p class="small" style="margin-top:8px"><span class="chip warn">Win only</span> Your notes say to deal with '+esc(m.name)+' only when you clearly win, so a deal shows here only when your gain is '+WIN_ONLY+' points or more.</p>';
-  if(r.both && r.both.length){ h+='<h2 style="margin-top:10px">Good for both <span>lifts your plan and '+esc(m.name)+'\'s average week</span></h2>'; r.both.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'b'); }); }
-  if(r.take && r.take.length){ h+='<h2 style="margin-top:10px">He would take <span>fits what '+esc(m.name)+' told you, from your notes</span></h2>'; r.take.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'w'); }); }
+  if(r.both && r.both.length){ h+='<h2 style="margin-top:10px">Good for both <span>lifts your plan and '+esc(m.name)+'\'s average week</span></h2>'; r.both.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'b'); }); }
+  if(r.take && r.take.length){ h+='<h2 style="margin-top:10px">He would take <span>fits what '+esc(m.name)+' told you, from your notes</span></h2>'; r.take.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'w'); }); }
   else if(m && (m.like.length || m.move.length)) h+='<p class="small" style="margin-top:8px">No fair deal fits what '+esc(m.name)+' told you right now. What he has asked for himself is under In talks.</p>';
   if(!r.likely.length && !r.helpful.length) h+='<p class="empty">No trade that keeps every cat at this time.'+(r.pivots.length?' Pivots below, each costs a cat.':r.stretch.length?' Stretch trades only, below.':'')+'</p>';
   else {
     h+='<h2 style="margin-top:10px">Most likely <span>your gain times the chance he says yes</span></h2>';
     if(!r.likely.length) h+='<p class="empty">None with a real chance right now.</p>';
-    r.likely.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'t'); });
-    if(r.helpful.length){ h+='<h2 style="margin-top:14px">Most helpful <span>biggest gain for you, fair to him</span></h2>'; r.helpful.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'h'); }); }
+    r.likely.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'t'); });
+    if(r.helpful.length){ h+='<h2 style="margin-top:14px">Most helpful <span>biggest gain for you, fair to him</span></h2>'; r.helpful.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'h'); }); }
   }
-  if(r.pivots.length){ h+='<h2 style="margin-top:14px">Pivots <span>fair to him, each costs one of your cats</span></h2>'; r.pivots.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'p'); }); }
-  if(r.stretch.length){ h+='<h2 style="margin-top:14px">Stretch trades <span>short of fair to him, lean on your pitch</span></h2>'; r.stretch.forEach((t,i)=>{ if(floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'s'); }); }
+  if(r.pivots.length){ h+='<h2 style="margin-top:14px">Pivots <span>fair to him, each costs one of your cats</span></h2>'; r.pivots.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'p'); }); }
+  if(r.stretch.length){ h+='<h2 style="margin-top:14px">Stretch trades <span>short of fair to him, lean on your pitch</span></h2>'; r.stretch.forEach((t,i)=>{ if(!shapeOK(t.give,t.get) || floorGone(floorOf(t.o,t.give,t.get))) return; h+=tradeCard(cw,t,i,'s'); }); }
   h+=E; return h; }
 /* deals in talks. Every number comes from checkOffer, so any size works, three for three included */
 function talkRows(cw,only){ const out=[]; if(!MG) return out;
@@ -2586,7 +2586,7 @@ const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && ideaClean(
    IDEAKEY with a stamp of the scan, the plan and the notes, so the next visit only scores the kept deals again. The stops below are matched by their words, so a
    reworded stop in checkOffer has to be reworded here too */
 const IDEA_HARD=/is a hard no|is not yours|not on that team|is hurt|is held|never offered|drop rules|only makes room|insults them|under 3 centers|under 2 centers|asking price|injury prone|checker handles|lose by Josh|plan gain under|star for parts|the room will/;
-const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm9',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
+const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm10',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
 const TIERSIG=()=>[...TTRADE].sort().join(',')+'/'+[...TFLOAT].sort().join(',');
 function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; if(TR.ideaS[o]) return; const m=MG && MG.teams[o], trRef=TR, S=TR.ideaS[o]={busy:true,pct:0,keep:[],slip:[],tried:0}, seen={};
   const kOf=(give,get)=>give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.');
@@ -2594,11 +2594,11 @@ function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; i
     // 26.24. The player you would drop goes in the deal, so a one for two is the same deal as the two for two that names him. It is listed once
     if(r.myDrop){ const t=(cw.ros[ME]||[]).find(p=>p.name===r.myDrop); if(t && give.indexOf(t)<0){ seen[k]=1; give=give.concat([t]); k=kOf(give,get); if(seen[k]) return; } }
     if(m){ if(get.some(p=>m.keep.indexOf(B.nkey(p.name))>=0)) return; if(r.face<110 && get.some(p=>m.prize.indexOf(B.nkey(p.name))>=0)) return; }
-    const x={o,m,y:{note:''},give,get,r}; if(ideaOK(x)){ seen[k]=1; x.fl=floorOf(o,give,get); if(!floorGone(x.fl)) S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; x.fl=floorOf(o,give,get); if(!floorGone(x.fl)) S.slip.push(x); } };
+    const x={o,m,y:{note:''},give,get,r}; if(ideaOK(x)){ seen[k]=1; x.fl=floorOf(o,give,get); if(!floorGone(x.fl) && shapeOK(x.give,x.get)) S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; x.fl=floorOf(o,give,get); if(!floorGone(x.fl) && shapeOK(x.give,x.get)) S.slip.push(x); } };
   const sig=ideaSig(cw); let cache=null; try{ cache=JSON.parse(localStorage.getItem(IDEAKEY)||'null'); }catch(e){} if(!cache || cache.sig!==sig) cache={sig,t:{}};
   const finish=save=>{ if(TR!==trRef) return;
     // the deals kept by hand in the notes join the list, scored the same way
-    ideaRows(cw,o).forEach(x=>{ const k=kOf(x.give,x.get); if(seen[k]) return; if(ideaOK(x)){ seen[k]=1; x.fl=floorOf(o,x.give,x.get); if(!floorGone(x.fl)) S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; x.fl=floorOf(o,x.give,x.get); if(!floorGone(x.fl)) S.slip.push(x); } });
+    ideaRows(cw,o).forEach(x=>{ const k=kOf(x.give,x.get); if(seen[k]) return; if(ideaOK(x)){ seen[k]=1; x.fl=floorOf(o,x.give,x.get); if(!floorGone(x.fl) && shapeOK(x.give,x.get)) S.keep.push(x); } else if(ideaSlip(x)){ seen[k]=1; x.fl=floorOf(o,x.give,x.get); if(!floorGone(x.fl) && shapeOK(x.give,x.get)) S.slip.push(x); } });
     // 26.31. Deals that hold up at the floor come first, biggest gain first, then the ones that lose if the players you get cool off
     const flS=(a,b)=>(edgeBad(a.fl)-edgeBad(b.fl)) || (b.r.planGain-a.r.planGain); S.keep.sort(flS); S.slip.sort(flS); S.busy=false;
     // two searches can run side by side, so the saved copy is read again right before it is written
@@ -2612,7 +2612,7 @@ function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; i
   const comb=(a,n)=>{ const out=[]; const go=(s0,c)=>{ if(c.length===n){ out.push(c.slice()); return; } for(let i=s0;i<a.length;i++){ c.push(a[i]); go(i+1,c); c.pop(); } }; go(0,[]); return out; };
   const GL=comb(mine,1).concat(comb(mine,2),comb(mine,3)), RL=comb(th,1).concat(comb(th,2)), total=GL.length*RL.length||1; let i=0, j=0;
   const step=()=>{ if(TR!==trRef) return; const t0=Date.now();
-    while(i<GL.length){ const g=GL[i], r=RL[j]; S.tried++; if(roomOf(g,r).ok) take(g,r); if(++j>=RL.length){ j=0; i++; } if(Date.now()-t0>24) break; }
+    while(i<GL.length){ const g=GL[i], r=RL[j]; S.tried++; if(shapeOK(g,r) && roomOf(g,r).ok) take(g,r); if(++j>=RL.length){ j=0; i++; } if(Date.now()-t0>24) break; }
     if(i<GL.length){ S.pct=Math.floor(100*(i*RL.length+j)/total); const el=document.getElementById('mvideapct'); if(el) el.textContent=S.pct; setTimeout(step,0); } else finish(true); };
   setTimeout(step,0); }
 function ideaCard(cw,x){ const nm=a=>esc(listWords(a.map(p=>p.name))), oName=(cw.teams[x.o]||{}).name||'', r=x.r, N=esc(x.m.name), key=['PTS','REB','AST','STL','3PM','TO'];
@@ -2825,6 +2825,9 @@ function floorOf(o,give,get){ if(FLW!==CTXW){ FLW=CTXW; FLC={}; } const pl=planO
 const floorBad=f=>!!(f && (f.gain<0 || (f.fill && f.fill.length)));
 // Vikas, Nov 22 2026, version 26.38. A deal that loses 1 point or more if the players he gets cool off is not shown at all, on any list
 const floorGone=f=>!!(f && f.gain<=-1);
+// Vikas, Nov 22 2026, version 26.39. Three for one and one for three deals rarely happen, so they are never shown. One for one, two for one, one for two,
+// two for two, two for three and three for two stay. The shape is read after the player you would drop is put in the deal
+const shapeOK=(give,get)=>!((give.length>=3 && get.length===1) || (give.length===1 && get.length>=3));
 const floorChip=f=>!f?'':((f.fill&&f.fill.length)?'<span class="chip bad">Buying high, fill in role</span>':'')+(!f.who.length?'<span class="chip good">Floor '+bsg(f.gain)+', nobody to cool off</span>':f.gain>=0?'<span class="chip good">Floor '+bsg(f.gain)+', holds if they cool off</span>':'<span class="chip bad">Loses '+Math.abs(f.gain)+' if they cool off</span>');
 const floorWords=f=>(!f?'':(f.fill||[]).map(x=>x.name+' is hot while '+x.behind+' is out. From about '+nice(x.from)+' he is counted halfway back to last season, and at his full line last season in the floor. ').join(''))+(!f||!f.who.length?'':'If '+listWords(f.who)+' play'+(f.who.length===1?'s':'')+' halfway between this season and last season, your plan moves '+(f.gain>=0?'up ':'down ')+Math.abs(f.gain)+' points and your average week ends at '+f.after+' percent. '+(f.gain>=0?'That passes your floor rule, you at least break even.':'That fails your floor rule, you lose if they cool off.'));
 /* Vikas, Nov 22 2026, version 26.33. The edge check. Other managers judge a deal by stats and rarely by injury risk, so every trade now reads

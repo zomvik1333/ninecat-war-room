@@ -18,6 +18,13 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.39 (branch main), Nov 22 2026, no three for one or one for three
+
+Vikas, Nov 22 2026. Three for one deals rarely happen. Keep one for one, two for one, one for two, two for three and three for two. No one for three or three for one.
+
+* A deal with three players on one side and one on the other is never shown, on Best trades, the manager pages, the pivots or the background search, which also skips scoring them. Two for two stays. The shape is read after the player you would drop goes in the deal
+* The saved search results are rebuilt once (cache key rm10)
+
 ## Version 26.38 (branch main), Nov 22 2026, floor losers of 1 or more are gone
 
 Vikas, Nov 22 2026. Remove any trade that loses 1 or more if the players cool off.
