@@ -18,6 +18,16 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
+## Version 26.34 (branch main), Nov 22 2026, rising for real or a fill in
+
+Vikas, Nov 22 2026. A player moving up only because the starter at his spot is hurt is artificial. A player who is producing with real minutes is worth buying, especially outside the top 100.
+
+* For every player the site reads his last 14 and 7 days of box scores against his Yahoo season line, his depth chart moves over the last three weeks and his line last season
+* Rising, real role. Outside the top 100, he produces 1 point of value or more above his season line over two weeks (and his season is no worse than last season), and his minutes are up 10 percent or more or he moved up the depth chart. His steady line leans on his recent games
+* Fill in. His minutes or depth spot went up while a rotation player who shares his exact position is out with a return date. This catches the Jalen Smith case. The trade gain counts him lower from the starter's return date, the card says Fill in with the date, and the deal sits at the bottom like any buy high. His steady line leans on his season line
+* Cooling. His minutes and his production over two weeks are both down on his season
+* The tags show on trade cards for the players you get and the players you give (a riser you give reads you may sell low), on the checked deals and on the pickups. NCWMoves._fn.riseOf(ctx, player) gives the read and the reasons
+
 ## Version 26.33 (branch main), Nov 22 2026, the edge check, injury risk and steady lines on every trade
 
 Vikas, Nov 22 2026. Other managers judge a deal by stats and rarely by injury risk. He wants every trade judged on the season, the last 30, 14 and 7 days, averages and totals, with injury risk counted, and built so it lifts his weak cats while keeping his locks.

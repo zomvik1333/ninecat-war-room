@@ -2238,7 +2238,7 @@ function pickPanel(ctx,pk){
   pk.list.forEach((r,i)=>{
     const p=r.p; const why=pickupWhy(ctx,pk,r);
     h+='<details class="mvcard'+(r.band==='skip'?' mvskip':'')+'"><summary><span class="mvn '+r.band+'">'+r.need+'<small>'+(r.band==='must'?'must add':r.band==='strong'?'strong':r.band==='helps'?'helps':'skip')+'</small></span><span class="mvt"><b>'+esc(p.name)+'</b> <span class="sub">'+esc(p.team)+', '+esc(p.pos.join(' '))+(r.drop?', drop '+esc(r.drop.name):'')+'</span>'
-      +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span>'+(r.dropWhy&&r.dropWhy.why&&r.drop?'<span class="chip muted">Drop is '+esc(r.dropWhy.why.replace(/^(a |an )/,''))+'</span>':'')+(r.away?'':'<span class="chip muted">Week '+updn(r.gW)+'</span>')+'<span class="chip muted">Season '+updn(r.gR)+'</span>'+(r.gR<=-0.3?'<span class="chip bad">Costs you long term, '+r1(-r.gR)+' pts</span>':'')+r.labels.map(x=>'<span class="chip '+(x==='Stream for games'?'warn':'good')+'">'+x+'</span>').join('')+(r.built.length?'<span class="chip gem">Builds '+r.built.map(c=>CATS[c]).join(' ')+'</span>':'')+newsChip(p)+(r.away?'':'<span class="chip muted">'+r.gl+(r.gl===1?' game':' games')+(weekWord(ctx,pk.week)==='this week'?' left':' '+weekWord(ctx,pk.week))+'</span>')+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">'+(r.bal.crowd.length?'Crowded spot':'Leaves '+r.bal.thin.join(' ')+' thin')+'</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+(endsTrade(r.drop)?'<span class="chip bad">Ends a trade</span>':'')+cyChip(p)+basisChip(p)+'</span></span></summary>'
+      +'<span class="meta"><span class="chip">'+esc(r.tag)+'</span>'+(r.dropWhy&&r.dropWhy.why&&r.drop?'<span class="chip muted">Drop is '+esc(r.dropWhy.why.replace(/^(a |an )/,''))+'</span>':'')+(r.away?'':'<span class="chip muted">Week '+updn(r.gW)+'</span>')+'<span class="chip muted">Season '+updn(r.gR)+'</span>'+(r.gR<=-0.3?'<span class="chip bad">Costs you long term, '+r1(-r.gR)+' pts</span>':'')+r.labels.map(x=>'<span class="chip '+(x==='Stream for games'?'warn':'good')+'">'+x+'</span>').join('')+(r.built.length?'<span class="chip gem">Builds '+r.built.map(c=>CATS[c]).join(' ')+'</span>':'')+newsChip(p)+riseChip(p,false)+(r.away?'':'<span class="chip muted">'+r.gl+(r.gl===1?' game':' games')+(weekWord(ctx,pk.week)==='this week'?' left':' '+weekWord(ctx,pk.week))+'</span>')+(r.wd?'<span class="chip warn">Waivers until '+nice(r.wd)+'</span>':r.waiver?'<span class="chip warn">On waivers</span>':'<span class="chip good">Free agent</span>')+(r.early?'<span class="chip muted">Wait for game week</span>':'')+(r.bal.mult>1?'<span class="chip good">Helps balance</span>':r.bal.mult<1?'<span class="chip warn">'+(r.bal.crowd.length?'Crowded spot':'Leaves '+r.bal.thin.join(' ')+' thin')+'</span>':'')+(r.josh>0?'<span class="chip gem">Josh likes him</span>':'')+(p.status?'<span class="chip bad">'+esc(statusWord(p.status))+'</span>':'')+(endsTrade(r.drop)?'<span class="chip bad">Ends a trade</span>':'')+cyChip(p)+basisChip(p)+'</span></span></summary>'
       +'<div class="mvbody"><p><span class="lab">Why him</span>'+esc(whyHim(ctx,p,r.ds,pickVerdict(r)))+'</p>'+(endsTrade(r.drop)?'<p><span class="lab">Ends a trade</span>'+esc(r.drop.name+' is in one of your top trades, '+(t=>t.give.map(x=>x.name).join(' and ')+' for '+t.get.map(x=>x.name).join(' and '))(endsTrade(r.drop))+', so dropping him ends that deal.')+'</p>':'')+'<p><span class="lab">What it does for me</span>'+esc(why[0])+'</p><p><span class="lab">What it costs</span>'+esc(why[1])+'</p><p><span class="lab">News and risk</span>'+esc(pickRisk(p,why[3]))+'</p>'
       +'<div class="mvact"><button class="btn" type="button" data-add="'+esc(p.id)+'" data-drop="'+esc(r.drop?r.drop.id:'')+'" data-il="'+esc(r.il||'')+'">I made this add</button></div></div></details>';
   });
@@ -2405,6 +2405,7 @@ function tradeCard(cw,t,i,grp){
     +t.get.filter(p=>p.breakout&&p.breakout.dir==='up').map(p=>'<span class="chip good">'+esc(shortName(p))+' breakout</span>').join('')
     +(dwn.length?'<span class="chip warn">Draft spot</span>':'')
     +t.get.filter(buyHigh).map(p=>'<span class="chip warn">'+esc(shortName(p))+' buying high</span>').join('')
+    +t.get.map(p=>riseChip(p,false)).join('')+t.give.map(p=>riseChip(p,true)).join('')
     // Vikas, Nov 6 2026, version 26.15. What he is this season against last season, and a buy low tag for a player who is out with a date and was a solid line last season
     +t.get.filter(p=>p.rvTrend==='up' && !buyHigh(p)).map(p=>'<span class="chip good">'+esc(shortName(p))+' up on last season</span>').join('')
     +t.get.filter(p=>p.rvTrend==='down').map(p=>'<span class="chip warn">'+esc(shortName(p))+' down on last season</span>').join('')
@@ -2612,7 +2613,7 @@ function ideaCard(cw,x){ const nm=a=>esc(listWords(a.map(p=>p.name))), oName=(cw
   const plain=z=>{ const v=/^fails the value scale, look (-?[\d.]+) percent their way/.exec(z); return !v?z:+v[1]<0?'it reads '+Math.abs(+v[1])+' percent light for him on the value scale, his own read of names, draft spots and ranks, so expect a no or a counter':'you give '+v[1]+' percent more than he does on the value scale'; };
   const soft=(r.stops||[]).filter(z=>!/^plan gain under|^breaks /.test(z)).map(plain);
   const fl=x.fl!==undefined?x.fl:(x.fl=floorOf(x.o,x.give,x.get));
-  return '<details class="mvcard"><summary><span class="mvn '+(r.planGain>=1?'strong':'helps')+'">'+bsg(r.planGain)+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(x.get)+'</b> <span class="sub">for '+nm(x.give)+', with '+esc(oName)+'</span><span class="meta"><span class="chip muted">'+x.give.length+' for '+x.get.length+'</span>'+(r.broke.length?'<span class="chip warn">'+esc((r.slips||[]).map(z=>z.c+' slips '+z.from+' to '+z.to).join(', ')||('Breaks '+r.broke.join(' ')))+'</span>':'<span class="chip good">Keeps your locks</span>')+'<span class="chip muted">Room '+r.room+'</span>'+floorChip(fl)+edgeChip(fl)+''+(soft.length?'<span class="chip warn">Blocked</span>':'<span class="chip good">Fair in the room</span>')+((r.draft||[]).length?'<span class="chip warn">Draft spot</span>':'')+'</span></span></summary>'
+  return '<details class="mvcard"><summary><span class="mvn '+(r.planGain>=1?'strong':'helps')+'">'+bsg(r.planGain)+'<small>your gain</small></span><span class="mvt"><b>Get '+nm(x.get)+'</b> <span class="sub">for '+nm(x.give)+', with '+esc(oName)+'</span><span class="meta"><span class="chip muted">'+x.give.length+' for '+x.get.length+'</span>'+(r.broke.length?'<span class="chip warn">'+esc((r.slips||[]).map(z=>z.c+' slips '+z.from+' to '+z.to).join(', ')||('Breaks '+r.broke.join(' ')))+'</span>':'<span class="chip good">Keeps your locks</span>')+'<span class="chip muted">Room '+r.room+'</span>'+floorChip(fl)+edgeChip(fl)+x.get.map(p=>riseChip(p,false)).join('')+x.give.map(p=>riseChip(p,true)).join('')+''+(soft.length?'<span class="chip warn">Blocked</span>':'<span class="chip good">Fair in the room</span>')+((r.draft||[]).length?'<span class="chip warn">Draft spot</span>':'')+'</span></span></summary>'
     +'<ul class="mvlist">'+(r.perGame?'<li>A game you give '+esc(r.perGame.filter(z=>key.indexOf(z.k)>=0).map(z=>z.give+' '+z.k).join(', '))+' and get '+esc(r.perGame.filter(z=>key.indexOf(z.k)>=0).map(z=>z.get+' '+z.k).join(', '))+'.</li>':'')
     +'<li>Your average week goes from '+r.nineCatBefore+' to '+r.nineCatAfter+' percent, and your plan moves up '+Math.abs(r.planGain)+' points.</li>'
     +(fl && fl.who.length?'<li>'+esc(floorWords(fl))+'</li>':'')
@@ -2792,7 +2793,10 @@ function cats(cb){
    line last season, and the floor counts him at his full line last season. A player who was just as good last season is not cut. A rookie with no last
    season is cut only when he is the next man up, by 15 percent and 25 percent at the floor */
 let FILL_LOW=false;
-function fillRole(ctx,p){ if(!p || !p.proj) return null; const today=ctx.now&&ctx.now.date; let from=null; const who=[];
+// 26.34. Also a fill in when his minutes or depth spot went up while a starter at his spot is out, even when last season was as good (the Jalen Smith case)
+function fillRole(ctx,p){ const a=fillRole0(ctx,p); if(a || !p || !p.proj) return a; const r=riseOf(ctx,p); if(!r || r.dir!=='fill' || !r.from || !r.behind.length) return null;
+  const pr=p.prior, worse=!!(pr && valOf(pr)<valOf(p.proj)); return {from:r.from,who:r.behind,cut:worse?mixLine(p.proj,pr,0.5):scaleLine(p.proj,0.85),low:worse?pr:scaleLine(p.proj,0.75)}; }
+function fillRole0(ctx,p){ if(!p || !p.proj) return null; const today=ctx.now&&ctx.now.date; let from=null; const who=[];
   if(p.fill && p.fill.until){ from=p.fill.until; who.push(p.fill.who); }
   const hot=!!(p.fvC && p.fvL && p.fvC>=1.1*p.fvL);
   if(hot) teammatesBack(ctx,p,true).forEach(s=>{ if(!s.ret || s.retLapsed || (today && s.ret<today)) return; if(!from || s.ret<from) from=s.ret; if(who.indexOf(s)<0) who.push(s); });
@@ -2805,7 +2809,7 @@ const fillOf=(ctx,get)=>get.map(p=>({p,r:fillRole(ctx,p)})).filter(x=>x.r);
 const floorLine=p=>(p && p.proj && p.prior && valOf(p.prior)<valOf(p.proj))?mixLine(p.proj,p.prior,0.5):null;
 let FLW=null, FLC={};
 function floorOf(o,give,get){ if(FLW!==CTXW){ FLW=CTXW; FLC={}; } const pl=planOf(), k=String(o)+'|'+give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.')+'|'+(pl.roles||[]).join(',');
-  if(!(k in FLC)){ const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id),{floor:true}); FLC[k]=(r.err || r.floorGain==null)?null:{gain:r.floorGain,after:r.floorAfter,who:r.floorWho||[],fill:(r.fillWho||[]).map((n,i)=>({name:n,behind:r.fillBehind[i],from:r.fillFrom[i]})),edge:r.edge,risk:r.risk,steady:r.steady,cat:r.catChange}; }
+  if(!(k in FLC)){ const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id),{floor:true}); FLC[k]=(r.err || r.floorGain==null)?null:{gain:r.floorGain,after:r.floorAfter,who:r.floorWho||[],fill:(r.fillWho||[]).map((n,i)=>({name:n,behind:r.fillBehind[i],from:r.fillFrom[i]})),edge:r.edge,risk:r.risk,steady:r.steady,cat:r.catChange,rise:give.concat(get).map(riseWords).filter(Boolean)}; }
   return FLC[k]; }
 const floorBad=f=>!!(f && (f.gain<0 || (f.fill && f.fill.length)));
 const floorChip=f=>!f?'':((f.fill&&f.fill.length)?'<span class="chip bad">Buying high, fill in role</span>':'')+(!f.who.length?'<span class="chip good">Floor '+bsg(f.gain)+', nobody to cool off</span>':f.gain>=0?'<span class="chip good">Floor '+bsg(f.gain)+', holds if they cool off</span>':'<span class="chip bad">Loses '+Math.abs(f.gain)+' if they cool off</span>');
@@ -2825,17 +2829,52 @@ function winOf(id,days){ const G=D.games && D.games.p && D.games.p[id]; if(!Arra
   const g=G.filter(x=>Array.isArray(x) && typeof x[0]==='string' && x[0]>=from && x[0]<GLDAY && x[1]>0); if(!g.length) return null;
   const tot={mp:0}; TK.forEach(k=>{ tot[k]=0; }); g.forEach(x=>{ tot.mp+=x[1]; TK.forEach((k,i)=>{ tot[k]+=(+x[2+i]||0); }); });
   const avg={}; Object.keys(tot).forEach(k=>{ avg[k]=tot[k]/g.length; }); return {n:g.length,tot,avg}; }
+/* Vikas, Nov 22 2026, version 26.34. Rising or a fill in. For a player outside the top 100 the site reads whether his rise is real.
+   Real, he is producing above his season line over the last 14 days (1 point of value or more, and his season is no worse than last season), and his minutes over
+   the last 14 days are 10 percent or more above his season minutes or he moved up the depth chart in the last three weeks. A fill in, his minutes or his depth
+   spot went up while a starter at his spot is out with a return date. That rise is artificial, it ends when the starter is back, so the trade gain counts him lower
+   from that date (fillRole) and the card says so. Cooling, his minutes and his production over the last 14 days are both down on his season */
+const RISE_TOP=100, RISE_MIN=1.10;
+let RSW=null, RSC={};
+function riseOf(ctx,p){ if(!ctx || !p) return null; if(RSW!==ctx){ RSW=ctx; RSC={}; } if(RSC[p.id]!==undefined) return RSC[p.id];
+  const s=ctx.scan && ctx.scan.stats && ctx.scan.stats[p.id]; if(!s || s[0]!=='s' || !((s[1]||0)>=3) || !(s[2]>0)){ RSC[p.id]=null; return null; }
+  const sea={mp:s[2]}; TK.forEach((k,i)=>{ sea[k]=s[3+i]||0; });
+  const today=ctx.now && ctx.now.date, w14=winOf(p.id,14), w7=winOf(p.id,7), ok14=!!(w14 && w14.n>=3);
+  const minUp=ok14 && w14.avg.mp>=RISE_MIN*sea.mp && (!w7 || w7.avg.mp>=1.05*sea.mp), minDn=ok14 && w14.avg.mp<=0.9*sea.mp && (!w7 || w7.avg.mp<=0.95*sea.mp);
+  const depthUp=p.ds!=null && p.dsWas!=null && p.ds<p.dsWas && !!p.dsSince && !!today && p.dsSince>=addDays(today,-21);
+  const vS=valOf(sea), v14=ok14?valOf(w14.avg):null, vP=p.prior?valOf(p.prior):null;
+  const prodUp=v14!=null && v14>=vS+1 && (vP==null || vS>=vP-0.5), prodDn=v14!=null && v14<=vS-1;
+  // every teammate at his spot who is out with a return date and is a real rotation player, not only the one the depth chart still lists first
+  if(!RSC.__team){ RSC.__team={}; Object.values(ctx.U).forEach(q=>{ if(q.team && q.ret && today && q.ret>=today && !q.retLapsed && (q.rv||0)>=20) (RSC.__team[q.team]||(RSC.__team[q.team]=[])).push(q); }); }
+  // same spot here means they share an exact position, a point guard is not filling in for a power forward
+  const behind=(minUp||depthUp)?(RSC.__team[p.team]||[]).filter(q=>q!==p && (q.rv||0)>=25 && (q.pos||[]).some(x=>(p.pos||[]).indexOf(x)>=0)):[];
+  let dir=null; const why=[];
+  if(minUp) why.push('his minutes are up from '+r0(sea.mp)+' to '+r0(w14.avg.mp)+' over two weeks'); if(depthUp) why.push('he moved up the depth chart on '+nice(p.dsSince)); if(prodUp) why.push('he is producing above his season line');
+  if(p.fill || behind.length) dir=(minUp||depthUp||prodUp)?'fill':null;
+  else if(prodUp && (minUp||depthUp)) dir='up';
+  else if(minDn && prodDn) dir='down';
+  const top=p.seenRank!=null && p.seenRank<=RISE_TOP;
+  const o={dir:(top && dir!=='fill')?null:dir,top,why,behind,from:behind.length?behind.map(q=>q.ret).sort()[0]:null};
+  RSC[p.id]=o; return o; }
+const riseChip=(p,mine)=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; const n=esc(shortName(p));
+  if(r.dir==='up') return mine?'<span class="chip warn">'+n+' rising, you may sell low</span>':'<span class="chip gem">'+n+' rising, real role</span>';
+  if(r.dir==='fill') return '<span class="chip bad">'+n+' fill in'+(r.from?', starter back '+esc(nice(r.from)):'')+'</span>';
+  return mine?'<span class="chip muted">'+n+' cooling</span>':'<span class="chip warn">'+n+' cooling</span>'; };
+const riseWords=p=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; const w=listWords(r.why);
+  return r.dir==='up'?p.name+' is rising for real, '+w+'.':r.dir==='fill'?p.name+' is filling in'+(r.behind.length?' while '+listWords(r.behind.map(q=>q.name))+' is out':'')+(w?', '+w:'')+', so the rise is artificial.':p.name+' is cooling, his minutes and production are down on his season.'; };
 function steadyOf(p){ const ctx=CTXW||CTX; if(!ctx || !p) return null; if(SDW!==ctx){ SDW=ctx; SDC={}; } if(SDC[p.id]!==undefined) return SDC[p.id];
   const s=ctx.scan && ctx.scan.stats && ctx.scan.stats[p.id]; let sea=null;
   if(s && s[0]==='s' && (s[1]||0)>=1){ const a={mp:s[2]||0}; TK.forEach((k,i)=>{ a[k]=s[3+i]||0; }); sea={n:s[1],avg:a}; }
-  const base=sea?sea.avg:(p.proj||null), parts=[], win={};
-  if(sea) parts.push([sea.avg,W_SEASON]);
-  W_WIN.forEach(([d,w,k])=>{ const x=winOf(p.id,d); win[d]=x; if(!x) return; let l=x.avg; if(base){ const f=x.n/(x.n+k); l={}; ['mp'].concat(TK).forEach(q=>{ l[q]=(base[q]||0)+((x.avg[q]||0)-(base[q]||0))*f; }); } parts.push([l,w]); });
+  const base=sea?sea.avg:(p.proj||null), parts=[], win={}, rs=riseOf(ctx,p), rd=rs&&rs.dir;
+  // 26.34. A real riser leans on his recent games, a fill in leans on his season line
+  const wS=rd==='up'?0.20:rd==='fill'?0.55:W_SEASON, kM=rd==='up'?0.5:rd==='fill'?2:1;
+  if(sea) parts.push([sea.avg,wS]);
+  W_WIN.forEach(([d,w,k])=>{ const x=winOf(p.id,d); win[d]=x; if(!x) return; let l=x.avg; if(base){ const f=x.n/(x.n+k*kM); l={}; ['mp'].concat(TK).forEach(q=>{ l[q]=(base[q]||0)+((x.avg[q]||0)-(base[q]||0))*f; }); } parts.push([l,w]); });
   if(!parts.length){ if(!p.proj){ SDC[p.id]=null; return null; } parts.push([p.proj,1]); }
   const W=parts.reduce((a,x)=>a+x[1],0), line={}; ['mp'].concat(TK).forEach(q=>{ line[q]=parts.reduce((a,x)=>a+(x[0][q]||0)*x[1],0)/W; });
   const pr=p.prone; let avl=(pr && isFinite(pr.share))?pr.share:(isFinite(p.av)?p.av:0.85); if(hurt(p)) avl-=0.10; avl=clamp(avl,0,1);
   const pl=planOf(), z=zLine(line), v=z.reduce((a,x,c)=>a+x*((pl.w&&pl.w[c]!=null)?pl.w[c]:1),0), st=v>=0?v*avl:v*(2-avl);
-  const o={line,v:r1(v),avl:Math.round(100*avl)/100,steady:r1(st),risk:avl>=0.88?'low':avl>=RISK_HIGH?'medium':'high',season:sea?sea.n:0,n30:win[30]?win[30].n:0,n14:win[14]?win[14].n:0,n7:win[7]?win[7].n:0,
+  const o={rise:rd||null,line,v:r1(v),avl:Math.round(100*avl)/100,steady:r1(st),risk:avl>=0.88?'low':avl>=RISK_HIGH?'medium':'high',season:sea?sea.n:0,n30:win[30]?win[30].n:0,n14:win[14]?win[14].n:0,n7:win[7]?win[7].n:0,
     tot30:win[30]?win[30].tot:null,tot14:win[14]?win[14].tot:null,tot7:win[7]?win[7].tot:null};
   SDC[p.id]=o; return o; }
 // availability of one side, each player weighted by his value so a throw in barely counts
@@ -2873,7 +2912,7 @@ function edgeChip(f){ if(!f || !f.edge) return ''; const e=f.edge, r=f.risk||{};
   return h; }
 function edgeWords(f){ if(!f || !f.edge) return ''; const c=f.cat||{}, r=f.risk||{}, s=f.steady||{};
   const cats=Object.keys(c).filter(k=>ord(k)>=0).sort((a,b)=>ord(a)-ord(b)).map(k=>k.replace('%','')+' '+bsg(c[k])).join(', ');
-  return 'Your cats change by '+cats+'. Injury risk, the players you send play about '+(r.give!=null?pc(r.give):'?')+' percent of games ('+riskWord(r.give)+' risk) and the players you get about '+(r.get!=null?pc(r.get):'?')+' percent ('+riskWord(r.get)+' risk). Steady value, '+sgn(s.give)+' out and '+sgn(s.get)+' in, from the season, last 30, 14 and 7 days, cut for injury risk. '+(f.edge.ok?(f.edge.type==='lift'?'It lifts '+listWords(f.edge.lifted)+' and keeps every lock.':'It lifts '+listWords(f.edge.lifted)+' and uses some lock cushion, every lock stays at '+pc(LOCK_KEEP)+' or better.'):'It fails the edge check, '+f.edge.why+'.')+(f.edge.newLocks.length?' New lock '+listWords(f.edge.newLocks)+'.':''); }
+  return 'Your cats change by '+cats+'. Injury risk, the players you send play about '+(r.give!=null?pc(r.give):'?')+' percent of games ('+riskWord(r.give)+' risk) and the players you get about '+(r.get!=null?pc(r.get):'?')+' percent ('+riskWord(r.get)+' risk). Steady value, '+sgn(s.give)+' out and '+sgn(s.get)+' in, from the season, last 30, 14 and 7 days, cut for injury risk. '+(f.edge.ok?(f.edge.type==='lift'?'It lifts '+listWords(f.edge.lifted)+' and keeps every lock.':'It lifts '+listWords(f.edge.lifted)+' and uses some lock cushion, every lock stays at '+pc(LOCK_KEEP)+' or better.'):'It fails the edge check, '+f.edge.why+'.')+(f.edge.newLocks.length?' New lock '+listWords(f.edge.newLocks)+'.':'')+(f.rise&&f.rise.length?' '+f.rise.join(' '):''); }
 function checkOffer(o,giveIds,getIds,opt){ o=String(o); const ctx=CTXW; if(!ctx || !ctx.U) return {err:'the page is still loading, try again in a moment'};
   if(o===ME || !Array.isArray(ctx.ros[o]) || !ctx.ros[o].length) return {err:'unknown team id, give the other manager\'s team id'};
   if(!Array.isArray(giveIds) || !Array.isArray(getIds)) return {err:'give two lists of player ids, yours first'};
@@ -2955,5 +2994,5 @@ function whatIf(adds,drops){ adds=(adds||[]).map(String); drops=(drops||[]).map(
     season:{planWeekBefore:pc(a.week),planWeekAfter:pc(b.week),nineCatBefore:pc(a.weekN),nineCatAfter:pc(b.weekN),onTargetBefore:a.hit,onTargetAfter:b.hit,
       cats:a.rows.map((r,i)=>({cat:CATS[r.c],role:ROLEWORD[r.role],before:pc(r.p),after:pc(b.rows[i].p)}))}}; }
 if(INW){ workerMain(); return; }
-window.NCWMoves={setRoster,whatIf,summary,teamsInfo,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer:(o,g,r,opt)=>checkOffer(o,g,r,Object.assign({floor:true},opt||{})), _fn:{steadyOf,edgeOf,edgeBad,winOf,floorOf,floorLine,fillRole,waivers,chips,roomOf,roomValues,faceOf,ROOM_LO,ROOM_HI,ROOM_VETO,ROOM_STAR,ROOM_BACK,FACE_CAP,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,acceptOf,teamRank,setMg,mgrPage,mgView,overpay,buyHigh,teammatesBack,capFix,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK,ACTIVE}};
+window.NCWMoves={setRoster,whatIf,summary,teamsInfo,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer:(o,g,r,opt)=>checkOffer(o,g,r,Object.assign({floor:true},opt||{})), _fn:{riseOf,steadyOf,edgeOf,edgeBad,winOf,floorOf,floorLine,fillRole,waivers,chips,roomOf,roomValues,faceOf,ROOM_LO,ROOM_HI,ROOM_VETO,ROOM_STAR,ROOM_BACK,FACE_CAP,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,acceptOf,teamRank,setMg,mgrPage,mgView,overpay,buyHigh,teammatesBack,capFix,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK,ACTIVE}};
 })();
