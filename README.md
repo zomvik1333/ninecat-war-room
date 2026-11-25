@@ -18,7 +18,24 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
-## Version 26.45 (branch main), Nov 22 2026, one standard league table, real results blended with the players
+## Version 26.46 (branch main), Nov 25 2026, players due back midweek count in the week forecast
+
+Vikas, Nov 25 2026. The week chance fell from 80 to 69 overnight when De'Aaron Fox went from out to questionable, and he asked why the forecast had not seen Fox coming back when the news already gave a return date.
+
+* Before, a player Yahoo tagged out counted zero for the whole week, even when the news had him back midweek. The chance then jumped on the day his tag changed
+* Now a player tagged out, on the bench or on IL, whose news has a return date counts again from that date. Each game from then on counts 60 percent, the same share as a questionable player (RET_PCT in moves.js)
+* Before the date he still counts zero. A player tagged out with no return date still counts zero all week. A player on IL who is no longer tagged out is unchanged, the pickups card already asks for him to be moved back
+* A return date that passed in the last 7 days with the news still listing him counts from tomorrow
+* Why 60. Over weeks 2 to 5, players tagged out on a Monday scan played 28 percent of that week's games from the bench and 18 percent from IL. The ones who did come back that week played 70 percent of the week's games
+* The week card and the summary now say how far one injury call can move the chance. Every tagged player with a game left on either side is tried both ways, playing for sure and sitting for sure, one at a time, and the lowest and highest chance are shown with the three players who move it most
+* The week card also names every player counted from a return date, with the date
+* On the Nov 24 data the old code read 80 and the new code reads 68. On the Nov 25 data the old code read 69 and the new code reads 66. The overnight move drops from 11 points to 2
+* Not changed. Trade gains, the floor, the room score, the season view and the league table give the same numbers as 26.45. Pickup week gains move a little because the week they are measured against moved
+* Known limit. The check against past weeks cannot grade this rule yet, because starts.json keeps each Monday scan but not the news as it stood that day. The Monday call can also drift a point or two during the week for the same reason
+* CALV is now 26.46, so each browser rebuilds its past week checks once
+* Fallback branch fallback-v26-45-before-return-dates holds 26.45
+
+## Version 26.45, Nov 22 2026, one standard league table, real results blended with the players
 
 Vikas, Nov 22 2026. The league section should be the same for everyone and realistic. Real record, the cats we are winning, this week and next, and a simulated outlook built from real data and projected data that moves a little after every week.
 

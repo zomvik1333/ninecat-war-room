@@ -115,7 +115,7 @@ This is the procedure for the daily scan. It is written so a fresh Claude sessio
 * Both scripts need Node 18 or later
 * data/news.json comes from the ESPN injuries feed. It holds facts only. Those are the status, the body part, the return date, the date of the news and the hand written tags
 * data/ages.json comes from the ESPN team rosters. It holds each player's age, birth date and years in the NBA
-* News never changes a number on the site by itself. The one exception is a player ESPN lists as Out with a return date in the future. He is counted as out until that date
+* News never changes a number on the site by itself. The one exception is a player ESPN lists as Out with a return date in the future. He is counted as out until that date. Since version 26.46 a player Yahoo tags out who has a return date inside the week counts again from that date, at 60 percent of each game
 * ESPN's written comments never go into the data folder. They go only into news_raw.json in the notes folder. The script refuses to run if the raw file path is inside the project folder
 * When `--tags` is left off, the script keeps the tags that are still fresh in the old data/news.json, so a plain rerun never loses them
 * data/depth.json comes from ESPN's team depth charts. It holds facts only. Those are the Yahoo ids in the order ESPN lists them at each position and the day a player's spot last changed
