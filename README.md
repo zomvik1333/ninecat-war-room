@@ -18,7 +18,22 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
-## Version 26.48 (branch main), Nov 26 2026, true three for three deals, and minutes and role on every trade
+## Version 26.49 (branch main), Nov 26 2026, a season built while a starter sat is counted lower when he returns
+
+Vikas, Nov 26 2026. He caught it on Isaiah Hartenstein, whose whole season came with Chet Holmgren out. The fill in test only fires when a player's minutes are up against his own season, so it never fired, and nothing lowered Hartenstein for the day Holmgren is due back.
+
+* builtRole in moves.js reads every player against each real rotation teammate at his exact position (room value 30 or more)
+* Out. The teammate is out now with a return date ahead and missed 60 percent or more of this player's games on file. The player is counted lower from that date
+* Back. The teammate is healthy again, played in the last five days, missed 60 percent or more of this player's last 14 days, and the player's minutes over those days ran 10 percent or more over his season. The player is counted lower from today
+* How much lower comes from evidence. First his own games this season with that teammate playing, three or more of them. Failing that his real last season. When that line is worth less than his line now he is counted halfway between the two, and at that line itself for the floor. When it is only lighter on minutes he is scaled part of the way. When it is as good and as long he is not cut. A player with neither, a rookie or a player who missed last season, is counted 10 percent lower and 20 at the floor
+* It is a number, not a stop. The trade is scored with the lower line from that date, the floor uses the careful line, and the card shows a chip, counted lower from the date with the teammate named
+* The players he sends keep their lines, so the gain never leans his way. The card says when he would be selling ahead of a teammate's return
+* checkOffer returns builtWho and soldBuilt. The saved copy of the search starts over once (rm15)
+* The week forecast and the league table are unchanged. Trade gains change only for deals that bring in such a player
+
+Tested on a local copy with the Nov 26 scan. Thirteen rostered players read as built. The deal that started it fell from 6.2 to 5.3 with the floor at 4.2.
+
+## Version 26.48 Nov 26 2026, true three for three deals, and minutes and role on every trade
 
 Vikas, Nov 26 2026. A full run of every combination, 4 million offers against all nine teams, matched the site's lists deal for deal, and found the one shape the site never searched. He asked for that on the site, and for every trade to be read on minutes, starting spots and the depth chart as well.
 
