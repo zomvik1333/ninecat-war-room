@@ -18,7 +18,23 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
-## Version 26.47 (branch main), Nov 26 2026, giving more is allowed, and saved deals obey the notes
+## Version 26.48 (branch main), Nov 26 2026, true three for three deals, and minutes and role on every trade
+
+Vikas, Nov 26 2026. A full run of every combination, 4 million offers against all nine teams, matched the site's lists deal for deal, and found the one shape the site never searched. He asked for that on the site, and for every trade to be read on minutes, starting spots and the depth chart as well.
+
+* True three for three. The background search tried three of their players only with two of his, so a three for three showed only when a two for three picked up his drop. It now tries three of his for three of theirs as well. On the Nov 26 scan that adds 324 deals that pass every check, and the best deal with three managers is one of them
+* The cost. The search tries about three times as many offers, so the first load after a scan takes several minutes. The saved copy still makes every later load quick (the saved copy starts over once, rm14)
+* Minutes and role, minOf in moves.js. For each player in a deal the card reads his season minutes a game, his minutes over the last 14 and 7 days from the box scores, his last two games, and whether the depth chart has him starting or on the bench
+* Falling means two weeks 8 percent or more under his season with the last week no better, or the last week 12 percent or more under, or two short games in a row, or a two week spike that is already fading. Rising means two weeks 8 percent or more over his season with the last week holding. A hurt or tagged player is not read
+* A new check. A deal that brings in a player with real value whose minutes are falling fails the edge check, minutes falling coming in, and is hidden with the other failing deals
+* New chips, Minutes rising, Bench role with extra minutes, Moved down the depth chart, You sell falling minutes, You give rising minutes. The card's detail line lists every player's minutes, season then the last two weeks, with his depth spot
+* A rising tag gives way when the minutes read says his minutes are falling now
+* checkOffer returns mins, the read for each side and the names that fail
+* Nothing else changes, the week forecast, the league table and every gain number are the same as 26.47
+
+Tested on a local copy with the Nov 26 scan. Week chance 75 and the league table match 26.47. The site's visible checked deals matched a separate run of every combination for all nine managers, 635 deals, none missing and none extra.
+
+## Version 26.47 Nov 26 2026, giving more is allowed, and saved deals obey the notes
 
 Vikas, Nov 26 2026. His words, if I give a lot, who cares, they are going to accept it, as long as I am gaining, no lock breaks, the floor holds and I am not taking on more injury risk. Some managers do not want a fair trade, they want to win it.
 

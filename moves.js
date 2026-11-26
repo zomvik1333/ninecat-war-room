@@ -1025,7 +1025,7 @@ function thisWeek(ctx){
    Every finished week is checked. The Monday calls for all five matchups in the league are compared with the final scores in data/results.json, and one
    factor is fitted that makes the chances as sure as they have really been. While there are few results the factor is held close to 1 */
 // CALV is the code version. The past week checks are kept in this browser under it, so change it with any change to how players are projected
-const CALV='26.47', CALKEY='ncw_cal_'+CALV, CAL0=90;
+const CALV='26.48', CALKEY='ncw_cal_'+CALV, CAL0=90;
 // the checks of older versions are cleared from this browser, so the keys do not pile up
 try{ Object.keys(localStorage).filter(k=>/^ncw_cal_/.test(k) && k!==CALKEY).forEach(k=>localStorage.removeItem(k)); }catch(e){}
 let CAL={s:1,fit:1,n:0,weeks:[],hit:0,calls:0,cat:[],weak:[]}, WK0=null;
@@ -2614,7 +2614,7 @@ function mgrPage(cw,inner){
     const fold=(list,n)=>list.slice(0,n).map(x=>ideaCard(cw,x)).join('')+(list.length>n?'<details class="mvhow"><summary class="small">Show the other '+(list.length-n)+', smaller gains</summary>'+list.slice(n).map(x=>ideaCard(cw,x)).join('')+'</details>':'');
     h+='<h2 style="margin-top:10px">Checked deals <span>every shape up to three for two, on the scan of '+when+'</span></h2>';
     if(!S || S.busy){ if(!S) setTimeout(()=>ideaSearch(cw,o),30); h+='<p class="small">Searching every deal of one, two or three of your players for one or two of '+esc(m.name)+'\'s, on the scan of '+when+'. <span id="mvideapct">'+(S?S.pct:0)+'</span> percent done. It takes a few seconds the first time after a scan.</p>'; }
-    else { const keepV=S.keep.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), slipV=S.slip.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), nOff=S.keep.filter(x=>offOut(o,x.get)).length, nHid=S.keep.concat(S.slip).filter(x=>!offOut(o,x.get) && hideBad(x.fl)).length; h+='<p class="small">'+keepV.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room or give more than the room asks, on the scan of '+when+'.'+(nOff?' '+nOff+' more are hidden by your checklist above.':'')+(nHid?' '+nHid+' more fail your checks (injury risk coming in, a fill in, no weak cat lifted or a cool off loss) and are hidden, tick Show the deals that fail your checks on Best trades to see them.':'')+(slipV.length?' '+slipV.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
+    else { const keepV=S.keep.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), slipV=S.slip.filter(x=>!offOut(o,x.get) && !hideBad(x.fl)), nOff=S.keep.filter(x=>offOut(o,x.get)).length, nHid=S.keep.concat(S.slip).filter(x=>!offOut(o,x.get) && hideBad(x.fl)).length; h+='<p class="small">'+keepV.length+' deals with '+esc(m.name)+' gain for you, keep every lock and are fair to the room or give more than the room asks, on the scan of '+when+'.'+(nOff?' '+nOff+' more are hidden by your checklist above.':'')+(nHid?' '+nHid+' more fail your checks (injury risk coming in, minutes falling coming in, a fill in, no weak cat lifted or a cool off loss) and are hidden, tick Show the deals that fail your checks on Best trades to see them.':'')+(slipV.length?' '+slipV.length+' more put a lock at risk by a small slip, they follow with a label.':'')+' Each one is scored by the same checker as every other trade, biggest gain first. The best of them also show on Best trades. <button class="btn" type="button" id="mvideago" style="margin-left:6px">Search again</button></p>';
       if(!keepV.length) h+='<p class="empty">No deal with '+esc(m.name)+' gains for you, keeps every lock and is fair to the room on this scan.</p>';
       h+=fold(keepV,10);
       if(slipV.length) h+='<h2 style="margin-top:10px">Checked deals with a lock at risk <span>a slip of '+SLIP_MAX+' points or less, labeled on each card</span></h2>'+fold(slipV,6); } }
@@ -2672,7 +2672,7 @@ const ideaSlip=x=>x.r.planGain>=0.3 && x.r.roomFair && ideaFair(x) && ideaClean(
    IDEAKEY with a stamp of the scan, the plan and the notes, so the next visit only scores the kept deals again. The stops below are matched by their words, so a
    reworded stop in checkOffer has to be reworded here too */
 const IDEA_HARD=/is a hard no|is not yours|not on that team|is hurt|is held|never offered|drop rules|only makes room|insults them|under 3 centers|under 2 centers|asking price|injury prone|checker handles|lose by Josh|plan gain under|star for parts|the room will/;
-const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm13',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
+const ideaSig=cw=>{ let mg=''; try{ mg=localStorage.getItem(MGKEY)||''; }catch(e){} const pl=planOf(); return ['rm14',cw.scan.at,(pl.roles||[]).join(','),mg.length,(MG&&MG.made)||'',[...NEVER].sort().join(','),JSON.stringify(HOLD),JSON.stringify(ASK),TIERSIG()].join('|'); };
 const TIERSIG=()=>[...TTRADE].sort().join(',')+'/'+[...TFLOAT].sort().join(',');
 function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; if(TR.ideaS[o]) return; const m=MG && MG.teams[o], trRef=TR, S=TR.ideaS[o]={busy:true,pct:0,keep:[],slip:[],tried:0}, seen={};
   const kOf=(give,get)=>give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.');
@@ -2700,7 +2700,7 @@ function ideaSearch(cw,o,fresh){ if(!TR || !cw) return; TR.ideaS=TR.ideaS||{}; i
   const comb=(a,n)=>{ const out=[]; const go=(s0,c)=>{ if(c.length===n){ out.push(c.slice()); return; } for(let i=s0;i<a.length;i++){ c.push(a[i]); go(i+1,c); c.pop(); } }; go(0,[]); return out; };
   const GL=comb(mine,1).concat(comb(mine,2),comb(mine,3)), RL=comb(th,1).concat(comb(th,2),comb(th,3)), total=GL.length*RL.length||1; let i=0, j=0;
   const step=()=>{ if(TR!==trRef) return; const t0=Date.now();
-    while(i<GL.length){ const g=GL[i], r=RL[j]; S.tried++; if((r.length<3 || g.length===2) && shapeOK(g,r) && (q=>q.ok || q.giveMore)(roomOf(g,r))) take(g,r); if(++j>=RL.length){ j=0; i++; } if(Date.now()-t0>24) break; }
+    while(i<GL.length){ const g=GL[i], r=RL[j]; S.tried++; if((r.length<3 || g.length>=2) && shapeOK(g,r) && (q=>q.ok || q.giveMore)(roomOf(g,r))) take(g,r); if(++j>=RL.length){ j=0; i++; } if(Date.now()-t0>24) break; }
     if(i<GL.length){ S.pct=Math.floor(100*(i*RL.length+j)/total); const el=document.getElementById('mvideapct'); if(el) el.textContent=S.pct; setTimeout(step,0); } else finish(true); };
   setTimeout(step,0); }
 function ideaCard(cw,x){ const nm=a=>esc(listWords(a.map(p=>p.name))), oName=(cw.teams[x.o]||{}).name||'', r=x.r, N=esc(x.m.name), key=['PTS','REB','AST','STL','3PM','TO'];
@@ -2963,7 +2963,7 @@ const fillOf=(ctx,get)=>get.map(p=>({p,r:fillRole(ctx,p)})).filter(x=>x.r);
 const floorLine=p=>(p && p.proj && p.prior && valOf(p.prior)<valOf(p.proj))?mixLine(p.proj,p.prior,0.5):null;
 let FLW=null, FLC={};
 function floorOf(o,give,get){ if(FLW!==CTXW){ FLW=CTXW; FLC={}; } const pl=planOf(), k=String(o)+'|'+give.map(p=>p.id).sort().join('.')+'>'+get.map(p=>p.id).sort().join('.')+'|'+(pl.roles||[]).join(',');
-  if(!(k in FLC)){ const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id),{floor:true}); FLC[k]=(r.err || r.floorGain==null)?null:{gain:r.floorGain,after:r.floorAfter,who:r.floorWho||[],fill:(r.fillWho||[]).map((n,i)=>({name:n,behind:r.fillBehind[i],from:r.fillFrom[i],pin:!!(r.fillPin&&r.fillPin[i])})),edge:r.edge,risk:r.risk,steady:r.steady,cat:r.catChange,rise:give.concat(get).map(riseWords).filter(Boolean)}; }
+  if(!(k in FLC)){ const r=checkOffer(o,give.map(p=>p.id),get.map(p=>p.id),{floor:true}); FLC[k]=(r.err || r.floorGain==null)?null:{gain:r.floorGain,after:r.floorAfter,who:r.floorWho||[],fill:(r.fillWho||[]).map((n,i)=>({name:n,behind:r.fillBehind[i],from:r.fillFrom[i],pin:!!(r.fillPin&&r.fillPin[i])})),edge:r.edge,risk:r.risk,mins:r.mins,steady:r.steady,cat:r.catChange,rise:give.concat(get).map(riseWords).filter(Boolean)}; }
   return FLC[k]; }
 const floorBad=f=>!!(f && (f.gain<0 || (f.fill && f.fill.length)));
 // Vikas, Nov 22 2026, version 26.38. A deal that loses 1 point or more if the players he gets cool off is not shown at all, on any list
@@ -3048,13 +3048,15 @@ function riseOf(ctx,p){ if(!ctx || !p) return null; if(RSW!==ctx){ RSW=ctx; RSC=
   const top=p.seenRank!=null && p.seenRank<=RISE_TOP;
   const o={dir:(top && dir!=='fill')?null:dir,top,why,behind,healthy:hz,from:behind.length?behind.map(q=>q.ret).sort()[0]:null};
   RSC[p.id]=o; return o; }
-const riseChip=(p,mine)=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; const n=esc(shortName(p));
+// version 26.48. A rising tag gives way when the minutes read says his minutes are falling now, the card carries the minutes chip in its place
+const riseFalls=(p,r)=>{ if(!r || r.dir!=='up') return false; const m=minOf(CTXW||CTX,p); return !!(m && m.dir==='down'); };
+const riseChip=(p,mine)=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir || riseFalls(p,r)) return ''; const n=esc(shortName(p));
   if(r.dir==='up') return mine?'<span class="chip warn">'+n+' rising, you may sell low</span>':'<span class="chip gem">'+n+' rising, real role</span>';
   if(r.dir==='fill') return '<span class="chip bad">'+n+' fill in'+(r.from?', starter back '+esc(nice(r.from)):'')+'</span>';
   if(r.dir==='watch') return '<span class="chip '+(mine?'muted':'warn')+'">'+n+' rose while '+esc(listWords(r.healthy.sat.map(x=>x.split(' ').slice(-1)[0])))+' sat, pin him</span>';
   if(r.dir==='fake') return '<span class="chip '+(mine?'muted':'bad')+'">'+n+' faded with the team healthy</span>';
   return mine?'<span class="chip muted">'+n+' cooling</span>':'<span class="chip warn">'+n+' cooling</span>'; };
-const riseWords=p=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir) return ''; const w=listWords(r.why);
+const riseWords=p=>{ const r=riseOf(CTXW||CTX,p); if(!r || !r.dir || riseFalls(p,r)) return ''; const w=listWords(r.why);
   if(r.dir==='watch') return p.name+' is not a proven riser yet, '+w+'. Pin him and check again once he has 3 games with the team healthy.';
   if(r.dir==='fake') return p.name+' was a fake riser, '+w+'.';
   return r.dir==='up'?p.name+' is rising for real, '+w+'.':r.dir==='fill'?p.name+' is filling in'+(r.behind.length?' while '+listWords(r.behind.map(q=>q.name))+' is out':'')+(w?', '+w:'')+', so the rise is artificial.':p.name+' is cooling, his minutes and production are down on his season.'; };
@@ -3099,6 +3101,33 @@ function steadyOf(p){ const ctx=CTXW||CTX; if(!ctx || !p) return null; if(SDW!==
   SDC[p.id]=o; return o; }
 // availability of one side, each player weighted by his value so a throw in barely counts
 const sideAvl=list=>{ let w=0, s=0; list.forEach(p=>{ const x=steadyOf(p); if(!x) return; const ww=Math.max(0.5,x.v); w+=ww; s+=ww*x.avl; }); return w?s/w:null; };
+/* Vikas, Nov 26 2026, version 26.48. Minutes and role. He asked that every trade also be read on minutes going up or down, who is starting and the depth chart,
+   next to the season, monthly and weekly stats. minOf reads one player, his season minutes a game from Yahoo, his minutes over the last 14 and 7 days from the
+   box scores, his last two games, and his spot on the depth chart. Falling means two weeks 8 percent or more under his season with the last week no better, or
+   the last week 12 percent or more under, or two short games in a row (the newest under 78 percent of his season and the one before under 90), or a two week
+   spike of 12 percent or more that is already fading. Rising means two weeks 8 percent or more over his season with the last week holding. A player who is hurt
+   or tagged is not read, his minutes say nothing about his role. A deal that brings in a player with real value whose minutes are falling fails the edge check,
+   the same way more injury risk coming in does. Everything else here is a note on the card, a bench player with extra minutes, a move down the depth chart,
+   rising minutes you would give away, and falling minutes you would sell */
+const MIN_UP=1.08, MIN_DN=0.92, MIN_WEEK_DN=0.88, MIN_SPIKE=1.12;
+let MNW=null, MNC={};
+function minOf(ctx,p){ if(!ctx || !p) return null; if(MNW!==ctx){ MNW=ctx; MNC={}; } if(MNC[p.id]!==undefined) return MNC[p.id];
+  const s=ctx.scan && ctx.scan.stats && ctx.scan.stats[p.id], sea=(s && s[0]==='s' && (s[1]||0)>=3 && s[2]>0)?s[2]:null;
+  const w14=winOf(p.id,14), w7=winOf(p.id,7), G=D.games && D.games.p && D.games.p[p.id];
+  const last=(Array.isArray(G) && GLDAY)?G.filter(x=>Array.isArray(x) && typeof x[0]==='string' && x[0]<GLDAY && x[1]>0).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,2).map(x=>x[1]):[];
+  const today=ctx.now && ctx.now.date, moved=p.ds!=null && p.dsWas!=null && p.ds!==p.dsWas && !!p.dsSince && !!today && p.dsSince>=addDays(today,-21);
+  const m14=(w14 && w14.n>=3)?w14.avg.mp:null, m7=(w7 && w7.n>=2)?w7.avg.mp:null, well=!hurt(p) && !p.status;
+  let dir='flat', why='';
+  if(sea && m14!=null && well){
+    if(m14<=MIN_DN*sea && (m7==null || m7<=sea)){ dir='down'; why='down from '+r0(sea)+' a game to '+r0(m14)+' over two weeks'; }
+    else if(m7!=null && m7<=MIN_WEEK_DN*sea){ dir='down'; why='down from '+r0(sea)+' a game to '+r0(m7)+' over the last week'; }
+    else if(last.length===2 && last[0]<=0.78*sea && last[1]<=0.90*sea){ dir='down'; why='two short games in a row, '+r0(last[1])+' then '+r0(last[0])+' against '+r0(sea)+' a game'; }
+    else if(m14>=MIN_UP*sea && (m7==null || m7>=sea)){ dir='up'; why='up from '+r0(sea)+' a game to '+r0(m14)+' over two weeks';
+      if(m14>=MIN_SPIKE*sea && last.length && last[0]<=0.82*m14){ dir='down'; why='a two week spike to '+r0(m14)+' that is fading, '+r0(last[0])+' in his last game'; } } }
+  const o={name:p.name,dir,why,sea:sea==null?null:r0(sea),m14:m14==null?null:r0(m14),m7:m7==null?null:r0(m7),start:p.ds===0,bench:p.ds!=null && p.ds>0,depthDn:!!(moved && p.ds>p.dsWas),depthUp:!!(moved && p.ds<p.dsWas),since:moved?p.dsSince:null};
+  MNC[p.id]=o; return o; }
+function minWords(mn){ if(!mn) return ''; const one=z=>z.name+' '+(z.sea==null?'no season minutes yet':z.sea+(z.m14!=null?' then '+z.m14:''))+' ('+(z.start?'starting':z.bench?'off the bench':'no depth spot')+(z.dir==='down'?', falling, '+z.why:z.dir==='up'?', rising':'')+(z.depthDn?', moved down the depth chart on '+nice(z.since):z.depthUp?', moved up the depth chart on '+nice(z.since):'')+')';
+  return ' Minutes a game, season then the last two weeks. You get '+mn.get.map(one).join(', ')+'. You give '+mn.give.map(one).join(', ')+'.'; }
 function edgeOf(ctx,pl,give,get,v){ const per0=ctx.view0.per, d=v.per.map((x,c)=>Math.round(100*(x-per0[c]))), locks=pl.lock||[], build=pl.build||[];
   const weak=build.filter(c=>per0[c]<TARGET), lockOK=locks.every(c=>v.per[c]>=LOCK_KEEP || (per0[c]<LOCK_KEEP && d[c]>=0)), lockUp=locks.every(c=>d[c]>=-1);
   const lost=build.filter(c=>per0[c]>=TARGET && v.per[c]<TARGET), net=weak.reduce((a,c)=>a+d[c],0), lifted=weak.filter(c=>d[c]>=5 || v.per[c]>=TARGET);
@@ -3109,6 +3138,9 @@ function edgeOf(ctx,pl,give,get,v){ const per0=ctx.view0.per, d=v.per.map((x,c)=
   // A deal fails when a player he gets who has real value is a high risk (plays under 75 percent of games), or the players he gets together sit under 80 percent
   const aV=sideAvl(give), aG=sideAvl(get), high=get.filter(p=>{ const x=steadyOf(p); return x && x.v>0 && x.avl<RISK_HIGH; });
   const more=high.length>0 || (aG!=null && aG<RISK_GET);
+  // version 26.48. Minutes falling on a player he gets who has real value fails the check
+  const mG=get.map(p=>minOf(ctx,p)).filter(Boolean), mV=give.map(p=>minOf(ctx,p)).filter(Boolean);
+  const fall=get.filter(p=>{ const m=minOf(ctx,p), x=steadyOf(p); return m && m.dir==='down' && x && x.v>0; }).map(p=>p.name);
   let type=null, why='';
   if(lost.length) why='drops '+lost.map(c=>CATS[c]).join(' ')+' under the plan target';
   else if(!lockOK) why='a lock falls under '+pc(LOCK_KEEP);
@@ -3119,7 +3151,7 @@ function edgeOf(ctx,pl,give,get,v){ const per0=ctx.view0.per, d=v.per.map((x,c)=
   else why='no weak cat lifted';
   const sum=a=>a.reduce((t,p)=>{ const x=steadyOf(p); return t+(x?x.steady:0); },0);
   const cat={}; CATS.forEach((c,i)=>{ cat[c]=d[i]; });
-  return {cat,edge:{ok:!!type && !more,type,why:more?'injury risk coming in':why,lifted:lifted.map(c=>CATS[c]),newLocks:newLocks.map(c=>CATS[c]),locks:locks.map(c=>({c:CATS[c],from:pc(per0[c]),to:pc(v.per[c])}))},
+  return {cat,mins:{get:mG,give:mV,fall},edge:{ok:!!type && !more && !fall.length,type,why:more?'injury risk coming in':(type && fall.length)?'minutes falling coming in, '+listWords(fall):why,lifted:lifted.map(c=>CATS[c]),newLocks:newLocks.map(c=>CATS[c]),locks:locks.map(c=>({c:CATS[c],from:pc(per0[c]),to:pc(v.per[c])}))},
     risk:{give:aV==null?null:Math.round(100*aV)/100,get:aG==null?null:Math.round(100*aG)/100,more,high:high.map(p=>p.name)},steady:{give:r1(sum(give)),get:r1(sum(get))}}; }
 const edgeBad=f=>floorBad(f) || !!(f && f.edge && !f.edge.ok);
 const sgn=x=>x==null?'?':(x<0?'\u2212'+Math.abs(x):String(x));
@@ -3133,10 +3165,19 @@ function edgeChip(f){ if(!f || !f.edge) return ''; const e=f.edge, r=f.risk||{};
   else if(e.type==='spend') h+='<span class="chip warn">Lifts '+esc(e.lifted.join(' '))+', uses '+esc(e.locks.filter(x=>x.to<x.from-1).map(x=>x.c+' to '+x.to).join(' '))+'</span>';
   else if(!r.more) h+='<span class="chip bad">'+esc(capF(e.why))+'</span>';
   if(e.newLocks.length) h+='<span class="chip gem">New lock '+esc(e.newLocks.join(' '))+'</span>';
+  // version 26.48. Minutes and role
+  const mn=f.mins; if(mn){ const nm=a=>esc(listWords(a.map(z=>z.name)));
+    const up=mn.get.filter(z=>z.dir==='up' && !z.bench), bu=mn.get.filter(z=>z.dir==='up' && z.bench), dd=mn.get.filter(z=>z.depthDn && z.dir!=='down'), sell=mn.give.filter(z=>z.dir==='down'), gu=mn.give.filter(z=>z.dir==='up');
+    if(mn.fall.length) h+='<span class="chip bad">Minutes falling coming in, '+esc(listWords(mn.fall))+'</span>';
+    if(up.length) h+='<span class="chip good">Minutes rising, '+nm(up)+'</span>';
+    if(bu.length) h+='<span class="chip warn">Bench role with extra minutes, '+nm(bu)+'</span>';
+    if(dd.length) h+='<span class="chip warn">Moved down the depth chart, '+nm(dd)+'</span>';
+    if(sell.length) h+='<span class="chip good">You sell falling minutes, '+nm(sell)+'</span>';
+    if(gu.length) h+='<span class="chip warn">You give rising minutes, '+nm(gu)+'</span>'; }
   return h; }
 function edgeWords(f){ if(!f || !f.edge) return ''; const c=f.cat||{}, r=f.risk||{}, s=f.steady||{};
   const cats=Object.keys(c).filter(k=>ord(k)>=0).sort((a,b)=>ord(a)-ord(b)).map(k=>k.replace('%','')+' '+bsg(c[k])).join(', ');
-  return 'Your cats change by '+cats+'. Injury risk, the players you send play about '+(r.give!=null?pc(r.give):'?')+' percent of games ('+riskWord(r.give)+' risk) and the players you get about '+(r.get!=null?pc(r.get):'?')+' percent ('+riskWord(r.get)+' risk). Steady value, '+sgn(s.give)+' out and '+sgn(s.get)+' in, from the season, last 30, 14 and 7 days, cut for injury risk. '+(f.edge.ok?(f.edge.type==='lift'?'It lifts '+listWords(f.edge.lifted)+' and keeps every lock.':'It lifts '+listWords(f.edge.lifted)+' and uses some lock cushion, every lock stays at '+pc(LOCK_KEEP)+' or better.'):'It fails the edge check, '+f.edge.why+'.')+(f.edge.newLocks.length?' New lock '+listWords(f.edge.newLocks)+'.':'')+(f.rise&&f.rise.length?' '+f.rise.join(' '):''); }
+  return 'Your cats change by '+cats+'. Injury risk, the players you send play about '+(r.give!=null?pc(r.give):'?')+' percent of games ('+riskWord(r.give)+' risk) and the players you get about '+(r.get!=null?pc(r.get):'?')+' percent ('+riskWord(r.get)+' risk). Steady value, '+sgn(s.give)+' out and '+sgn(s.get)+' in, from the season, last 30, 14 and 7 days, cut for injury risk. '+(f.edge.ok?(f.edge.type==='lift'?'It lifts '+listWords(f.edge.lifted)+' and keeps every lock.':'It lifts '+listWords(f.edge.lifted)+' and uses some lock cushion, every lock stays at '+pc(LOCK_KEEP)+' or better.'):'It fails the edge check, '+f.edge.why+'.')+(f.edge.newLocks.length?' New lock '+listWords(f.edge.newLocks)+'.':'')+(f.rise&&f.rise.length?' '+f.rise.join(' '):'')+minWords(f.mins); }
 function checkOffer(o,giveIds,getIds,opt){ o=String(o); const ctx=CTXW; if(!ctx || !ctx.U) return {err:'the page is still loading, try again in a moment'};
   if(o===ME || !Array.isArray(ctx.ros[o]) || !ctx.ros[o].length) return {err:'unknown team id, give the other manager\'s team id'};
   if(!Array.isArray(giveIds) || !Array.isArray(getIds)) return {err:'give two lists of player ids, yours first'};
@@ -3188,7 +3229,7 @@ function checkOffer(o,giveIds,getIds,opt){ o=String(o); const ctx=CTXW; if(!ctx 
   const throwNote=(cut && thG.length && thG.every(p=>p.rv<cut.rv))?'he would have to drop '+cut.name+' to take '+listWords(thG.map(p=>p.name))+', and '+cut.name+' is the better player, so the extra does nothing for him':null;
   // 26.43. The floor is the careful number, so it never reads above the gain itself
   if(flG!=null && flG>r1(gain)){ flG=r1(gain); flA=pc(v.weekN); }
-  return {catChange:EG.cat,edge:EG.edge,risk:EG.risk,steady:EG.steady,planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),floorGain:flG,floorAfter:flA,floorWho:flWho,floorSafe:flG==null?null:flG>=0,fillWho:fillG.map(x=>x.p.name),fillBehind:fillG.map(x=>x.r.who.map(q=>q.name).join(' and ')),fillFrom:fillG.map(x=>x.r.from),fillPin:fillG.map(x=>!!x.r.pin),theirChange:r1(100*(so.week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),room:pc(room.look),roomFair:room.ok,roomOver:!!room.giveMore,roomEasy:room.easy,roomWhy:room.ok?null:room.words,swaps,fit:fitF?fitF.fit:null,fitsNotes:!!(fitF&&fitF.on),fitWhy:fitF?fitF.why:[],myDrop:tossed?tossed.name:null,throwIn:thG.concat(thR).map(p=>p.name),throwNote,josh:js,broke:broke.map(c=>CATS[c]),slips:broke.map(c=>({c:CATS[c],from:r1(100*ctx.view0.per[c]),to:r1(100*v.per[c])})),cut:cut?listWords(cuts.map(p=>p.name)):null,streamer:two?(streamed?'a waiver level streamer fills the open spot':(T0.promoted?'your own bench fills the open spot, no streamer counted':'no roster spot opens, your roster is still full, so no streamer is counted')):null,overpay:over,draft:draftWarn(give,get),prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get,streamed?ctx.stream:null),listed:!stops.length,stops}; }
+  return {catChange:EG.cat,edge:EG.edge,risk:EG.risk,mins:EG.mins,steady:EG.steady,planGain:r1(gain),nineCatBefore:pc(ctx.view0.weekN),nineCatAfter:pc(v.weekN),floorGain:flG,floorAfter:flA,floorWho:flWho,floorSafe:flG==null?null:flG>=0,fillWho:fillG.map(x=>x.p.name),fillBehind:fillG.map(x=>x.r.who.map(q=>q.name).join(' and ')),fillFrom:fillG.map(x=>x.r.from),fillPin:fillG.map(x=>!!x.r.pin),theirChange:r1(100*(so.week-ctx.base[o].week)),look:r1(100*(fair.look-1)),face:pc(face.look),faceNeed:pc(face.need),room:pc(room.look),roomFair:room.ok,roomOver:!!room.giveMore,roomEasy:room.easy,roomWhy:room.ok?null:room.words,swaps,fit:fitF?fitF.fit:null,fitsNotes:!!(fitF&&fitF.on),fitWhy:fitF?fitF.why:[],myDrop:tossed?tossed.name:null,throwIn:thG.concat(thR).map(p=>p.name),throwNote,josh:js,broke:broke.map(c=>CATS[c]),slips:broke.map(c=>({c:CATS[c],from:r1(100*ctx.view0.per[c]),to:r1(100*v.per[c])})),cut:cut?listWords(cuts.map(p=>p.name)):null,streamer:two?(streamed?'a waiver level streamer fills the open spot':(T0.promoted?'your own bench fills the open spot, no streamer counted':'no roster spot opens, your roster is still full, so no streamer is counted')):null,overpay:over,draft:draftWarn(give,get),prone:prone.map(p=>p.name),seen:give.concat(get).map(p=>({name:p.name,rank:p.seenRank!=null?Math.round(p.seenRank):null,breakout:p.breakout?p.breakout.dir:null,prone:!!(p.prone&&p.prone.on)})),perGame:perGame(give,get,streamed?ctx.stream:null),listed:!stops.length,stops}; }
 /* Vikas, Nov 4 2026. What if, on the roster you really have now.
    setRoster takes your roster as Yahoo shows it today, a list of [player id, slot, status], and rebuilds every number on it, the trade snapshot too.
    Nothing is saved. A reload goes back to the last scan. whatIf scores adds and drops on top of the roster in use, for this week and the season, without changing anything */
@@ -3224,5 +3265,5 @@ if(INW){ workerMain(); return; }
 { const chk=()=>{ if(!D.loaded || !D.players || !D.players.updated || NEWSCAN || window.NCW_NOW || Date.now()-SCANCHK<60000) return; SCANCHK=Date.now();
     fetch('data/players.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{ if(j && j.updated && j.updated!==D.players.updated){ NEWSCAN=true; if(MODE==='moves' || MODE==='mgr') render(); } }).catch(()=>{}); };
   try{ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) chk(); }); window.addEventListener('focus',chk); }catch(e){} }
-window.NCWMoves={setRoster,whatIf,summary,teamsInfo,depthBoard,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer:(o,g,r,opt)=>checkOffer(o,g,r,Object.assign({floor:true},opt||{})), _fn:{tracking:()=>{ const sh=CTX?sellHigh(CTX):{sell:[],rise:[]}; return {sellHigh:sh.sell.map(p=>p.name),risingKeep:sh.rise.map(p=>p.name),risers:riserList()}; },risers:riserList,riseOf,steadyOf,edgeOf,edgeBad,winOf,floorOf,floorLine,fillRole,waivers,chips,roomOf,roomValues,faceOf,ROOM_LO,ROOM_HI,ROOM_VETO,ROOM_STAR,ROOM_BACK,FACE_CAP,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,acceptOf,teamRank,setMg,mgrPage,mgView,overpay,buyHigh,teammatesBack,capFix,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK,ACTIVE}};
+window.NCWMoves={setRoster,whatIf,summary,teamsInfo,depthBoard,cats,show:()=>{ MODE='moves'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, hide:()=>document.body.classList.remove('moves'), showMgr:()=>{ MODE='mgr'; document.body.classList.add('moves'); LITE=false; if(!D.loaded) load(); else if(!PK) compute(true); else render(); }, state:()=>({D,CTX,CTXW,TR,PK,WV,CH,WK,RACE,ST}), recompute:()=>compute(true), checkOffer:(o,g,r,opt)=>checkOffer(o,g,r,Object.assign({floor:true},opt||{})), _fn:{tracking:()=>{ const sh=CTX?sellHigh(CTX):{sell:[],rise:[]}; return {sellHigh:sh.sell.map(p=>p.name),risingKeep:sh.rise.map(p=>p.name),risers:riserList()}; },risers:riserList,riseOf,steadyOf,minOf,edgeOf,edgeBad,winOf,floorOf,floorLine,fillRole,waivers,chips,roomOf,roomValues,faceOf,ROOM_LO,ROOM_HI,ROOM_VETO,ROOM_STAR,ROOM_BACK,FACE_CAP,seasonRanks,tierOf,dropOK,injClass,slumpOf,proofOf,pitchText,mgOf,okMgr,sellKit,fitWin,weekTags,build,thisWeek,pickups,trades,race,planOf,mkPlan,planTable,planPr,planWeekOf,myView,routeSets,fitsRoute,fairOf,seenValues,rankIn,catVal,PLAN0,FLOOR,FAVMIN,TARGET,seasonTotals,dayAdd,seat,pNow,pROS,addsLeft,tradeForYou,tradeFair,seenWords,acceptOf,teamRank,setMg,mgrPage,mgView,overpay,buyHigh,teammatesBack,capFix,tagCut,rankShare,loadJL,joshMove,catProbs,pWin5,totalsOver,lineup,elig,project,valOf,zLine,lineFromZ,wPr,flipNet,balance,strength,WT,WP,applyJC,jcOf,loadJC,jcCall,jcTags,tradeCats,rosterTiers,tierKey,loadCY,cyOf,proneOf,seenNew,askOK,askMiss,perGame,ASK,ACTIVE}};
 })();
