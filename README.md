@@ -18,7 +18,24 @@ Live site at https://ninecatwarroom.vercel.app
 * vercel.json lets the scanner read the data files from the live site.
 * scan/fetch-games.js reads ESPN box scores into data/games.json each night, numbers only.
 
-## Version 26.46 (branch main), Nov 25 2026, players due back midweek count in the week forecast
+## Version 26.47 (branch main), Nov 26 2026, giving more is allowed, and saved deals obey the notes
+
+Vikas, Nov 26 2026. His words, if I give a lot, who cares, they are going to accept it, as long as I am gaining, no lock breaks, the floor holds and I am not taking on more injury risk. Some managers do not want a fair trade, they want to win it.
+
+* Before, a deal that read over the fair band their way (over 106 on the room score) was stopped as an overpay, and from 112 as a veto. It never reached a list
+* Now a deal from 107 up to 140 their way (ROOM_GIVE_MAX in moves.js) is kept, for every manager, when it gains 1 point or more for him and passes every one of his checks, no lock broken, every lock at 65 or better, a weak cat lifted, the floor holds if the players he gets cool off, and no injury risk coming in. A deal like that which fails any check is not kept at all, not even behind Show the deals that fail your checks
+* The card carries a yellow chip, Room sees it as unfair to you, in place of Fair in the room, and its room line says the deal sits above the fair band
+* checkOffer returns roomOver for such a deal and no longer lists the room as a stop for it. roomFair still means inside the band. A star for parts and a deal that is light for them are still stops
+* The main search of one or two players a side is unchanged. The wider background search finds these deals, so they show on the manager pages and, when the gain is big enough, on Best trades
+* The steady line every check reads is unchanged, the Yahoo season average blended with the box scores of the last 30, 14 and 7 days, with the draft spot warning on the card
+* Notes fix. A deal saved by hand in the notes now obeys a player the manager will not trade. Before, only the fresh search did, so old saved deals for such a player kept showing
+* New notes list, refuse, players of his the manager has said he does not want. A deal that sends one is left off every list. dislike stays a soft mark
+* The background search tries about twice as many deals, so the first load after a scan takes about twice as long. The saved copy of the search starts over once (rm13)
+* Nothing else changes, the week forecast, the league table, pickups and every gain number are the same as 26.46
+
+Tested on a local copy with the Nov 26 scan. Week chance 75 and the league table match 26.46. With one manager 13 old saved deals for players he will not trade went away, and 18 deals above the band passed every check.
+
+## Version 26.46 Nov 25 2026, players due back midweek count in the week forecast
 
 Vikas, Nov 25 2026. The week chance fell from 80 to 69 overnight when De'Aaron Fox went from out to questionable, and he asked why the forecast had not seen Fox coming back when the news already gave a return date.
 
